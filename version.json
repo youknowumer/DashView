@@ -1,13 +1,21 @@
 {
-  "version": "2.26.0",
-  "build": "2026.10.17",
-  "released": "2026-10-17",
+  "version": "2.26.1",
+  "build": "2026.10.19",
+  "released": "2026-10-19",
   "notes": [
-    "Improved: whole theme now scrolls, loads and transitions the iOS way - shared smoothness layer on every page (css/ios-smooth.css, js/ios-smooth.js): soft page fade-in, cross-fade between pages, tab fade in dashboard and People",
-    "Improved: landing page scrolling - eased mouse-wheel scrolling on desktop, rubber-band overscroll back, no more blurred hero words / headings, lighter background (no spinning 60px-blur layer), backdrop blur removed from cards on phones and low-power devices",
-    "Fixed: landing page section glows had a hard vertical edge and a hard step between sections - now full width and fade in and out; footer skipped until near"
+    "Improved: tab bar animations now move the iOS way on the landing page and in the dashboard / People dock - the glass bead and the tabs share one spring-smooth curve so they travel together, the bead stretches slightly while it slides and presses in under your finger, the icon of the new tab pops, the label slides in, hover shows a soft glass highlight and the dock springs up on load (css/index-tabbar.css, js/index-tabbar.js, css/sidebar-itb.css, js/sidebar-dock.js)",
+    "Improved: tab bar performance - tab geometry is measured once instead of every frame, so there is no layout reading while the bead moves; Reduce motion is respected"
   ],
   "history": [
+    {
+      "version": "2.26.1",
+      "date": "2026-10-19",
+      "notes": [
+        "Improved: tab bar animations now move the iOS way on the landing page and in the dashboard / People dock - the glass bead and the tabs share one spring-smooth curve so they travel together, the bead stretches slightly while it slides and presses in under your finger, the icon of the new tab pops, the label slides in, hover shows a soft glass highlight and the dock springs up on load (css/index-tabbar.css, js/index-tabbar.js, css/sidebar-itb.css, js/sidebar-dock.js)",
+        "Improved: tab bar performance - tab geometry is measured once instead of every frame, so there is no layout reading while the bead moves; Reduce motion is respected"
+      ],
+      "critical": false
+    },
     {
       "version": "2.26.0",
       "date": "2026-10-17",
@@ -511,5 +519,5 @@
     }
   ],
   "critical": false,
-  "size": 4757491
+  "size": 4773205
 }

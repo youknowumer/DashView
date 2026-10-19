@@ -2,6 +2,16 @@
    DashView — landing page tab bar (css/index-tabbar.css) · paired with js/index-tabbar.js
    Floating iOS-style "liquid glass" dock. Icons only; the active tab grows a
    label inside a sliding glass bead. Replaces the text links in the top bar.
+
+   Motion (iOS feel):
+   · the bead and the tabs share ONE easing + duration, so the bead travels
+     exactly with the tabs growing / shrinking under it (js/index-tabbar.js
+     measures the final layout up front, nothing is chased frame by frame)
+   · the bead stretches a little while it travels (liquid squish) and
+     presses in under your finger
+   · the icon of the new tab pops with a spring, the label slides + fades in
+   · the dock springs up on load; hover shows a soft glass highlight
+   · every move can be interrupted and retargets smoothly
    Load LAST on index.html.
    ========================================================================== */
 :root {
@@ -10,16 +20,29 @@
   --itb-edge: rgba(255, 255, 255, .22);
   --itb-edge-lo: rgba(255, 255, 255, .06);
   --itb-icon: rgba(255, 255, 255, .72);
+  --itb-hover: rgba(255, 255, 255, .10);
   --itb-bead: rgba(255, 255, 255, .92);
   --itb-bead-ink: #141813;
   --itb-shadow: 0 18px 40px -12px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .25);
+  /* iOS standard curve (no overshoot) drives layout + bead so they stay locked together */
   --itb-ease: cubic-bezier(.32, .72, 0, 1);
+  --itb-dur: .56s;
+  /* springs (with a cubic-bezier fallback for browsers without linear()) */
+  --itb-spring: cubic-bezier(.34, 1.35, .64, 1);
+  --itb-bounce: cubic-bezier(.3, 1.9, .5, 1);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --itb-spring: linear(0, 0.0276, 0.0972, 0.1922, 0.2998, 0.4105, 0.5176, 0.6166, 0.705, 0.7813, 0.8454, 0.8978, 0.9392, 0.971, 0.9945, 1.011, 1.0218, 1.0281, 1.031, 1.0314, 1.0301, 1.0276, 1.0244, 1.021, 1.0175, 1.0142, 1.0112, 1.0085, 1);
+    --itb-bounce: linear(0, 0.0248, 0.09, 0.183, 0.2927, 0.41, 0.5275, 0.6396, 0.7422, 0.8327, 0.9097, 0.9727, 1.0221, 1.0587, 1.0839, 1.0991, 1.106, 1.1062, 1.1013, 1.0928, 1.0819, 1.0697, 1.057, 1.0447, 1.0332, 1.0228, 1.0138, 1.0063, 1.0002, 0.9956, 0.9923, 0.9902, 0.989, 0.9886, 0.9888, 0.9896, 1);
+  }
 }
 html[data-theme="light"] {
   --itb-glass: rgba(255, 255, 255, .5);
   --itb-edge: rgba(255, 255, 255, .85);
   --itb-edge-lo: rgba(20, 24, 19, .08);
   --itb-icon: rgba(20, 24, 19, .62);
+  --itb-hover: rgba(20, 24, 19, .07);
   --itb-bead: rgba(20, 24, 19, .88);
   --itb-bead-ink: #ffffff;
   --itb-shadow: 0 18px 40px -14px rgba(20, 24, 19, .28), 0 2px 8px rgba(20, 24, 19, .08);
@@ -48,8 +71,14 @@ html[data-theme="light"] {
     inset 0 1px 0 var(--itb-edge),
     inset 0 -1px 0 var(--itb-edge-lo),
     inset 0 0 18px rgba(255, 255, 255, .05);
-  transition: bottom .35s var(--itb-ease), opacity .25s ease, transform .35s var(--itb-ease);
+  transition: bottom .55s var(--itb-spring), opacity .3s ease, transform .5s var(--itb-ease);
   -webkit-tap-highlight-color: transparent;
+  /* springs up from below on load */
+  animation: itb-in .85s var(--itb-spring) .2s backwards;
+}
+@keyframes itb-in {
+  from { opacity: 0; transform: translate(-50%, 34px) scale(.88); }
+  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 /* soft specular sheen across the top half, like glass catching light */
 .itb::before {
@@ -61,8 +90,10 @@ html[data-theme="light"] {
   background: linear-gradient(180deg, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, .04) 46%, transparent 60%);
   mix-blend-mode: soft-light;
 }
+/* used by the script while it re-measures, so a correction never animates */
+.itb.quiet, .itb.quiet *, .itb.quiet *::before { transition: none !important; }
 
-/* sliding bead behind the active tab (positioned by JS) */
+/* sliding bead behind the active tab (position + width set by JS from measured geometry) */
 .itb-bead {
   position: absolute; left: 0; top: 6px;
   height: calc(var(--itb-h) - 14px);
@@ -73,9 +104,20 @@ html[data-theme="light"] {
   background: var(--itb-bead);
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .5);
   opacity: 0;
+  transform: translate3d(0, 0, 0);
+  transform-origin: 50% 50%;
   will-change: transform, width;
 }
-.itb.ready .itb-bead { opacity: 1; transition: transform .5s var(--itb-ease), width .5s var(--itb-ease); }
+.itb.ready .itb-bead {
+  opacity: 1;
+  transition:
+    transform var(--itb-dur) var(--itb-ease),
+    width var(--itb-dur) var(--itb-ease),
+    scale .45s var(--itb-spring),
+    opacity .3s ease;
+}
+/* press feedback: the bead gives a little under your finger, then springs back */
+.itb:has(.itb-tab.on:active) .itb-bead { scale: .93; }
 
 .itb-tab {
   position: relative; z-index: 1;
@@ -88,24 +130,55 @@ html[data-theme="light"] {
   font: 600 .9375rem/1 var(--f-display, system-ui, sans-serif);
   letter-spacing: -.01em;
   white-space: nowrap;
-  transition: color .3s ease, padding .5s var(--itb-ease), transform .2s ease;
+  transition: color .3s ease, padding var(--itb-dur) var(--itb-ease), transform .5s var(--itb-spring);
 }
 .itb-tab:hover { color: #fff; }
 html[data-theme="light"] .itb-tab:hover { color: #141813; }
-.itb-tab:active { transform: scale(.94); }
-.itb-tab svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.itb-tab:active { transform: scale(.9); }
+.itb-tab svg {
+  width: 22px; height: 22px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  overflow: visible;
+  transform-origin: 50% 50%;
+}
 .itb-tab .f { transition: fill .3s ease; }
 .itb-tab .k { transition: stroke .3s ease; }
 
-/* label collapses to zero width when inactive */
-.itb-lab { display: block; max-width: 0; overflow: hidden; opacity: 0; transition: max-width .5s var(--itb-ease), opacity .25s ease; }
-.itb-lab > span { display: block; padding-left: 0; white-space: nowrap; transition: padding .5s var(--itb-ease); }
+/* soft glass highlight under the pointer on inactive tabs (mouse / trackpad only) */
+@media (hover: hover) {
+  .itb-tab::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; pointer-events: none;
+    background: var(--itb-hover);
+    opacity: 0; transform: scale(.78);
+    transition: opacity .25s ease, transform .45s var(--itb-spring);
+  }
+  .itb-tab:not(.on):hover::before { opacity: 1; transform: none; }
+}
+
+/* label: collapses to zero width when inactive. Width (not max-width) so it animates on the same
+   curve as everything else - JS writes the measured natural width to --lw. */
+.itb-lab {
+  display: block; width: 0; overflow: hidden;
+  transition: width var(--itb-dur) var(--itb-ease);
+}
+.itb-lab > span {
+  display: block; padding-left: 9px; white-space: nowrap;
+  opacity: 0; transform: translateX(-8px);
+  transition: opacity .14s ease, transform .3s ease;
+}
 
 .itb-tab.on { color: var(--itb-bead-ink); padding: 0 18px 0 14px; }
 .itb-tab.on .f { fill: currentColor; }
 .itb-tab.on .k { stroke: var(--itb-bead); }
-.itb-tab.on .itb-lab { max-width: 8em; opacity: 1; transition-delay: 0s, .08s; }
-.itb-tab.on .itb-lab > span { padding-left: 9px; }
+.itb-tab.on .itb-lab { width: var(--lw, 8em); }
+.itb-tab.on .itb-lab > span {
+  opacity: 1; transform: none;
+  transition: opacity .34s ease .1s, transform .55s var(--itb-spring) .06s;
+}
+/* the icon of the tab you just opened pops (only after first paint, never on load) */
+.itb.live .itb-tab.on svg { animation: itb-pop .62s var(--itb-bounce) both; }
+@keyframes itb-pop { from { transform: scale(.7); } to { transform: scale(1); } }
 
 .itb-tab:focus-visible { outline: 2px solid var(--amber, #e8a33d); outline-offset: 1px; }
 
@@ -121,7 +194,7 @@ html[data-theme="light"] .itb-tab:hover { color: #141813; }
 body:has(.ip-sticky.show) .itb { bottom: calc(78px + env(safe-area-inset-bottom)); }
 body:has(.ip-sticky.show) .ip-top { bottom: calc(78px + var(--itb-h) + 14px + env(safe-area-inset-bottom)) !important; }
 .toast-stack { bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--itb-h) + 14px); }
-html.menu-lock .itb, body:has(.modal-overlay.open) .itb { opacity: 0; pointer-events: none; transform: translate(-50%, 24px); }
+html.menu-lock .itb, body:has(.modal-overlay.open) .itb { opacity: 0; pointer-events: none; transform: translate(-50%, 24px) scale(.96); }
 
 @media (max-width: 400px) {
   .itb-tab { padding: 0 11px; }
@@ -130,7 +203,9 @@ html.menu-lock .itb, body:has(.modal-overlay.open) .itb { opacity: 0; pointer-ev
   .itb-tab { font-size: .875rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .itb, .itb-tab, .itb-lab, .itb-lab > span, .itb.ready .itb-bead { transition: none !important; }
+  .itb { animation: none; }
+  .itb, .itb-tab, .itb-tab::before, .itb-lab, .itb-lab > span, .itb.ready .itb-bead { transition: none !important; }
+  .itb.live .itb-tab.on svg { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .itb { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg, #0a0c0b); border: 1px solid var(--itb-edge-lo); }
