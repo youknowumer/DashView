@@ -526,7 +526,7 @@
         ['spark', 'Learn DashView', 'How Data Studio, drills and filters work.', 'cap-help']
       ];
       return '<div class="aiw-col aiw-welcome"><div class="aiw-hero"><div class="aiw-hero-mark">' + ICON.spark.replace('width="15" height="15"', 'width="26" height="26"') + '</div><h2>What can I help you with?</h2>' +
-        '<p>Ask about your company data, attach a file for a report, or reconcile a file against Odoo. Every answer shows the path it took, and every number can be drilled into.</p><div class="aiw-status-row" id="aiwHeroStatus">' + statusPillsHtml() + '</div></div>' +
+        '<p>Ask about company data, attach a file for a report, or reconcile it against Odoo — every answer shows its path.</p><div class="aiw-status-row" id="aiwHeroStatus">' + statusPillsHtml() + '</div></div>' +
         '<section class="aiw-sec"><header class="aiw-sec-head"><h3>Quick actions</h3><span>Pick what you want to do</span></header>' +
         '<div class="aiw-cap-grid">' + caps.map(function (c) { return '<button type="button" class="aiw-cap" data-act="' + c[3] + '"><span class="aiw-cap-ic">' + ICON[c[0]] + '</span><b>' + c[1] + '</b><span>' + c[2] + '</span></button>'; }).join('') + '</div></section>' +
         '<section class="aiw-sec aiw-areas"><header class="aiw-sec-head"><h3>Ask by area</h3><span>Ready-made questions, grouped by business area</span></header>' +

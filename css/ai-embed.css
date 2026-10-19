@@ -590,3 +590,64 @@ button.aiw-drow:hover .go { opacity: 1; }
 
 @media (max-width: 980px) { .aiw-areas-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .aiw-prompts { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .aiw-areas-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .aiw { height: calc(100dvh - 170px); } }
+
+/* ==========================================================================
+   v2.27.1 — welcome fits on one screen (no scrolling, nothing clipped)
+   ========================================================================== */
+.aiw-messages { padding-top: var(--sp-4); }
+.aiw-welcome { gap: 14px; padding-bottom: 0; max-width: 940px; }
+.aiw-welcome .aiw-status-row { display: none; }           /* state already lives in the header chips */
+
+/* Hero: one compact row */
+.aiw-welcome .aiw-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; text-align: left; padding: 4px 0 2px; }
+.aiw-welcome .aiw-hero-mark { grid-row: span 2; width: 44px; height: 44px; margin: 0; border-radius: 13px; }
+.aiw-welcome .aiw-hero h2 { font-size: 1.28rem; margin: 0; line-height: 1.2; }
+.aiw-welcome .aiw-hero p { margin: 2px 0 0; max-width: none; font-size: 12.5px; line-height: 1.45; }
+
+/* Section titles are slimmer */
+.aiw-welcome .aiw-sec { gap: 8px; }
+.aiw-welcome .aiw-sec-head h3 { font-size: 10.5px; }
+.aiw-welcome .aiw-sec-head span { font-size: 11.5px; }
+
+/* Quick actions: compact 3 × 2 tiles */
+.aiw-welcome .aiw-cap-grid { gap: 8px; }
+.aiw-welcome .aiw-cap { display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 11px; row-gap: 1px; align-items: center; padding: 10px 12px; border-radius: 13px; }
+.aiw-welcome .aiw-cap-ic { grid-row: span 2; width: 34px; height: 34px; }
+.aiw-welcome .aiw-cap b { font-size: 13px; line-height: 1.25; }
+.aiw-welcome .aiw-cap > span:last-child { padding: 0; margin: 0; font-size: 11.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Areas: one slim row of pills, prompts as compact rows */
+.aiw-welcome .aiw-areas-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.aiw-welcome .aiw-areas-tabs button { flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px 6px 7px; border-radius: 999px; }
+.aiw-welcome .aiw-area-ic { width: 24px; height: 24px; border-radius: 50%; }
+.aiw-welcome .aiw-area-ic svg { width: 13px; height: 13px; }
+.aiw-welcome .aiw-areas-tabs b { font-size: 12.5px; }
+.aiw-welcome .aiw-areas-tabs em { position: static; margin-left: 2px; font-size: 10px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); border-radius: 999px; padding: 1px 6px; }
+.aiw-welcome .aiw-prompts { gap: 6px 8px; }
+.aiw-welcome .aiw-prompts button { padding: 8px 12px; gap: 10px; border-radius: 11px; font-size: 12.5px; min-height: 44px; }
+.aiw-welcome .aiw-prompt-ic { width: 24px; height: 24px; border-radius: 7px; }
+.aiw-welcome .aiw-prompt-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+
+/* Composer: tighter, always visible */
+.aiw-composer-wrap { padding-bottom: 10px; }
+
+/* Use the extra room on tall screens */
+@media (min-height: 900px) {
+  .aiw-welcome { gap: 22px; }
+  .aiw-welcome .aiw-hero { padding-top: 14px; }
+  .aiw-welcome .aiw-cap { padding: 14px; }
+  .aiw-welcome .aiw-prompts button { min-height: 52px; }
+}
+/* Narrow: stack naturally and scroll */
+@media (max-width: 980px) { .aiw-welcome .aiw-prompts { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .aiw-welcome .aiw-hero { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+  .aiw-welcome .aiw-hero-mark { grid-row: auto; }
+}
+.aiw-welcome { max-width: 1000px; gap: 12px; }
+.aiw-welcome .aiw-hero p { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.aiw-welcome .aiw-prompts button { min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
+@media (min-height: 900px) { .aiw-welcome .aiw-prompts button { min-height: 52px; } }
+/* Centre the welcome vertically on tall screens */
+.aiw-messages:has(.aiw-welcome) { display: flex; flex-direction: column; }
+.aiw-messages:has(.aiw-welcome) > .aiw-welcome { margin-block: auto; }
