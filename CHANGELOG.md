@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.26.2 - 2026-10-19
+- Reverted: tab bar animations (landing page and dashboard / People dock) are back to the previous version - css/index-tabbar.css, js/index-tabbar.js, css/sidebar-itb.css, js/sidebar-dock.js restored
+
 ## 2.26.1 - 2026-10-19
 - Improved: tab bar animations now move the iOS way on the landing page and in the dashboard / People dock - the glass bead and the tabs share one spring-smooth curve so they travel together, the bead stretches slightly while it slides and presses in under your finger, the icon of the new tab pops, the label slides in, hover shows a soft glass highlight and the dock springs up on load (css/index-tabbar.css, js/index-tabbar.js, css/sidebar-itb.css, js/sidebar-dock.js)
 - Improved: tab bar performance - tab geometry is measured once instead of every frame, so there is no layout reading while the bead moves; Reduce motion is respected

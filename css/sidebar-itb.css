@@ -5,12 +5,6 @@
    glass dock at the bottom centre, exactly like css/index-tabbar.css on the
    landing page. Icons only; the active tab opens its label inside a sliding
    glass bead. The page content now uses the full width.
-
-   Motion (iOS feel, same as the landing dock): the bead and the tabs share one easing and
-   duration, so the bead travels exactly with the tabs growing / shrinking under it
-   (js/sidebar-dock.js measures the final layout up front); the bead stretches a little while it
-   travels and presses in under your finger; the icon of the new tab pops with a spring, the label
-   slides and fades in; the dock springs up on load; hover shows a soft glass highlight.
    Load LAST on dashboard.html and people.html.
    ========================================================================== */
 :root {
@@ -20,22 +14,10 @@
   --sd-edge-lo: rgba(255, 255, 255, .06);
   --sd-icon: rgba(255, 255, 255, .72);
   --sd-icon-hover: #fff;
-  --sd-hover: rgba(255, 255, 255, .10);
   --sd-bead: rgba(255, 255, 255, .92);
   --sd-bead-ink: #141813;
   --sd-shadow: 0 18px 40px -12px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .25);
-  /* iOS standard curve (no overshoot) drives layout + bead so they stay locked together */
   --sd-ease: cubic-bezier(.32, .72, 0, 1);
-  --sd-dur: .56s;
-  /* springs (with a cubic-bezier fallback for browsers without linear()) */
-  --sd-spring: cubic-bezier(.34, 1.35, .64, 1);
-  --sd-bounce: cubic-bezier(.3, 1.9, .5, 1);
-}
-@supports (transition-timing-function: linear(0, 1)) {
-  :root {
-    --sd-spring: linear(0, 0.0276, 0.0972, 0.1922, 0.2998, 0.4105, 0.5176, 0.6166, 0.705, 0.7813, 0.8454, 0.8978, 0.9392, 0.971, 0.9945, 1.011, 1.0218, 1.0281, 1.031, 1.0314, 1.0301, 1.0276, 1.0244, 1.021, 1.0175, 1.0142, 1.0112, 1.0085, 1);
-    --sd-bounce: linear(0, 0.0248, 0.09, 0.183, 0.2927, 0.41, 0.5275, 0.6396, 0.7422, 0.8327, 0.9097, 0.9727, 1.0221, 1.0587, 1.0839, 1.0991, 1.106, 1.1062, 1.1013, 1.0928, 1.0819, 1.0697, 1.057, 1.0447, 1.0332, 1.0228, 1.0138, 1.0063, 1.0002, 0.9956, 0.9923, 0.9902, 0.989, 0.9886, 0.9888, 0.9896, 1);
-  }
 }
 html[data-theme="light"] {
   --sd-glass: rgba(255, 255, 255, .5);
@@ -43,7 +25,6 @@ html[data-theme="light"] {
   --sd-edge-lo: rgba(20, 24, 19, .08);
   --sd-icon: rgba(20, 24, 19, .62);
   --sd-icon-hover: #141813;
-  --sd-hover: rgba(20, 24, 19, .07);
   --sd-bead: rgba(20, 24, 19, .88);
   --sd-bead-ink: #ffffff;
   --sd-shadow: 0 18px 40px -14px rgba(20, 24, 19, .28), 0 2px 8px rgba(20, 24, 19, .08);
@@ -95,19 +76,10 @@ html .dash-side .dash-nav {
   backdrop-filter: blur(28px) saturate(190%) brightness(1.05);
   border: 1px solid var(--sd-edge-lo);
   box-shadow: var(--sd-shadow), inset 0 1px 0 var(--sd-edge), inset 0 -1px 0 var(--sd-edge-lo), inset 0 0 18px rgba(255, 255, 255, .05);
-  transition: opacity .3s ease, transform .5s var(--sd-ease);
+  transition: opacity .25s ease, transform .35s var(--sd-ease);
   -webkit-tap-highlight-color: transparent;
-  /* springs up from below on load */
-  animation: sdock-in .85s var(--sd-spring) .2s backwards;
-}
-@keyframes sdock-in {
-  from { opacity: 0; transform: translate(-50%, 34px) scale(.88); }
-  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 html .dash-side .dash-nav::-webkit-scrollbar { display: none; }
-/* used by the script while it re-measures, so a correction never animates */
-html .dash-side .dash-nav.sdock-quiet,
-html .dash-side .dash-nav.sdock-quiet * { transition: none !important; }
 /* the old amber pill / lamp from tabbar.js are not used here */
 html .dash-side .dash-nav > .dv-pill,
 html .dash-side .dash-nav > .dv-lamp { display: none !important; }
@@ -119,15 +91,9 @@ html .dash-side .dash-nav > .dv-lamp { display: none !important; }
   border-radius: 999px; z-index: 0; pointer-events: none;
   background: var(--sd-bead);
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .5);
-  opacity: 0; transform: translate3d(0, 0, 0); transform-origin: 50% 50%;
-  will-change: transform, width;
+  opacity: 0; will-change: transform, width;
 }
-.dash-nav.sdock-ready > .sdock-bead {
-  opacity: 1;
-  transition: transform var(--sd-dur) var(--sd-ease), width var(--sd-dur) var(--sd-ease), scale .45s var(--sd-spring), opacity .3s ease;
-}
-/* press feedback: the bead gives a little under your finger, then springs back */
-.dash-nav:has(.dash-nav-link.active:active) > .sdock-bead { scale: .93; }
+.dash-nav.sdock-ready > .sdock-bead { opacity: 1; transition: transform .5s var(--sd-ease), width .5s var(--sd-ease); }
 
 /* ── tabs: icon only, the active one grows its label ─────────────────────── */
 html .dash-side .dash-nav .dash-nav-link {
@@ -140,53 +106,33 @@ html .dash-side .dash-nav .dash-nav-link {
   font: 600 .9375rem/1 var(--f-display, system-ui, sans-serif);
   letter-spacing: -.01em; white-space: nowrap;
   background: transparent; box-shadow: none;
-  transition: color .3s ease, padding var(--sd-dur) var(--sd-ease), transform .5s var(--sd-spring);
+  transition: color .3s ease, padding .5s var(--sd-ease), transform .2s ease;
   -webkit-tap-highlight-color: transparent;
 }
-/* soft glass highlight under the pointer on inactive tabs (mouse / trackpad only) */
-@media (hover: hover) {
-  html .dash-side .dash-nav .dash-nav-link::before {
-    content: ""; position: absolute; inset: 0; z-index: -1;
-    border-radius: inherit; pointer-events: none;
-    background: var(--sd-hover);
-    opacity: 0; transform: scale(.78);
-    transition: opacity .25s ease, transform .45s var(--sd-spring);
-  }
-  html .dash-side .dash-nav .dash-nav-link:not(.active):hover::before { opacity: 1; transform: none; }
-}
-/* the old amber left bar is not used in the dock */
-html .dash-side .dash-nav .dash-nav-link.active::before { display: none !important; }
 html .dash-side .dash-nav .dash-nav-link:hover:not(.active) { background: transparent; color: var(--sd-icon-hover); }
-html .dash-side .dash-nav .dash-nav-link:active { transform: scale(.9); }
+html .dash-side .dash-nav .dash-nav-link:active { transform: scale(.94); }
 html .dash-side .dash-nav .dash-nav-link:focus-visible { outline: 2px solid var(--amber, #e8a33d); outline-offset: 1px; }
 
 html .dash-side .dash-nav .dash-nav-link svg {
   width: 22px; height: 22px; flex: none; opacity: 1; color: inherit;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; overflow: visible;
-  transform-origin: 50% 50%;
   transition: color .3s ease;
 }
-/* the icon of the tab you just opened pops (only after first paint, never on load) */
-html .dash-side .dash-nav.sdock-live .dash-nav-link.active svg { animation: sdock-pop .62s var(--sd-bounce) both; }
-@keyframes sdock-pop { from { transform: scale(.7); } to { transform: scale(1); } }
 /* icon shapes: .f fills when active, .k details cut out in the bead colour, .s stays a plain stroke */
 html .dash-side .dash-nav .dash-nav-link svg .f { transition: fill .3s ease; }
 html .dash-side .dash-nav .dash-nav-link svg .k { transition: stroke .3s ease; }
 html .dash-side .dash-nav .dash-nav-link.active svg .f { fill: currentColor; }
 html .dash-side .dash-nav .dash-nav-link.active svg .k { stroke: var(--sd-bead); }
 
-/* label collapses to zero width when inactive. Width (not max-width) so it animates on the same
-   curve as the bead - js/sidebar-dock.js writes the measured natural width to --lw. */
+/* label collapses to zero width when inactive */
 html .dash-side .dash-nav .dash-nav-link > span:not(.badge) {
-  display: block; box-sizing: content-box; width: 0; overflow: hidden; opacity: 0; padding-left: 0;
+  display: block; max-width: 0; overflow: hidden; opacity: 0; padding-left: 0;
   line-height: 1.35; white-space: nowrap;
-  transform: translateX(-8px);
-  transition: width var(--sd-dur) var(--sd-ease), padding var(--sd-dur) var(--sd-ease), opacity .14s ease, transform .3s ease;
+  transition: max-width .5s var(--sd-ease), opacity .25s ease, padding .5s var(--sd-ease);
 }
 html .dash-side .dash-nav .dash-nav-link.active { padding: 0 18px 0 14px; }
 html .dash-side .dash-nav .dash-nav-link.active > span:not(.badge) {
-  width: var(--lw, 8em); opacity: 1; padding-left: 9px; transform: none;
-  transition: width var(--sd-dur) var(--sd-ease), padding var(--sd-dur) var(--sd-ease), opacity .34s ease .1s, transform .55s var(--sd-spring) .06s;
+  max-width: 10em; opacity: 1; padding-left: 9px; transition-delay: 0s, .08s, 0s;
 }
 
 /* active: ink on the bead */
@@ -220,14 +166,11 @@ html .dash-side .dash-nav .dash-nav-link:not(.active) #navTaskBadge:not([hidden]
 /* ── keep the dock out of the way of dialogs ─────────────────────────────── */
 body:has(.modal-overlay.open) .dash-nav,
 body:has(.cmd-overlay.open) .dash-nav,
-html.dv-locked .dash-nav { opacity: 0 !important; pointer-events: none !important; transform: translate(-50%, 24px) scale(.96) !important; }
+html.dv-locked .dash-nav { opacity: 0 !important; pointer-events: none !important; transform: translate(-50%, 24px) !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  html .dash-side .dash-nav { animation: none; }
   html .dash-side .dash-nav, .dash-nav.sdock-ready > .sdock-bead,
-  html .dash-side .dash-nav .dash-nav-link, html .dash-side .dash-nav .dash-nav-link::before,
-  html .dash-side .dash-nav .dash-nav-link > span { transition: none !important; }
-  html .dash-side .dash-nav.sdock-live .dash-nav-link.active svg { animation: none; }
+  html .dash-side .dash-nav .dash-nav-link, html .dash-side .dash-nav .dash-nav-link > span { transition: none !important; }
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   html .dash-side .dash-nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--paper, #0a0c0b); }
