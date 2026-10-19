@@ -105,3 +105,31 @@ html[data-theme="dark"] .pf-card { --ios-red:#FF453A; --ios-orange:#FF9F0A; --io
   .pf-hero-main { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .pf-dirty i, .pf-meter-bar i { animation: none; transition: none; } }
+
+/* ── Appearance › Accent colour — iOS style swatches ─────────────────────── */
+.ap-accents { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 14px 8px !important; }
+.ap-acc {
+  flex-direction: column; justify-content: flex-start; gap: 8px; padding: 6px 2px 4px !important; border: 0 !important; background: transparent !important;
+  box-shadow: none !important; border-radius: 14px; font-size: 11.5px; color: var(--ink-50); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), color .2s;
+}
+.ap-acc:hover { transform: translateY(-2px) !important; color: var(--ink); }
+.ap-acc:active { transform: scale(.94) !important; }
+.ap-acc b { font-weight: 500; letter-spacing: .01em; }
+.ap-acc.active { color: var(--ink); }
+.ap-acc.active b { font-weight: 700; }
+.ap-acc-dot {
+  position: relative; width: 44px !important; height: 44px !important; border-radius: 50%;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 70%, #fff) 0%, var(--c) 60%, color-mix(in srgb, var(--c) 86%, #000) 100%) !important;
+  box-shadow: inset 0 1.5px 1px rgba(255,255,255,.55), inset 0 -3px 4px rgba(0,0,0,.14), 0 6px 12px -6px color-mix(in srgb, var(--c) 75%, transparent) !important;
+  transition: box-shadow .2s;
+}
+.ap-acc-dot::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 0 var(--c); transition: box-shadow .2s, inset .2s; }
+.ap-acc.active .ap-acc-dot { box-shadow: 0 0 0 3px var(--paper), inset 0 1.5px 1px rgba(255,255,255,.55), inset 0 -3px 4px rgba(0,0,0,.14), 0 6px 12px -6px color-mix(in srgb, var(--c) 75%, transparent) !important; }
+.ap-acc.active .ap-acc-dot::after { inset: -3px; box-shadow: 0 0 0 2.5px var(--c); }
+.ap-acc-dot svg { width: 18px !important; height: 18px !important; opacity: 0; transform: scale(.4); transition: opacity .15s, transform .25s cubic-bezier(.34,1.56,.64,1) !important; filter: drop-shadow(0 1px 1px rgba(0,0,0,.28)); }
+.ap-acc.active .ap-acc-dot svg { opacity: 1 !important; transform: scale(1); }
+/* Yellow / Mint read better with dark tick */
+.ap-acc[data-accent-opt="yellow"] .ap-acc-dot svg, .ap-acc[data-accent-opt="mint"] .ap-acc-dot svg { color: rgba(0,0,0,.65); filter: none; }
+.ap-acc:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media (max-width: 520px) { .ap-accents { grid-template-columns: repeat(4, 1fr); } }
