@@ -18,9 +18,9 @@ input[readonly].stg-input { opacity: .72; cursor: not-allowed; }
 .pf-avatar-wrap { position: relative; width: 96px; height: 96px; }
 .pf-avatar {
   width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
-  font-size: 32px; font-weight: 700; letter-spacing: .02em; color: #fff; background: var(--signal);
+  font-size: 32px; font-weight: 600; letter-spacing: .02em; color: #fff; background: var(--signal); text-shadow: 0 1px 2px rgba(0,0,0,.22);
   background-size: cover; background-position: center;
-  box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--line-strong), 0 12px 24px -12px rgba(0,0,0,.45);
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.4), inset 0 -4px 8px rgba(0,0,0,.12), 0 0 0 3px var(--paper), 0 0 0 4px var(--line-strong), 0 14px 26px -12px rgba(0,0,0,.45);
 }
 .pf-avatar.has-photo span { display: none; }
 .pf-avatar-sm { width: 40px; height: 40px; font-size: 14px; box-shadow: none; flex-shrink: 0; }
@@ -46,17 +46,41 @@ input[readonly].stg-input { opacity: .72; cursor: not-allowed; }
 .pf-handle-state.ok { display: block; background: var(--ios-green, #30d158) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.5 2.6 2.6L12 5.5' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; }
 .pf-handle-state.bad { display: block; background: var(--danger, #e5484d) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m5 5 6 6m0-6-6 6' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/100% no-repeat; }
 
-/* Status + swatches */
-.pf-status { display: flex; flex-wrap: wrap; gap: 8px; }
-.pf-status button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--paper-soft); color: var(--ink-50); font-size: .8rem; font-weight: 500; cursor: pointer; transition: all .15s; }
-.pf-status button i { width: 9px; height: 9px; border-radius: 50%; background: var(--ios-green, #30d158); }
-.pf-status button[data-s="busy"] i { background: #ef4444; } .pf-status button[data-s="away"] i { background: #f59e0b; } .pf-status button[data-s="dnd"] i { background: #7c3aed; }
+/* Status + swatches — iOS system colours */
+.pf-card { --ios-red:#FF3B30; --ios-orange:#FF9500; --ios-green2:#34C759; --ios-purple:#AF52DE; }
+html[data-theme="dark"] .pf-card { --ios-red:#FF453A; --ios-orange:#FF9F0A; --ios-green2:#30D158; --ios-purple:#BF5AF2; }
+.pf-status { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px; width: fit-content; max-width: 100%; border-radius: 14px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.pf-status button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 11px; border: 0; background: transparent; color: var(--ink-50); font-size: .8rem; font-weight: 500; cursor: pointer; transition: background .2s, color .2s, box-shadow .2s, transform .15s; }
+.pf-status button i { width: 10px; height: 10px; border-radius: 50%; background: var(--ios-green2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-green2) 22%, transparent); }
+.pf-status button[data-s="busy"] i { background: var(--ios-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-red) 22%, transparent); }
+.pf-status button[data-s="away"] i { background: var(--ios-orange); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-orange) 22%, transparent); }
+.pf-status button[data-s="dnd"] i { background: var(--ios-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-purple) 22%, transparent); }
 .pf-status button:hover { color: var(--ink); }
-.pf-status button[aria-checked="true"] { color: var(--ink); font-weight: 600; border-color: var(--signal); background: color-mix(in srgb, var(--signal) 10%, var(--paper-soft)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 14%, transparent); }
-.pf-swatches { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px; }
-.pf-swatches button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; background: var(--c); box-shadow: 0 0 0 1px var(--line-strong); transition: transform .15s; }
-.pf-swatches button:hover { transform: scale(1.12); }
-.pf-swatches button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--c); }
+.pf-status button:active { transform: scale(.96); }
+.pf-status button[aria-checked="true"] { color: var(--ink); font-weight: 600; background: var(--paper); box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 3px 8px -2px rgba(0,0,0,.14); }
+.pf-presence { background: var(--ios-green2) !important; }
+.pf-presence[data-s="busy"] { background: var(--ios-red) !important; } .pf-presence[data-s="away"] { background: var(--ios-orange) !important; } .pf-presence[data-s="dnd"] { background: var(--ios-purple) !important; }
+.pf-colorname { float: right; font-size: 11px; font-weight: 600; color: var(--ink-50); letter-spacing: .01em; }
+
+.pf-swatches { display: grid; grid-template-columns: repeat(auto-fill, 34px); gap: 12px 14px; padding: 6px 2px 2px; }
+.pf-swatches button {
+  position: relative; width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; display: grid; place-items: center;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 70%, #fff) 0%, var(--c) 60%, color-mix(in srgb, var(--c) 86%, #000) 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(0,0,0,.14), 0 3px 8px -3px color-mix(in srgb, var(--c) 70%, transparent);
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pf-swatches button::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 0 var(--c); transition: box-shadow .2s; }
+.pf-swatches button svg { width: 16px; height: 16px; opacity: 0; transform: scale(.4); transition: opacity .15s, transform .25s cubic-bezier(.34,1.56,.64,1); filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.pf-swatches button:hover { transform: scale(1.1); }
+.pf-swatches button:active { transform: scale(.92); }
+.pf-swatches button:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+/* iOS-style selection: white gap + coloured ring + check */
+.pf-swatches button[aria-checked="true"] { transform: scale(1); }
+.pf-swatches button[aria-checked="true"]::after { inset: -5px; box-shadow: 0 0 0 2.5px var(--c); }
+.pf-swatches button[aria-checked="true"] svg { opacity: 1; transform: scale(1); }
+.pf-swatches button[aria-checked="true"] { box-shadow: 0 0 0 2.5px var(--paper), inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(0,0,0,.14), 0 3px 8px -3px color-mix(in srgb, var(--c) 70%, transparent); }
+.pf-swatches button[aria-checked="true"]::after { inset: -2.5px; box-shadow: 0 0 0 2.5px var(--c); border-radius: 50%; }
 
 /* Preview */
 .pf-preview { display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%; padding: 12px 18px 12px 12px; border-radius: 14px; background: #0f1411; border: 1px solid rgba(255,255,255,.08); }

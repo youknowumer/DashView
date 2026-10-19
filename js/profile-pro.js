@@ -3,10 +3,15 @@
 (function () {
   'use strict';
   var KEY = 'dashview_profile';
-  var COLORS = ['#e8a33d', '#ef6a4c', '#e0527e', '#a05cf0', '#5b7cfa', '#2f9fd8', '#18a999', '#4fa84f'];
+  /* iOS system colours (light-mode values), same names Apple uses */
+  var IOS = [['Red', '#FF3B30'], ['Orange', '#FF9500'], ['Yellow', '#FFCC00'], ['Green', '#34C759'], ['Mint', '#00C7BE'], ['Teal', '#30B0C7'],
+             ['Cyan', '#32ADE6'], ['Blue', '#007AFF'], ['Indigo', '#5856D6'], ['Purple', '#AF52DE'], ['Pink', '#FF2D55'], ['Brown', '#A2845E'], ['Gray', '#8E8E93']];
+  var COLORS = IOS.map(function (c) { return c[1]; });
+  function colorName(h) { for (var i = 0; i < IOS.length; i++) if (IOS[i][1].toLowerCase() === String(h).toLowerCase()) return IOS[i][0]; return 'Custom'; }
+  function grad(h) { return 'linear-gradient(160deg, color-mix(in srgb, ' + h + ' 72%, #fff) 0%, ' + h + ' 62%, color-mix(in srgb, ' + h + ' 88%, #000) 100%)'; }
   var RESERVED = ['admin', 'administrator', 'root', 'system', 'support', 'help', 'owner', 'dashview', 'null', 'undefined', 'api', 'www', 'me'];
   var DEF = { workspaceName: 'acme-corp', displayName: '', username: '', title: '', department: '', phone: '', location: '',
-              timezone: '', language: 'en', bio: '', status: 'available', statusText: '', color: COLORS[0], photo: '', updatedAt: 0 };
+              timezone: '', language: 'en', bio: '', status: 'available', statusText: '', color: '#FF9500', photo: '', updatedAt: 0 };
   var $ = function (id) { return document.getElementById(id); };
 
   function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
@@ -24,6 +29,7 @@
 
   function load() {
     var s = Object.assign({}, DEF, read()), a = account();
+    if (COLORS.map(function (c) { return c.toLowerCase(); }).indexOf(String(s.color).toLowerCase()) < 0) s.color = '#FF9500';
     if (!s.displayName) s.displayName = (a && a.name) || '';
     if (!s.username) s.username = slug(s.displayName || (a && a.email ? a.email.split('@')[0] : ''));
     if (!s.timezone) { try { s.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { s.timezone = 'UTC'; } }
@@ -48,7 +54,7 @@
   function avatarStyle(node, p) {
     var txt = node.querySelector('span');
     if (p.photo) { node.style.backgroundImage = 'url(' + p.photo + ')'; node.classList.add('has-photo'); }
-    else { node.style.backgroundImage = ''; node.classList.remove('has-photo'); node.style.background = p.color; if (txt) txt.textContent = initials(p.displayName); }
+    else { node.classList.remove('has-photo'); node.style.background = grad(p.color); if (txt) txt.textContent = initials(p.displayName); }
   }
   var ROLE_LABEL = function () { var a = account(); return a && window.DVAuth && window.DVAuth.ROLE_LABEL ? (window.DVAuth.ROLE_LABEL[a.role] || 'Admin') : 'Admin'; };
 
@@ -74,7 +80,8 @@
     el.prevMeta.innerHTML = esc(p.workspaceName || 'workspace') + ' · ' + esc(ROLE_LABEL());
     el.wsTag.textContent = p.workspaceName || 'workspace';
     Array.prototype.forEach.call(el.status.children, function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-s') === p.status)); });
-    Array.prototype.forEach.call(el.swatches.children, function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-c') === p.color)); });
+    Array.prototype.forEach.call(el.swatches.children, function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-c').toLowerCase() === String(p.color).toLowerCase())); });
+    el.colorName.textContent = colorName(p.color);
     var dirty = JSON.stringify(strip(draft)) !== JSON.stringify(strip(saved));
     el.dirty.hidden = !dirty; el.save.disabled = !dirty; el.discard.disabled = !dirty;
     if (dirty) { el.tag.textContent = 'Unsaved changes'; el.tag.classList.remove('pf-saved'); }
@@ -132,7 +139,7 @@
     [$('dashUserAvatar'), $('dashTopUserAvatar')].forEach(function (n) {
       if (!n) return;
       if (p.photo) { n.textContent = ''; n.style.backgroundImage = 'url(' + p.photo + ')'; n.style.backgroundSize = 'cover'; n.style.backgroundPosition = 'center'; }
-      else { n.style.backgroundImage = ''; n.textContent = initials(name); if (read().color) { n.style.background = p.color; n.style.color = '#fff'; } }
+      else { n.style.backgroundImage = ''; n.textContent = initials(name); if (read().color) { n.style.background = grad(p.color); n.style.color = '#fff'; } }
     });
     var nm = $('dashUserName'); if (nm) nm.textContent = name;
     var meta = $('dashUserMeta');
@@ -162,9 +169,9 @@
       name: $('pfName'), username: $('pfUsername'), title: $('pfTitle'), dept: $('pfDept'), bio: $('pfBio'), bioCount: $('pfBioCount'), email: $('pfEmail'), phone: $('pfPhone'),
       location: $('pfLocation'), tz: $('pfTz'), tzNow: $('pfTzNow'), lang: $('pfLang'), status: $('pfStatus'), statusText: $('pfStatusText'), swatches: $('pfSwatches'),
       prevName: $('pfPrevName'), prevMeta: $('pfPrevMeta'), dirty: $('pfDirty'), save: $('pfSave'), discard: $('pfDiscard'), tag: $('pfSavedTag'),
-      handleState: $('pfHandleState'), userHelp: $('pfUserHelp'), ws: $('setWorkspaceName'), wsTag: $('pfWsTag'), wsSave: $('pfWsSave'), role: $('pfRole') };
+      handleState: $('pfHandleState'), colorName: $('pfColorName'), userHelp: $('pfUserHelp'), ws: $('setWorkspaceName'), wsTag: $('pfWsTag'), wsSave: $('pfWsSave'), role: $('pfRole') };
 
-    el.swatches.innerHTML = COLORS.map(function (c) { return '<button type="button" role="radio" data-c="' + c + '" style="--c:' + c + '" aria-label="Colour ' + c + '"></button>'; }).join('');
+    el.swatches.innerHTML = COLORS.map(function (c) { return '<button type="button" role="radio" data-c="' + c + '" style="--c:' + c + '" aria-label="' + colorName(c) + '" title="' + colorName(c) + '"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.8 8.6 2.7 2.7 5.7-6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'; }).join('');
     fillTz();
     var a = account(); el.email.value = (a && a.email) || ''; el.role.value = ROLE_LABEL();
     sync();
