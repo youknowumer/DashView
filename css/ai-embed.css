@@ -520,3 +520,73 @@ button.aiw-drow:hover .go { opacity: 1; }
 
 /* iOS Safari zooms the whole page when a focused field is < 16px; keep the AI chat box at 16px on phones */
 @media (max-width: 768px) { .aiw-composer textarea { font-size: 16px; } }
+
+/* ==========================================================================
+   v2.27 — classified AI workspace: grouped welcome, area cards, topic-coloured chats
+   ========================================================================== */
+/* Fit above the floating dock so the composer is never covered */
+.aiw { height: calc(100vh - 196px); height: calc(100dvh - 196px); min-height: 520px; }
+/* Breadcrumb is redundant when it only says "AI Assistant" */
+.aiw-route:has(> .here:only-child) { display: none; }
+
+/* Welcome: compact hero + titled sections */
+.aiw-welcome { gap: var(--sp-6); padding-bottom: var(--sp-4); }
+.aiw-welcome .aiw-hero { padding-top: var(--sp-5); }
+.aiw-hero-mark { width: 46px; height: 46px; border-radius: 14px; margin-bottom: var(--sp-3); }
+.aiw-sec { display: flex; flex-direction: column; gap: var(--sp-3); }
+.aiw-sec-head { display: flex; align-items: baseline; gap: 10px; padding: 0 2px; }
+.aiw-sec-head h3 { margin: 0; font: 700 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-50); }
+.aiw-sec-head span { font-size: 12px; color: var(--ink-30); }
+.aiw-sec-head::after { content: ""; flex: 1; height: 1px; background: var(--line); order: 3; align-self: center; }
+.aiw-sec-head span { order: 2; }
+
+/* Quick action cards */
+.aiw-cap { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 14px; }
+.aiw-cap-ic { grid-row: span 2; }
+.aiw-cap b { flex: 1 1 0; min-width: 0; }
+.aiw-cap > span:last-child { flex: 1 1 100%; padding-left: 44px; margin-top: -2px; }
+
+/* Area tabs → coloured cards */
+.aiw-areas-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; justify-content: stretch; }
+.aiw-areas-tabs button {
+  --c: var(--signal); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; border-radius: 14px; text-align: left;
+  border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink); position: relative; transition: transform .2s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s, background .2s;
+}
+.aiw-areas-tabs button:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 55%, var(--line)); background: var(--paper-soft); color: var(--ink); }
+.aiw-areas-tabs button.active { border-color: var(--c); background: color-mix(in srgb, var(--c) 9%, var(--paper)); color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 16%, transparent); }
+.aiw-area-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c) 65%, color-mix(in srgb, var(--c) 86%, #000));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), 0 4px 10px -5px var(--c); }
+.aiw-areas-tabs b { font: 700 13px var(--f-display); }
+.aiw-areas-tabs em { position: absolute; top: 10px; right: 12px; font: 600 10.5px var(--f-mono); font-style: normal; color: var(--ink-30); }
+
+/* Prompt list → rows */
+.aiw-prompts { --c: var(--signal); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.aiw-prompts button { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--paper); transition: border-color .15s, transform .15s, background .15s; }
+.aiw-prompts button:hover { border-color: var(--c); background: color-mix(in srgb, var(--c) 6%, var(--paper)); transform: translateY(-1px); }
+.aiw-prompt-ic { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); }
+.aiw-prompt-t { flex: 1; min-width: 0; }
+.aiw-prompt-go { flex: none; color: var(--ink-30); font-size: 14px; transition: color .15s, transform .15s; }
+.aiw-prompts button:hover .aiw-prompt-go { color: var(--c); transform: translate(2px, -2px); }
+
+/* Chat rail: topic filter chips */
+.aiw-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.aiw-cat { --c: var(--signal); display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--ink-50); font: 600 11px var(--f-body); cursor: pointer; transition: all .15s; }
+.aiw-cat i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.aiw-cat em { font: 600 10px var(--f-mono); font-style: normal; color: var(--ink-30); }
+.aiw-cat:hover { color: var(--ink); border-color: color-mix(in srgb, var(--c) 50%, var(--line)); }
+.aiw-cat.active { color: var(--ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 11%, var(--paper)); }
+.aiw-group { display: flex; justify-content: space-between; align-items: center; }
+.aiw-group span { font-weight: 500; opacity: .7; }
+
+/* Chat rows: topic icon + colour */
+.aiw-thread { --c: var(--signal); flex-direction: row !important; align-items: center; gap: 10px !important; padding: 9px 36px 9px 10px !important; }
+.aiw-thread.active { box-shadow: inset 3px 0 0 var(--c) !important; }
+.aiw-thread-ic { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); }
+.aiw-thread-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aiw-thread-txt b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiw-thread-k { color: var(--c); font-weight: 700; }
+.aiw-live { color: var(--aiw-good); }
+
+@media (max-width: 980px) { .aiw-areas-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .aiw-prompts { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .aiw-areas-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .aiw { height: calc(100dvh - 170px); } }

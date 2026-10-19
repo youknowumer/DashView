@@ -428,26 +428,63 @@
       else if (kv.m) openInsp('path', true);
     }
 
+    /* ── topic classification (chats + prompts are grouped by business area) ── */
+    var CAT = {
+      Sales:     { c: '#007AFF', re: /sale|quotation|quote|customer|revenue|salesperson|order/i, ic: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
+      Finance:   { c: '#34C759', re: /invoice|receivable|payable|bill|cash|payment|overdue|aging|vendor|expense|profit|budget/i, ic: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>' },
+      Inventory: { c: '#FF9500', re: /stock|inventory|product|warehouse|delivery|deliveries|purchase|reorder|location/i, ic: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
+      CRM:       { c: '#AF52DE', re: /pipeline|lead|opportunit|crm|won|lost|stage/i, ic: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>' },
+      People:    { c: '#FF2D55', re: /employee|headcount|leave|time off|applicant|position|hr\b|department|payroll|attendance/i, ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .6 3 2.3 3 5.2"/>' },
+      Files:     { c: '#30B0C7', re: null, ic: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>' },
+      General:   { c: '#8E8E93', re: null, ic: '<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>' }
+    };
+    function catIcon(k, sz) { return '<svg width="' + (sz || 14) + '" height="' + (sz || 14) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + CAT[k].ic + '</svg>'; }
+    function topicOf(t) {
+      if (t.messages.some(function (m) { return (m.files && m.files.length) || m.report; })) return 'Files';
+      var first = '';
+      for (var i = 0; i < t.messages.length; i++) if (t.messages[i].role === 'user') { first = String(t.messages[i].content || ''); break; }
+      var txt = (t.title || '') + ' ' + first;
+      var best = 'General', top = 0;
+      for (var k in CAT) {
+        if (!CAT[k].re) continue;
+        var hits = txt.match(new RegExp(CAT[k].re.source, 'gi'));
+        if (hits && hits.length > top) { top = hits.length; best = k; }
+      }
+      return best;
+    }
+
     /* ── thread list ────────────────────────────────────────────────────── */
     function renderThreads() {
-      var q = S.filter.toLowerCase(), list = S.threads.filter(function (t) {
+      var q = S.filter.toLowerCase(), all = S.threads, counts = {};
+      all.forEach(function (t) { var k = topicOf(t); counts[k] = (counts[k] || 0) + 1; });
+      if (S.cat && S.cat !== 'All' && !counts[S.cat]) S.cat = 'All';
+      var catsEl = $('aiwCats');
+      if (catsEl) {
+        var keys = Object.keys(CAT).filter(function (k) { return counts[k]; });
+        catsEl.hidden = keys.length < 2;
+        catsEl.innerHTML = ['All'].concat(keys).map(function (k) {
+          var on = (S.cat || 'All') === k, col = k === 'All' ? 'var(--signal)' : CAT[k].c;
+          return '<button type="button" class="aiw-cat' + (on ? ' active' : '') + '" data-act="cat" data-k="' + k + '" style="--c:' + col + '"><i></i>' + k + '<em>' + (k === 'All' ? all.length : counts[k]) + '</em></button>';
+        }).join('');
+      }
+      var list = all.filter(function (t) {
+        if (S.cat && S.cat !== 'All' && topicOf(t) !== S.cat) return false;
         return !q || (t.title || '').toLowerCase().indexOf(q) > -1 || t.messages.some(function (m) { return String(m.content || '').toLowerCase().indexOf(q) > -1; });
       });
-      if (!list.length) { el.threads.innerHTML = '<div class="aiw-empty-note">' + (q ? 'No chats match “' + esc(S.filter) + '”.' : 'No chats yet.<br/>Ask something to start one.') + '</div>'; return; }
-      var today = new Date(); today.setHours(0, 0, 0, 0);
-      var groups = [['Today', 0], ['Yesterday', 86400000], ['Previous 7 days', 7 * 86400000], ['Older', Infinity]], html = '', last = '';
+      if (!list.length) { el.threads.innerHTML = '<div class="aiw-empty-note">' + (q ? 'No chats match “' + esc(S.filter) + '”.' : S.cat && S.cat !== 'All' ? 'No ' + esc(S.cat) + ' chats yet.' : 'No chats yet.<br/>Ask something to start one.') + '</div>'; return; }
+      var today = new Date(); today.setHours(0, 0, 0, 0); var html = '', last = '', gc = {};
+      list.forEach(function (t) { var age = today.getTime() - t.updated, g = age < 0 ? 'Today' : age < 86400000 ? 'Yesterday' : age < 7 * 86400000 ? 'Previous 7 days' : 'Older'; gc[g] = (gc[g] || 0) + 1; });
       list.forEach(function (t) {
         var age = today.getTime() - t.updated, g = age < 0 ? 'Today' : age < 86400000 ? 'Yesterday' : age < 7 * 86400000 ? 'Previous 7 days' : 'Older';
-        if (g !== last) { html += '<div class="aiw-group">' + g + '</div>'; last = g; }
-        var odoo = t.messages.some(function (m) { return m.liveOdoo || m.report; });
-        html += '<button type="button" class="aiw-thread' + (t.id === S.activeId ? ' active' : '') + '" data-act="thread" data-id="' + esc(t.id) + '"><b>' + esc(t.title || 'New chat') + '</b><small><span>' + relTime(t.updated) + '</span><span>' + t.messages.length + ' msg</span>' + (odoo ? '<span>● data</span>' : '') + '</small>' +
+        if (g !== last) { html += '<div class="aiw-group">' + g + '<span>' + gc[g] + '</span></div>'; last = g; }
+        var odoo = t.messages.some(function (m) { return m.liveOdoo || m.report; }), k = topicOf(t);
+        html += '<button type="button" class="aiw-thread' + (t.id === S.activeId ? ' active' : '') + '" data-act="thread" data-id="' + esc(t.id) + '" style="--c:' + CAT[k].c + '">' +
+          '<span class="aiw-thread-ic">' + catIcon(k, 14) + '</span><span class="aiw-thread-txt"><b>' + esc(t.title || 'New chat') + '</b><small><span class="aiw-thread-k">' + k + '</span><span>' + relTime(t.updated) + '</span><span>' + t.messages.length + ' msg</span>' + (odoo ? '<span class="aiw-live">● data</span>' : '') + '</small></span>' +
           '<span class="aiw-thread-tools"><span data-act="thread-rename" data-id="' + esc(t.id) + '" title="Rename" role="button">✎</span><span data-act="thread-del" data-id="' + esc(t.id) + '" title="Delete" role="button">🗑</span></span></button>';
       });
       el.threads.innerHTML = html;
     }
-
-    /* ── route breadcrumb ───────────────────────────────────────────────── */
-    function renderRoute() {
+        function renderRoute() {
       var t = activeThread(), crumbs = [{ label: 'AI Assistant', act: 'route-home' }];
       if (t && t.messages.length) crumbs.push({ label: t.title || 'New chat', act: 'route-chat' });
       if (isInspOpen() && S.tab === 'path' && S.selMsg) crumbs.push({ label: 'Answer path', act: 'route-path' });
@@ -488,13 +525,15 @@
         ['pulse', 'Check connection', 'Odoo reach, login, per-app access and speed.', 'cap-status'],
         ['spark', 'Learn DashView', 'How Data Studio, drills and filters work.', 'cap-help']
       ];
-      return '<div class="aiw-col"><div class="aiw-hero"><div class="aiw-hero-mark">' + ICON.spark.replace('width="15" height="15"', 'width="26" height="26"') + '</div><h2>What can I help you with?</h2>' +
+      return '<div class="aiw-col aiw-welcome"><div class="aiw-hero"><div class="aiw-hero-mark">' + ICON.spark.replace('width="15" height="15"', 'width="26" height="26"') + '</div><h2>What can I help you with?</h2>' +
         '<p>Ask about your company data, attach a file for a report, or reconcile a file against Odoo. Every answer shows the path it took, and every number can be drilled into.</p><div class="aiw-status-row" id="aiwHeroStatus">' + statusPillsHtml() + '</div></div>' +
-        '<div class="aiw-cap-grid">' + caps.map(function (c) { return '<button type="button" class="aiw-cap" data-act="' + c[3] + '"><span class="aiw-cap-ic">' + ICON[c[0]] + '</span><b>' + c[1] + '</b><span>' + c[2] + '</span></button>'; }).join('') + '</div>' +
-        '<div class="aiw-areas"><div class="aiw-areas-tabs">' + Object.keys(AREAS).map(function (a) { return '<button type="button" data-act="area" data-a="' + a + '" class="' + (a === areaOpen ? 'active' : '') + '">' + a + '</button>'; }).join('') + '</div>' +
-        '<div class="aiw-prompts" id="aiwPrompts">' + promptsHtml() + '</div></div></div>';
+        '<section class="aiw-sec"><header class="aiw-sec-head"><h3>Quick actions</h3><span>Pick what you want to do</span></header>' +
+        '<div class="aiw-cap-grid">' + caps.map(function (c) { return '<button type="button" class="aiw-cap" data-act="' + c[3] + '"><span class="aiw-cap-ic">' + ICON[c[0]] + '</span><b>' + c[1] + '</b><span>' + c[2] + '</span></button>'; }).join('') + '</div></section>' +
+        '<section class="aiw-sec aiw-areas"><header class="aiw-sec-head"><h3>Ask by area</h3><span>Ready-made questions, grouped by business area</span></header>' +
+        '<div class="aiw-areas-tabs" role="tablist">' + Object.keys(AREAS).map(function (a) { return '<button type="button" role="tab" aria-selected="' + (a === areaOpen) + '" data-act="area" data-a="' + a + '" class="' + (a === areaOpen ? 'active' : '') + '" style="--c:' + CAT[a].c + '"><span class="aiw-area-ic">' + catIcon(a, 16) + '</span><b>' + a + '</b><em>' + AREAS[a].length + '</em></button>'; }).join('') + '</div>' +
+        '<div class="aiw-prompts" id="aiwPrompts" style="--c:' + CAT[areaOpen].c + '">' + promptsHtml() + '</div></section></div>';
     }
-    function promptsHtml() { return AREAS[areaOpen].map(function (q) { return '<button type="button" data-act="prompt" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join(''); }
+    function promptsHtml() { return AREAS[areaOpen].map(function (q) { return '<button type="button" data-act="prompt" data-q="' + esc(q) + '"><span class="aiw-prompt-ic">' + catIcon(areaOpen, 14) + '</span><span class="aiw-prompt-t">' + esc(q) + '</span><span class="aiw-prompt-go" aria-hidden="true">↗</span></button>'; }).join(''); }
 
     function pathStripHtml(m) {
       var t = m.trace;
@@ -1207,7 +1246,8 @@
       'cap-recon': function () { if (Object.keys(S.files).length) openInsp('files'); else { S.afterAttach = 'recon'; toast('Choose the file to reconcile with Odoo.'); el.file.click(); } },
       'cap-status': function () { send('status'); },
       'cap-help': function () { send('How does the auto-suggest engine in Data Studio decide which charts and KPIs to recommend?'); },
-      'area': function (t) { areaOpen = t.getAttribute('data-a'); var n = $('aiwPrompts'); if (n) n.innerHTML = promptsHtml(); Array.prototype.forEach.call(root.querySelectorAll('.aiw-areas-tabs button'), function (b) { b.classList.toggle('active', b.getAttribute('data-a') === areaOpen); }); },
+      'area': function (t) { areaOpen = t.getAttribute('data-a'); var n = $('aiwPrompts'); if (n) { n.style.setProperty('--c', CAT[areaOpen].c); n.innerHTML = promptsHtml(); } Array.prototype.forEach.call(root.querySelectorAll('.aiw-areas-tabs button'), function (b) { var on = b.getAttribute('data-a') === areaOpen; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); }); },
+      'cat': function (t) { S.cat = t.getAttribute('data-k'); renderThreads(); },
       'prompt': function (t) { send(t.getAttribute('data-q')); },
       'copy': function (t) { var f = findMsg(t.getAttribute('data-mid')); if (f) copyText(f.m.content || ''); },
       'path': function (t) { selectMsg(t.getAttribute('data-mid'), 'path'); },
@@ -1296,6 +1336,7 @@
     el.provChip.addEventListener('click', function () { openInsp('connection'); });
     $('aiwRailBtn').addEventListener('click', function () { root.dataset.rail = root.dataset.rail === 'open' ? 'closed' : 'open'; syncScrim(); });
     el.scrim.addEventListener('click', function () { root.dataset.rail = 'closed'; if (window.innerWidth <= 1240) closeInsp(); syncScrim(); });
+    (function () { var top = el.search && el.search.closest('.aiw-rail-top'); if (top && !$('aiwCats')) { var c = document.createElement('div'); c.id = 'aiwCats'; c.className = 'aiw-cats'; c.hidden = true; c.setAttribute('aria-label', 'Filter chats by area'); top.appendChild(c); } })();
     el.search.addEventListener('input', function () { S.filter = el.search.value.trim(); renderThreads(); });
     el.input.addEventListener('input', function () { autosize(); updateSend(); });
     el.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!el.send.disabled) send(); } });
