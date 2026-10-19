@@ -74,3 +74,6 @@
   #view-settings .stg-rail .stg-tab { padding: 8px 12px; font-size: .78rem; }
   #view-settings .stg-rail .stg-tab svg { display: none; }
 }
+
+/* Settings search box removed from the header (title only) */
+#view-settings .stgo-search { display: none !important; }
