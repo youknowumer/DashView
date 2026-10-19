@@ -431,6 +431,7 @@
     }
     var topAvatar = document.getElementById('dashTopUserAvatar');
     if (topAvatar) { topAvatar.textContent = user.initials; topAvatar.style.background = ROLE_COLOR[user.role] + '22'; topAvatar.style.color = ROLE_COLOR[user.role]; }
+    if (window.DVProfile) window.DVProfile.apply();
   }
 
   /* ── Page guard: DashView pages need a signed-in user. A guest (no session, or the

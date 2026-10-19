@@ -107,6 +107,8 @@ var PRECACHE = [
  "css/settings-pro.css",
  "css/tabbar.css",
  "css/settings-topbar.css",
+ "css/profile-pro.css",
+ "js/profile-pro.js",
  "css/workspace.css",
  "js/auth.js",
  "js/boomerang-video.js",

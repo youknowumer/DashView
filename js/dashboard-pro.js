@@ -398,15 +398,6 @@
     function loadJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } }
     function saveJSON(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
-    // Profile
-    var profile = loadJSON(PROFILE_KEY, { workspaceName: 'acme-corp', displayName: 'Amara Khan' });
-    if (byId('setWorkspaceName')) byId('setWorkspaceName').value = profile.workspaceName;
-    if (byId('setDisplayName')) byId('setDisplayName').value = profile.displayName;
-    if (byId('saveProfileBtn')) byId('saveProfileBtn').addEventListener('click', function () {
-      saveJSON(PROFILE_KEY, { workspaceName: byId('setWorkspaceName').value.trim() || 'acme-corp', displayName: byId('setDisplayName').value.trim() || 'Amara Khan' });
-      toast('Profile saved.');
-    });
-
     // Data & backup
     function refreshStorageUsage() {
       var bytes = 0;

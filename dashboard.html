@@ -68,6 +68,7 @@
 <link rel="stylesheet" href="css/sidebar-itb.css"/>
 <link rel="stylesheet" href="css/ios-smooth.css"/>
 <link rel="stylesheet" href="css/settings-topbar.css"/>
+<link rel="stylesheet" href="css/profile-pro.css"/>
 <script defer src="js/ios-smooth.js"></script>
 <script src="js/8k-quality.js" defer></script>
 </head>
@@ -862,34 +863,173 @@
 
             <!-- ── Profile panel ── -->
             <div class="stg-panel" id="stg-profile">
+              <!-- ── Your profile (v2) ── -->
+              <div class="stg-card pf-card" id="pfCard">
+                <div class="stg-card-head">
+                  <div class="stg-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+                  </div>
+                  <div class="stg-card-head-text">
+                    <h3>Your profile</h3>
+                    <p>Your name, username, photo and status — shown in the sidebar, reports and activity feed</p>
+                  </div>
+                  <div class="stg-card-head-right">
+                    <span class="stg-status-pill" id="pfSavedTag">Not saved yet</span>
+                  </div>
+                </div>
+
+                <div class="stg-card-body">
+                  <!-- Hero -->
+                  <div class="pf-hero">
+                    <div class="pf-avatar-wrap">
+                      <div class="pf-avatar" id="pfAvatar" aria-label="Profile photo"><span id="pfAvatarTxt">AK</span></div>
+                      <span class="pf-presence" id="pfPresence" data-s="available"></span>
+                      <input type="file" id="pfPhotoInput" accept="image/png,image/jpeg,image/webp" hidden/>
+                    </div>
+                    <div class="pf-hero-main">
+                      <div class="pf-hero-name" id="pfHeroName">Your name</div>
+                      <div class="pf-hero-user" id="pfHeroUser">@username</div>
+                      <div class="pf-hero-sub" id="pfHeroSub">Add a job title</div>
+                      <div class="pf-hero-actions">
+                        <button type="button" class="btn btn-outline btn-sm" id="pfPhotoBtn">Upload photo</button>
+                        <button type="button" class="btn btn-sm" id="pfPhotoRemove" hidden>Remove</button>
+                      </div>
+                    </div>
+                    <div class="pf-meter" aria-live="polite">
+                      <div class="pf-meter-top"><span>Profile strength</span><b id="pfMeterPct">0%</b></div>
+                      <div class="pf-meter-bar"><i id="pfMeterFill"></i></div>
+                      <div class="pf-meter-hint" id="pfMeterHint">Fill in your details to complete your profile.</div>
+                    </div>
+                  </div>
+
+                  <!-- Identity -->
+                  <div class="stg-card-subhead"><h4>Identity</h4><p>How people see you across DashView.</p></div>
+                  <div class="stg-field-grid">
+                    <div class="stg-field">
+                      <label for="pfName">Full name <span class="pf-req">*</span></label>
+                      <input type="text" class="stg-input" id="pfName" maxlength="60" autocomplete="name" placeholder="e.g. Amara Khan"/>
+                      <span class="stg-field-help pf-err" id="pfNameErr" hidden></span>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfUsername">Username <span class="pf-req">*</span></label>
+                      <div class="pf-handle">
+                        <span class="pf-at">@</span>
+                        <input type="text" class="stg-input" id="pfUsername" maxlength="24" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="amara.khan"/>
+                        <span class="pf-handle-state" id="pfHandleState" aria-hidden="true"></span>
+                      </div>
+                      <span class="stg-field-help" id="pfUserHelp">3–24 characters: letters, numbers, dots, dashes and underscores.</span>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfTitle">Job title</label>
+                      <input type="text" class="stg-input" id="pfTitle" maxlength="60" autocomplete="organization-title" placeholder="e.g. Operations Manager"/>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfDept">Department</label>
+                      <input type="text" class="stg-input" id="pfDept" maxlength="60" list="pfDeptList" placeholder="e.g. Finance"/>
+                      <datalist id="pfDeptList"><option>Management</option><option>Sales</option><option>Finance</option><option>Operations</option><option>Inventory</option><option>HR</option><option>IT</option><option>Marketing</option></datalist>
+                    </div>
+                    <div class="stg-field span-2">
+                      <label for="pfBio">About you <span class="pf-count" id="pfBioCount">0 / 160</span></label>
+                      <textarea class="stg-input pf-textarea" id="pfBio" maxlength="160" rows="3" placeholder="A short line about what you do and what you look after."></textarea>
+                    </div>
+                  </div>
+
+                  <!-- Contact -->
+                  <div class="stg-card-subhead"><h4>Contact &amp; region</h4><p>Used for reports, scheduled summaries and date formatting.</p></div>
+                  <div class="stg-field-grid">
+                    <div class="stg-field">
+                      <label for="pfEmail">Email</label>
+                      <input type="email" class="stg-input" id="pfEmail" readonly placeholder="Set by your account"/>
+                      <span class="stg-field-help">Comes from your sign-in account and can't be changed here.</span>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfPhone">Phone</label>
+                      <input type="tel" class="stg-input" id="pfPhone" maxlength="24" autocomplete="tel" placeholder="+92 300 0000000"/>
+                      <span class="stg-field-help pf-err" id="pfPhoneErr" hidden></span>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfLocation">Location</label>
+                      <input type="text" class="stg-input" id="pfLocation" maxlength="60" autocomplete="address-level2" placeholder="City, Country"/>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfTz">Time zone</label>
+                      <select class="stg-input" id="pfTz"></select>
+                      <span class="stg-field-help" id="pfTzNow"></span>
+                    </div>
+                    <div class="stg-field">
+                      <label for="pfLang">Language</label>
+                      <select class="stg-input" id="pfLang">
+                        <option value="en">English</option><option value="ur">اردو (Urdu)</option><option value="ar">العربية (Arabic)</option>
+                        <option value="hi">हिन्दी (Hindi)</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="es">Español</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Status + colour -->
+                  <div class="stg-card-subhead"><h4>Status &amp; look</h4><p>Let teammates know your availability and pick an avatar colour.</p></div>
+                  <div class="pf-status" role="radiogroup" aria-label="Availability" id="pfStatus">
+                    <button type="button" role="radio" data-s="available" aria-checked="true"><i></i>Available</button>
+                    <button type="button" role="radio" data-s="busy" aria-checked="false"><i></i>Busy</button>
+                    <button type="button" role="radio" data-s="away" aria-checked="false"><i></i>Away</button>
+                    <button type="button" role="radio" data-s="dnd" aria-checked="false"><i></i>Do not disturb</button>
+                  </div>
+                  <div class="stg-field-grid" style="margin-top:12px">
+                    <div class="stg-field">
+                      <label for="pfStatusText">Status message</label>
+                      <input type="text" class="stg-input" id="pfStatusText" maxlength="50" placeholder="e.g. In a meeting until 3 PM"/>
+                    </div>
+                    <div class="stg-field">
+                      <label>Avatar colour</label>
+                      <div class="pf-swatches" id="pfSwatches" role="radiogroup" aria-label="Avatar colour"></div>
+                    </div>
+                  </div>
+
+                  <!-- Preview -->
+                  <div class="stg-card-subhead"><h4>Preview</h4><p>This is how your profile appears in the sidebar.</p></div>
+                  <div class="pf-preview">
+                    <div class="pf-avatar pf-avatar-sm" id="pfPrevAvatar"><span></span></div>
+                    <div class="pf-prev-text"><p id="pfPrevName">Your name</p><span id="pfPrevMeta">workspace · Admin</span></div>
+                  </div>
+
+                  <div class="pf-savebar" id="pfSaveBar">
+                    <span class="pf-dirty" id="pfDirty" hidden><i></i>Unsaved changes</span>
+                    <div class="stg-action-row" style="margin:0 0 0 auto">
+                      <button type="button" class="btn btn-sm" id="pfDiscard" disabled>Discard</button>
+                      <button type="button" class="btn btn-signal btn-sm" id="pfSave" disabled>Save profile</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Workspace ── -->
               <div class="stg-card">
                 <div class="stg-card-head">
                   <div class="stg-card-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                   </div>
                   <div class="stg-card-head-text">
-                    <h3>Workspace profile</h3>
-                    <p>Your workspace identity and how it appears across the dashboard</p>
+                    <h3>Workspace</h3>
+                    <p>Your workspace identity across the dashboard</p>
                   </div>
                   <div class="stg-card-head-right">
-                    <span class="tag">acme-corp</span>
+                    <span class="tag" id="pfWsTag">acme-corp</span>
                   </div>
                 </div>
                 <div class="stg-card-body">
                   <div class="stg-field-grid">
                     <div class="stg-field">
-                      <label>Workspace name</label>
-                      <input type="text" class="stg-input" id="setWorkspaceName" value="acme-corp" placeholder="your-company"/>
+                      <label for="setWorkspaceName">Workspace name</label>
+                      <input type="text" class="stg-input" id="setWorkspaceName" maxlength="40" value="acme-corp" placeholder="your-company"/>
                       <span class="stg-field-help">Shown in the sidebar and exported reports.</span>
                     </div>
                     <div class="stg-field">
-                      <label>Display name</label>
-                      <input type="text" class="stg-input" id="setDisplayName" value="Amara Khan" placeholder="Your Name"/>
-                      <span class="stg-field-help">Appears in the user block and activity feed.</span>
+                      <label>Role</label>
+                      <input type="text" class="stg-input" id="pfRole" readonly value="Admin"/>
+                      <span class="stg-field-help">Set by your account permissions.</span>
                     </div>
                   </div>
                   <div class="stg-action-row">
-                    <button class="btn btn-signal btn-sm" id="saveProfileBtn">Save profile</button>
+                    <button type="button" class="btn btn-signal btn-sm" id="pfWsSave">Save workspace</button>
                   </div>
                 </div>
               </div>
@@ -1989,6 +2129,7 @@
 <script src="js/ai-settings-ui.js"></script>
 <script src="js/settings-pro.js"></script>
 <script src="js/settings-overview.js"></script>
+<script src="js/profile-pro.js"></script>
 <script src="js/ai-files.js"></script>
 <script src="js/ai-embed.js"></script>
 <script src="js/tabbar.js"></script>
