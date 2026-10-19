@@ -1,0 +1,76 @@
+/* ==========================================================================
+   DashView — Settings: top-centre capsule tab bar  (v2)
+   Moves the Settings tabs from the left rail to a horizontal capsule bar
+   centred above the content, using the same glossy pill + lamp design as the
+   dashboard tab bars. Also centres the header and tidies the content width.
+   Load AFTER tabbar.css (and after every other stylesheet).
+   ========================================================================== */
+
+/* Header: centred title block, search below the title */
+#view-settings .ov-head { flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; margin-bottom: var(--sp-4, 16px); }
+#view-settings .stgo-search { width: 100%; max-width: 420px; justify-content: center; }
+#view-settings .stgo-search input { flex: 1; min-width: 0; text-align: left; }
+#view-settings .stgo-search span:empty { display: none; }
+#view-settings .stgo-center { max-width: 1120px; margin-inline: auto; margin-bottom: var(--sp-5, 20px); }
+#view-settings .ov-head > div { display: flex; flex-direction: column; align-items: center; }
+#view-settings .ov-head p { max-width: 56ch; }
+
+/* Order: title → tab bar → overview cards → panel content.
+   .stg-shell dissolves (display: contents) so the bar can sit right under the title. */
+#view-settings.active { display: flex; flex-direction: column; align-items: center; }
+#view-settings > * { width: 100%; }
+#view-settings .ov-head { order: 0; }
+#view-settings .stg-shell { display: contents; }
+#view-settings .stg-rail { order: 1; width: fit-content; margin-bottom: var(--sp-5, 20px); }
+#view-settings .stgo-center { order: 2; }
+#view-settings .stg-content { order: 3; }
+
+/* Shell: single centred column instead of rail + content */
+
+/* The tab bar → horizontal capsule, centred */
+#view-settings .stg-rail {
+  --tb-r: 999px;
+  position: sticky; top: calc(var(--nav-h, 56px) + 12px); z-index: 20;
+  flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: flex-start;
+  width: fit-content; max-width: 100%;
+  margin-inline: auto;
+  padding: 6px; gap: 2px;
+  border-radius: 999px;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+#view-settings .stg-rail::-webkit-scrollbar { display: none; }
+
+/* Group labels and dividers are not needed in a horizontal bar */
+#view-settings .stg-rail-label { display: none; }
+#view-settings .stg-rail-divider {
+  display: block; flex: 0 0 1px; width: 1px; height: 18px; margin: 0 4px; align-self: center;
+  background: var(--line, rgba(255,255,255,.12)); opacity: .7;
+}
+
+#view-settings .stg-rail .stg-tab {
+  width: auto; flex: 0 0 auto; min-width: 0;
+  min-height: 40px; padding: 9px 16px; gap: 8px;
+  border-radius: 999px; white-space: nowrap; justify-content: center;
+}
+#view-settings .stg-rail .stg-tab-status { margin-left: 2px; }
+#view-settings .stg-rail .stg-tab.active::before { display: none; }
+#view-settings .stg-rail .stg-tab.active { box-shadow: none; background: transparent; }
+
+/* Content: centred, comfortable reading width */
+#view-settings .stg-content { width: 100%; max-width: 1120px; margin-inline: auto; }
+#view-settings .stg-panel { gap: var(--sp-5, 20px); }
+#view-settings .stg-card { width: 100%; }
+
+/* Tablet / phone */
+@media (max-width: 900px) {
+    #view-settings .stg-rail { position: sticky; top: calc(var(--nav-h, 56px) + 8px); flex-wrap: nowrap; }
+  #view-settings .stg-rail.dv-tabs { position: sticky; }
+  #view-settings .stg-rail .stg-tab { flex: 0 0 auto; padding: 8px 14px; }
+  #view-settings .stg-rail-divider { display: none; }
+  #view-settings .stg-content { max-width: 100%; }
+}
+@media (max-width: 520px) {
+  #view-settings .stg-rail .stg-tab { padding: 8px 12px; font-size: .78rem; }
+  #view-settings .stg-rail .stg-tab svg { display: none; }
+}
