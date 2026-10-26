@@ -9,6 +9,12 @@
    - Idle auto-lock, lock-now, and a local security event log.
    - Security checkup (score) used by Settings → Security.
 
+   The workspace lock is OPTIONAL and OFF by default. With it off nothing is
+   locked, nothing is gated and every feature works (including saving the Odoo
+   API key, which is then kept on this device unencrypted). Turning the lock on
+   is what adds the passcode screen, auto-lock and API-key encryption; turning
+   it off again restores the key to normal storage so no connection is lost.
+
    Honest scope: this is a static, browser-only app, so this protects data at
    rest on this device and against casual access. Real access control for Odoo
    itself must still be enforced by Odoo permissions + the Worker allow-lists.
@@ -54,7 +60,10 @@
     if (l.length > 300) l.length = 300;
     save(LOG_KEY, l);
   }
+  /* Only relevant while the lock is ON: a plaintext key next to an encrypted vault is a leftover and is removed.
+     With the lock OFF the stored key is the user's normal, working configuration and is left untouched. */
   (function removeLegacyPlaintextKey() {
+    if (!hasPin()) return;
     var raw = load(CFG_KEY, null);
     if (!raw || typeof raw.apiKey !== 'string' || !raw.apiKey) return;
     var protectedCopy = !!raw.apiKeyEnc && hasPin();
@@ -101,15 +110,13 @@
   /* -- Odoo config accessor (single source for all modules) ---------------- */
   function cfg() {
     var out = Object.assign({}, load(CFG_KEY, {}));
-    out.apiKey = hasPin() ? (mem.apiKey || '') : '';
+    /* Lock on  → the key exists only in memory after unlock. Lock off → the normally stored key. */
+    out.apiKey = hasPin() ? (mem.apiKey || '') : (typeof out.apiKey === 'string' ? out.apiKey : '');
     delete out.apiKeyEnc;
     return out;
   }
   function saveCfg(c) {
     var stored = Object.assign({}, c);
-    if (c.apiKey && !hasPin()) {
-      return Promise.reject(new Error('Enable a workspace passcode before saving the Odoo API key.'));
-    }
     if (hasPin()) {
       if (!mem.key) return Promise.reject(new Error('Unlock the workspace before saving Odoo settings.'));
       mem.apiKey = c.apiKey || mem.apiKey;
@@ -118,7 +125,10 @@
       catch (e) { return Promise.reject(e); }
       return sealKey();
     }
-    stored.apiKey = '';
+    /* Lock off: store the key as entered; a blank field keeps the previously saved key (same as the lock-on behaviour). */
+    var prev = load(CFG_KEY, {});
+    stored.apiKey = c.apiKey || (typeof prev.apiKey === 'string' ? prev.apiKey : '');
+    delete stored.apiKeyEnc;
     try { saveRequired(CFG_KEY, stored, 'Could not save Odoo settings in this browser.'); }
     catch (e) { return Promise.reject(e); }
     return Promise.resolve();
@@ -379,13 +389,28 @@
   function changePasscode(current, next) { return unlock(current).then(function () { return setPasscode(next); }); }
   function removePasscode(current) {
     return unlock(current).then(function () {
-      var raw = load(CFG_KEY, null);
-      if (raw && raw.apiKeyEnc) throw new Error('Forget Odoo credentials before disabling the passcode. API keys are never stored unencrypted.');
+      /* unlock() has just decrypted the vault into memory. Hand the key back to normal storage first, so turning the
+         lock off never costs the person their Odoo connection; only then drop the passcode. */
+      var raw = load(CFG_KEY, null), restored = false;
+      if (raw && raw.apiKeyEnc) {
+        raw.apiKey = mem.apiKey || '';
+        delete raw.apiKeyEnc;
+        restored = !!raw.apiKey;
+        saveRequired(CFG_KEY, raw, 'Could not restore the Odoo API key. The workspace lock stays on.');
+        if (!raw.apiKey) save('dashview_odoo_connected', false);
+      }
       var c = conf(); delete c.pin; delete c.attempts;
-      saveRequired(SEC_KEY, c, 'Could not update security settings in this browser.');
+      try { saveRequired(SEC_KEY, c, 'Could not update security settings in this browser.'); }
+      catch (e) {
+        /* Roll back so the vault is not left half-open. */
+        if (restored) { try { var r2 = load(CFG_KEY, {}); r2.apiKey = ''; save(CFG_KEY, r2); } catch (x) {} sealKey(); }
+        throw e;
+      }
       mem.key = null; mem.apiKey = null;
-      try { sessionStorage.removeItem('dv_sk'); } catch (e) {}
-      log('Passcode disabled', 'No Odoo API key is stored on this device.', 'review');
+      try { sessionStorage.removeItem('dv_sk'); sessionStorage.removeItem('dv_last'); } catch (e) {}
+      if (locked) setLocked(false);
+      log('Workspace lock turned off', restored ? 'Odoo API key moved back to normal (unencrypted) storage on this device.' : 'Nothing was locked or encrypted.', 'review');
+      fire('dv:unlocked');
     });
   }
   function strength(p) {
@@ -418,30 +443,35 @@
 
   /* -- Checkup ------------------------------------------------------------- */
   function checkup() {
-    var c = conf(), o = load(CFG_KEY, {}), items = [];
-    var add = function (id, label, ok, weight, hint) { items.push({ id: id, label: label, ok: !!ok, weight: weight, hint: hint }); };
+    var c = conf(), o = load(CFG_KEY, {}), items = [], lockOn = hasPin();
+    /* na = the check only means something while the optional lock is on. It is shown, but never counted against the score. */
+    var add = function (id, label, ok, weight, hint, na) { items.push({ id: id, label: label, ok: !!ok || !!na, weight: weight, hint: hint, na: !!na }); };
     var hasKey = !!(o.apiKey || o.apiKeyEnc);
     var expectedKey = !!(o.url && o.db && (o.username || o.user));
+    var offHint = 'Optional - turn on the workspace lock to use this.';
     add('https', 'Page is served over HTTPS', location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname), 15, 'Host the app on HTTPS (GitHub Pages / Cloudflare do this by default).');
-    add('pin', 'Passcode lock is on', hasPin(), 25, 'Set a passcode below.');
+    add('pin', lockOn ? 'Workspace lock is on' : 'Workspace lock (optional, off)', lockOn, 25, 'Optional: turn on the workspace lock below.', !lockOn);
     add('vault', 'Odoo API key is encrypted at rest', (!hasKey && !expectedKey) || !!o.apiKeyEnc, 20,
-      expectedKey && !hasKey ? 'Enable a passcode, then re-enter your Odoo API key.' : 'Enable the passcode — it encrypts the stored API key.');
-    add('auto', 'Auto-lock after ≤ 15 min idle', hasPin() && c.autoLock > 0 && c.autoLock <= 15, 10, 'Pick 15 minutes or less.');
-    add('redact', 'Backups exclude secrets', c.redact !== false, 10, 'Turn on “Exclude secrets from backups”.');
+      expectedKey && !hasKey ? 'Re-enter your Odoo API key.' : 'The workspace lock encrypts the stored API key.', !lockOn);
+    add('auto', 'Auto-lock after \u2264 15 min idle', lockOn && c.autoLock > 0 && c.autoLock <= 15, 10, 'Pick 15 minutes or less.', !lockOn);
+    add('redact', 'Backups exclude secrets', c.redact !== false, 10, 'Turn on \u201cExclude secrets from backups\u201d.');
     add('tls', 'Worker and Odoo URLs use HTTPS', (!o.proxyUrl || /^https:/i.test(o.proxyUrl)) && (!o.url || /^https:/i.test(o.url)), 10, 'Use https:// for both URLs.');
-    add('cors', 'Worker only accepts requests from this site', c.workerOrigin === 'restricted', 10, c.workerOrigin === 'open' ? 'Worker answers any origin — set ALLOWED_ORIGINS (see below).' : 'Run a live Odoo request so this can be verified.');
-    var a = c.attempts || {}, sess = (function () { try { return !!sessionStorage.getItem('dv_last'); } catch (e) { return true; } })();
+    add('cors', 'Worker only accepts requests from this site', c.workerOrigin === 'restricted', 10, c.workerOrigin === 'open' ? 'Worker answers any origin - set ALLOWED_ORIGINS (see below).' : 'Run a live Odoo request so this can be verified.');
+    var a = c.attempts || {};
     add('csp', 'Browser content policy (CSP) is active', !!document.querySelector('meta[http-equiv="Content-Security-Policy"]'), 5, 'Keep the CSP meta tag on every page.');
-    add('brute', 'No recent failed unlock attempts', !(a.n >= 3), 5, 'Several wrong passcodes were entered. Review the audit log and change the passcode if it was not you.');
-    var total = items.reduce(function (s, i) { return s + i.weight; }, 0);
-    var got = items.reduce(function (s, i) { return s + (i.ok ? i.weight : 0); }, 0);
-    var sc = Math.round(got / total * 100); return { score: sc, grade: sc >= 90 ? 'A' : sc >= 80 ? 'B' : sc >= 65 ? 'C' : sc >= 50 ? 'D' : 'F', failed: items.filter(function (i) { return !i.ok; }).length, items: items };
+    add('brute', 'No recent failed unlock attempts', !(a.n >= 3), 5, 'Several wrong passcodes were entered. Review the audit log and change the passcode if it was not you.', !lockOn);
+    items.forEach(function (i) { if (i.na && !i.hint) i.hint = offHint; });
+    var counted = items.filter(function (i) { return !i.na; });
+    var total = counted.reduce(function (s, i) { return s + i.weight; }, 0);
+    var got = counted.reduce(function (s, i) { return s + (i.ok ? i.weight : 0); }, 0);
+    var sc = total ? Math.round(got / total * 100) : 100;
+    return { score: sc, grade: sc >= 90 ? 'A' : sc >= 80 ? 'B' : sc >= 65 ? 'C' : sc >= 50 ? 'D' : 'F', failed: counted.filter(function (i) { return !i.ok; }).length, lock: lockOn, items: items };
   }
 
   /* -- Boot ---------------------------------------------------------------- */
   window.DVSec = {
     supported: !!subtle,
-    hasPasscode: hasPin, isLocked: function () { return locked; },
+    hasPasscode: hasPin, lockEnabled: hasPin, isLocked: function () { return locked; },
     cfg: cfg, saveCfg: saveCfg, getConf: conf, setConf: setConf,
     lock: lock, unlock: unlock, setPasscode: setPasscode, changePasscode: changePasscode, removePasscode: removePasscode, forgetCredentials: forgetCredentials,
     strength: strength, log: log, getLog: function () { return load(LOG_KEY, []); }, clearLog: function () { save(LOG_KEY, []); },
@@ -455,6 +485,11 @@
       if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
     });
   }
+
+  /* The lock was turned off in another tab: release this tab too instead of leaving a lock screen nobody can pass. */
+  window.addEventListener('storage', function (e) {
+    if (e.key === SEC_KEY && locked && !hasPin()) { mem.key = null; mem.apiKey = null; setLocked(false); fire('dv:unlocked'); }
+  });
 
   var last = 0;
   ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(function (ev) {

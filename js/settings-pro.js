@@ -501,7 +501,8 @@
      Mandatory checklist — live status from DVSec.checkup() where the id
      matches; items DVSec doesn't track (dedicated Odoo user) stay static.
   --------------------------------------------------------------------- */
-  var CHECKLIST_ID_MAP = { 0: 'https', 1: 'pin', 2: 'vault', 3: 'auto', 4: 'redact', 5: 'tls', 6: 'cors' };
+  /* Row order in #secMandatoryChecklist -> DVSec.checkup() item id. Rows with no id (the dedicated Odoo user) stay static. */
+  var CHECKLIST_IDS = ['https', 'pin', 'vault', 'auto', 'redact', 'tls', 'cors'];
 
   function initMandatoryChecklist() {
     var list = byId('secMandatoryChecklist');
@@ -509,15 +510,24 @@
     var result;
     try { result = window.DVSec.checkup(); } catch (e) { return; }
     if (!result || !result.items) return;
+    var byKey = {};
+    result.items.forEach(function (item) { byKey[item.id] = item; });
     var rows = list.querySelectorAll('.chk-row');
-    result.items.forEach(function (item, i) {
-      var row = rows[i];
-      if (!row) return;
+    CHECKLIST_IDS.forEach(function (id, i) {
+      var row = rows[i], item = byKey[id];
+      if (!row || !item) return;
       var badge = row.querySelector('.chk-badge');
       if (!badge) return;
+      /* The row's original weight is remembered on the badge, so re-running this (tab changes) never loses it. */
+      var base = badge.getAttribute('data-base') || (badge.classList.contains('opt') ? 'opt' : badge.classList.contains('req') ? 'req' : 'rec');
+      var cls, text;
+      if (item.na) { cls = 'opt'; text = 'Off \u00B7 optional'; }          /* lock-only check while the optional lock is off */
+      else if (item.ok) { cls = 'ok'; text = 'OK'; }
+      else { cls = base; text = base === 'req' ? 'Required' : base === 'opt' ? 'Optional' : 'Recommended'; }
       var live = document.createElement('span');
-      live.className = 'chk-badge ' + (item.ok ? 'ok' : (badge.classList.contains('req') ? 'req' : 'rec'));
-      live.textContent = item.ok ? 'OK' : (badge.classList.contains('req') ? 'Required' : 'Recommended');
+      live.className = 'chk-badge ' + cls;
+      live.setAttribute('data-base', base);
+      live.textContent = text;
       badge.parentNode.replaceChild(live, badge);
     });
   }

@@ -66,9 +66,9 @@
 <!-- Liquid Glass / density / chart-label preferences are applied by js/config.js on every page -->
 <link rel="stylesheet" href="css/8k-quality.css"/>
 <link rel="stylesheet" href="css/sidebar-itb.css"/>
-<link rel="stylesheet" href="css/ios-smooth.css"/>
 <link rel="stylesheet" href="css/settings-topbar.css"/>
 <link rel="stylesheet" href="css/profile-pro.css"/>
+<link rel="stylesheet" href="css/ios-smooth.css"/>
 <script defer src="js/ios-smooth.js"></script>
 <script src="js/8k-quality.js" defer></script>
 </head>
@@ -1521,12 +1521,14 @@
               <div class="stg-card">
                 <div class="stg-card-head">
                   <div class="stg-card-icon" style="background:rgba(232,163,61,0.12);color:#e8a33d;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
-                  <div class="stg-card-head-text"><h3>Passcode &amp; encrypted credentials</h3><p>Locks the workspace and encrypts your Odoo API key on this device (AES-256-GCM, PBKDF2 key)</p></div>
-                  <div class="stg-card-head-right"><span class="stg-status-pill" id="secPassState">Passcode off</span></div>
+                  <div class="stg-card-head-text"><h3>Workspace lock <small style="font-weight:500;opacity:.7;">(optional)</small></h3><p>Off by default. Turn it on to lock the workspace behind a passcode and encrypt your Odoo API key on this device (AES-256-GCM, PBKDF2 key)</p></div>
+                  <div class="stg-card-head-right"><span class="stg-status-pill" id="secPassState">Lock off</span></div>
                 </div>
                 <div class="stg-card-body">
-                  <p class="stg-field-help" id="secUnsupported" hidden style="color:var(--danger);">Secure storage needs HTTPS (or localhost). Open the app over HTTPS to enable a passcode.</p>
-                  <p class="stg-field-help">A 12+ character passcode is required before saving Odoo API keys. Keys are encrypted on this device and cleared from memory when the workspace locks.</p>
+                  <p class="stg-field-help" id="secUnsupported" hidden style="color:var(--danger);">Secure storage needs HTTPS (or localhost). Open the app over HTTPS to use the optional workspace lock.</p>
+                  <label class="sec-toggle" for="secLockToggle"><input type="checkbox" id="secLockToggle" role="switch" aria-controls="secLockBody"/><span><b>Use a workspace lock</b><small id="secLockToggleHelp">Everything in DashView works without it. When it is off, nothing is locked and your Odoo API key is kept on this device without encryption.</small></span></label>
+                  <div id="secLockBody" hidden style="margin-top:16px;">
+                  <p class="stg-field-help">While the lock is on, a 12+ character passcode protects the workspace, the Odoo API key is encrypted on this device and it is cleared from memory whenever the workspace locks.</p>
                   <div class="sec-grid">
                     <div class="stg-field" id="secCurWrap" hidden><label for="secCur">Current passcode</label><input type="password" class="pro-select" id="secCur" autocomplete="current-password"/></div>
                     <div class="stg-field"><label for="secPass1">New passcode</label><input type="password" class="pro-select" id="secPass1" minlength="12" autocomplete="new-password" placeholder="At least 12 characters"/>
@@ -1537,11 +1539,12 @@
                   </div>
                   <p class="sec-msg" id="secMsg" role="status"></p>
                   <div class="stg-action-row">
-                    <button class="btn btn-primary btn-sm" id="secSetBtn" type="button">Enable passcode</button>
+                    <button class="btn btn-primary btn-sm" id="secSetBtn" type="button">Turn on workspace lock</button>
                     <button class="btn btn-outline btn-sm" id="secLockBtn" type="button" hidden>Lock now (Ctrl/⌘ + Shift + L)</button>
-                    <button class="btn btn-outline btn-sm" id="secRemoveBtn" type="button" hidden style="color:var(--danger);border-color:var(--danger-10);margin-left:auto;">Disable passcode</button>
+                    <button class="btn btn-outline btn-sm" id="secRemoveBtn" type="button" hidden style="color:var(--danger);border-color:var(--danger-10);margin-left:auto;">Turn off workspace lock</button>
                   </div>
-                  <p class="stg-field-help">There is no recovery: if you forget the passcode, use “Wipe all local data” below and reconnect Odoo. Brute-force attempts are rate-limited (5 tries, then increasing delays).</p>
+                  <p class="stg-field-help">There is no recovery: if you forget the passcode, use “Wipe all local data” below and reconnect Odoo. Brute-force attempts are rate-limited (5 tries, then increasing delays). Turning the lock off needs the current passcode and moves the Odoo API key back to normal storage, so your connection keeps working.</p>
+                  </div>
                 </div>
               </div>
 
@@ -1593,10 +1596,10 @@
                 </div>
                 <div class="stg-card-body">
                   <ul class="chk-list" id="secMandatoryChecklist">
-                    <li class="chk-row"><span class="chk-badge req">Required</span><span class="chk-txt"><b>Served over HTTPS</b><span>No passcode or encryption feature works without it.</span></span></li>
-                    <li class="chk-row"><span class="chk-badge req">Required</span><span class="chk-txt"><b>Passcode lock enabled</b><span>Gate for every other credential protection below.</span></span></li>
-                    <li class="chk-row"><span class="chk-badge req">Required</span><span class="chk-txt"><b>Odoo API key encrypted at rest</b><span>AES-256-GCM, only unlocked while the workspace is open.</span></span></li>
-                    <li class="chk-row"><span class="chk-badge rec">Recommended</span><span class="chk-txt"><b>Auto-lock at 15 minutes or less</b><span>Shorter is safer on shared or portable devices.</span></span></li>
+                    <li class="chk-row"><span class="chk-badge req">Required</span><span class="chk-txt"><b>Served over HTTPS</b><span>The optional lock and encryption need it, and it protects the API key in transit.</span></span></li>
+                    <li class="chk-row"><span class="chk-badge opt">Optional</span><span class="chk-txt"><b>Workspace lock</b><span>Off by default and never required. Turn it on for shared or portable devices.</span></span></li>
+                    <li class="chk-row"><span class="chk-badge opt">Optional</span><span class="chk-txt"><b>Odoo API key encrypted at rest</b><span>With the lock on: AES-256-GCM, only unlocked while the workspace is open.</span></span></li>
+                    <li class="chk-row"><span class="chk-badge opt">Optional</span><span class="chk-txt"><b>Auto-lock at 15 minutes or less</b><span>Applies only while the workspace lock is on.</span></span></li>
                     <li class="chk-row"><span class="chk-badge rec">Recommended</span><span class="chk-txt"><b>Backups exclude secrets</b><span>Keeps exported JSON files safe to email or store anywhere.</span></span></li>
                     <li class="chk-row"><span class="chk-badge rec">Recommended</span><span class="chk-txt"><b>Worker and Odoo URLs on HTTPS</b><span>Plain HTTP would leak the API key in transit.</span></span></li>
                     <li class="chk-row"><span class="chk-badge rec">Recommended</span><span class="chk-txt"><b>Worker restricted to this origin</b><span>Stops any other website from calling your proxy with your key.</span></span></li>

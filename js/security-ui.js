@@ -15,22 +15,36 @@
     var r = S.checkup(), tone = r.score >= 80 ? 'ok' : r.score >= 50 ? 'warn' : 'bad';
     var ring = $('secRing'); ring.style.setProperty('--p', r.score); ring.className = 'sec-ring ' + tone;
     $('secScore').textContent = r.score;
-    $('secGrade').textContent = 'Grade ' + r.grade + ' \u00B7 ' + (r.failed ? r.failed + ' to fix \u00B7 ' : 'all checks passed \u00B7 ') + (r.score >= 80 ? 'Strong protection' : r.score >= 50 ? 'Needs attention' : 'Weak - fix the items below');
+    $('secGrade').textContent = 'Grade ' + r.grade + ' \u00B7 ' + (r.failed ? r.failed + ' to fix \u00B7 ' : 'all checks passed \u00B7 ') + (r.score >= 80 ? 'Strong protection' : r.score >= 50 ? 'Needs attention' : 'Weak - fix the items below') + (r.lock ? '' : ' \u00B7 workspace lock is optional and off');
     $('secChecks').innerHTML = r.items.map(function (i) {
+      if (i.na) return '<li class="ok na"><span class="sec-ico">\u2013</span><div><b>' + esc(i.label) + '</b><em>' + esc(i.hint) + '</em></div></li>';
       return '<li class="' + (i.ok ? 'ok' : 'todo') + '"><span class="sec-ico">' + (i.ok ? '✓' : '!') + '</span><div><b>' + esc(i.label) + '</b>' + (i.ok ? '' : '<em>' + esc(i.hint) + '</em>') + '</div></li>';
     }).join('');
   }
+  /* The workspace lock is optional and off by default. `setup` = the person flipped the switch on but has not chosen a passcode yet. */
+  var setup = false;
   function renderPass() {
-    var on = S.hasPasscode(), c = S.getConf();
+    var on = S.hasPasscode(), c = S.getConf(), t = $('secLockToggle');
+    if (on) setup = false;
+    t.checked = on || setup;
+    t.disabled = !S.supported && !on;
+    $('secLockBody').hidden = !t.checked;
     $('secPassState').className = 'stg-status-pill' + (on ? ' live' : '');
-    $('secPassState').textContent = on ? 'Passcode on' : 'Passcode off';
+    $('secPassState').textContent = on ? 'Lock on' : 'Lock off';
     $('secCurWrap').hidden = !on;
-    $('secSetBtn').textContent = on ? 'Change passcode' : 'Enable passcode';
+    $('secSetBtn').textContent = on ? 'Change passcode' : 'Turn on workspace lock';
     $('secRemoveBtn').hidden = !on; $('secLockBtn').hidden = !on;
     $('secAutoLock').value = String(c.autoLock == null ? 15 : c.autoLock);
-    $('secAutoLock').disabled = !on;
+    $('secAutoLock').disabled = !on && !setup;
     $('secRedact').checked = c.redact !== false;
     $('secUnsupported').hidden = S.supported;
+  }
+  function turnOff() {
+    if (!S.hasPasscode()) { setup = false; msg(''); return all(); }
+    if (!$('secCur').value) { msg('Enter your current passcode, then turn the lock off.', true); $('secCur').focus(); return all(); }
+    if (!confirm('Turn off the workspace lock? Nothing will be locked any more and your Odoo API key will be kept on this device without encryption.')) return all();
+    S.removePasscode($('secCur').value).then(function () { $('secCur').value = ''; msg('Workspace lock is off. All features stay available.'); document.dispatchEvent(new CustomEvent('dv:odoo-config-saved')); all(); })
+      .catch(function (e) { msg(e.message, true); all(); });
   }
   function renderLog() {
     var log = S.getLog().slice(0, 12), cls = { ok: 'ok', review: 'warn', blocked: 'bad' };
@@ -55,16 +69,20 @@
     if (p1.length < 12) return msg('Use at least 12 characters.', true);
     btn.disabled = true; msg('Securing…');
     var run = on ? S.changePasscode($('secCur').value, p1) : S.setPasscode(p1);
-    run.then(function () { ['secPass1', 'secPass2', 'secCur'].forEach(function (id) { $(id).value = ''; }); meter(); msg(on ? 'Passcode changed.' : 'Passcode enabled. Re-enter your Odoo API key in Settings → Odoo if prompted.'); document.dispatchEvent(new CustomEvent('dv:odoo-config-saved')); all(); })
+    run.then(function () { ['secPass1', 'secPass2', 'secCur'].forEach(function (id) { $(id).value = ''; }); meter(); msg(on ? 'Passcode changed.' : 'Workspace lock is on. Your Odoo API key is now encrypted on this device.'); document.dispatchEvent(new CustomEvent('dv:odoo-config-saved')); all(); })
       .catch(function (e) { msg(e.message || 'Could not set passcode.', true); }).then(function () { btn.disabled = false; });
   }
 
   function init() {
+    $('secLockToggle').addEventListener('change', function () {
+      if (this.checked) { setup = true; msg(''); all(); setTimeout(function () { if (!S.hasPasscode()) $('secPass1').focus(); }, 0); }
+      else turnOff();
+    });
     $('secPass1').addEventListener('input', meter);
     $('secSetBtn').addEventListener('click', setPass);
     $('secRemoveBtn').addEventListener('click', function () {
-      if (!confirm('Turn off the passcode? Forget saved Odoo credentials first; API keys are never stored unencrypted.')) return;
-      S.removePasscode($('secCur').value).then(function () { $('secCur').value = ''; msg('Passcode disabled.'); all(); }).catch(function (e) { msg(e.message, true); });
+      if (!$('secCur').value) { msg('Enter your current passcode, then turn the lock off.', true); $('secCur').focus(); return; }
+      turnOff();
     });
     $('secLockBtn').addEventListener('click', function () { S.lock('Manual lock from Settings'); });
     $('secAutoLock').addEventListener('change', function () { S.setConf({ autoLock: +this.value }); S.log('Auto-lock changed', this.value === '0' ? 'Never' : this.value + ' min'); all(); });

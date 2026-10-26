@@ -162,7 +162,7 @@ audit log by the same code path - so the three pages can never drift apart.
 - **Activity** - who did what and when, with field-level *before → after*
   changes for every People / Task / Hiring edit; search, item / action / date
   filters, paging (25 per page), filtered CSV export. The newest 5,000 events
-  are kept. **Security** shows lock / passcode events from the workspace.
+  are kept. **Security** shows lock / passcode events from the workspace (the workspace lock is optional and off by default).
 
 Data lives on the device only. Use *People → Data → Download backup* to move it
 between browsers.

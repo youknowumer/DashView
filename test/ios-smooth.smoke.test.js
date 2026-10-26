@@ -42,10 +42,33 @@ let prevented = { small: null, big: null };
 {
   const dom = new JSDOM('<html><body style="height:5000px"><header id="nav"></header><section class="ig-hero"></section></body></html>', { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
   const w = dom.window; w.matchMedia = () => ({ matches: false, addEventListener() {} });
-  w.scrollTo = () => {}; w.eval(js);
+  w.scrollTo = () => {}; Object.defineProperty(w.document.documentElement, 'scrollHeight', { value: 5000 });   /* jsdom has no layout */
+  w.eval(js);
   const fire = (dy) => { const e = new w.WheelEvent('wheel', { deltaY: dy, deltaMode: 0, cancelable: true, bubbles: true }); w.document.body.dispatchEvent(e); return e.defaultPrevented; };
   prevented.small = fire(8); prevented.big = fire(100);
 }
+/* v2.27: the same easing now runs on every page, not only the landing page */
+{
+  const mk = (attrs, body) => {
+    const dom = new JSDOM('<html ' + (attrs || '') + '><body>' + (body || '<p>app</p>') + '</body></html>', { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
+    const w = dom.window; w.matchMedia = () => ({ matches: false, addEventListener() {} }); w.scrollTo = () => {};
+    Object.defineProperty(w.document.documentElement, 'scrollHeight', { value: 5000 });
+    return w;
+  };
+  const wheel = (w, target, init) => { const e = new w.WheelEvent('wheel', Object.assign({ deltaY: 100, deltaMode: 0, cancelable: true, bubbles: true }, init)); target.dispatchEvent(e); return e.defaultPrevented; };
+  const app = mk(); app.eval(js);
+  ok('app page (no landing markup): mouse wheel is eased too', wheel(app, app.document.body) === true && app.document.documentElement.classList.contains('ios-wheel'));
+  const win = mk(); win.eval(js);
+  ok('Windows-scaled wheel (133.33 with wheelDelta 120) is recognised as a mouse', (() => { const e = new win.WheelEvent('wheel', { deltaY: 133.33, deltaMode: 0, cancelable: true, bubbles: true }); Object.defineProperty(e, 'wheelDeltaY', { value: -120 }); win.document.body.dispatchEvent(e); return e.defaultPrevented; })());
+  const off = mk('data-smooth-scroll="off"'); off.eval(js);
+  ok('data-smooth-scroll="off" opts out completely', wheel(off, off.document.body) === false && !off.document.documentElement.classList.contains('ios-wheel'));
+  const dlg = mk('', '<div class="modal-overlay open"><p id="m">x</p></div>'); dlg.eval(js);
+  ok('wheel is left to the browser while a dialog is open', wheel(dlg, dlg.document.getElementById('m')) === false);
+  const shift = mk(); shift.eval(js);
+  ok('Ctrl / Shift / horizontal wheel gestures are never taken over', wheel(shift, shift.document.body, { ctrlKey: true }) === false && wheel(shift, shift.document.body, { shiftKey: true }) === false && wheel(shift, shift.document.body, { deltaX: 300, deltaY: 100 }) === false);
+}
+ok('toasts and dialogs get the iOS material, spring entrance and phone banner', /\.toast\s*\{[^}]*backdrop-filter:\s*blur\(30px\)/.test(css) && /@keyframes iosToastUp/.test(css) && /@media \(max-width: 640px\)[\s\S]*top:\s*calc\(env\(safe-area-inset-top/.test(css) && /\.modal-card\s*\{[^}]*border-radius:\s*28px/.test(css));
+ok('toasts and dialogs respect reduced motion and reduced transparency', /prefers-reduced-transparency: reduce\)\s*\{[^}]*\.toast/.test(css) && /prefers-reduced-motion: reduce\)\s*\{\s*\.toast/.test(css));
 ok('trackpad-sized wheel deltas stay native', prevented.small === false);
 ok('notched mouse wheel (100) is eased', prevented.big === true);
 

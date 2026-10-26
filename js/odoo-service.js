@@ -170,7 +170,7 @@
           return Promise.resolve({ ok: false, error: 'That is the Cloudflare website, not your Worker. Your Worker URL ends in .workers.dev.' });
         }
       }
-      /* Credentials are saved encrypted when a passcode is set. */
+      /* Credentials are saved encrypted when the optional workspace lock is on; otherwise they are kept on this device as entered. */
       saveJSON(CONNECTED_KEY, false);
       return storeConfig(merged).then(function () { return proxyPost(merged.proxyUrl, 'test', {}); })
         .then(function (res) {

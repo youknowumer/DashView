@@ -29,7 +29,8 @@ const U = w.DV.updater, wait = (ms) => new Promise(r => setTimeout(r, ms)), $ = 
   assert.strictEqual(U.state().phase, 'downloading', 'newer version.json starts a background install');
   assert.strictEqual(U.state().background, true);
   assert(/Maintenance in progress/.test($('.dvb').textContent) && /keep working/.test($('.dvb').textContent), 'background notice says the app stays usable');
-  assert.strictEqual($('.dvu'), null, 'no popup while the update is still being prepared');
+  assert($('.dvb .dvb-app') && /DashView/.test($('.dvb .dvb-app').textContent), 'notice reads like an iOS notification (app name + time)');
+  assert.strictEqual($('.dvu:not(.is-out)'), null, 'no popup while the update is still being prepared');
   const pg = $('.dvb [role="progress"], .dvb .dvb-bar'); assert(pg, 'notice shows a progress bar');
 
   /* 3. service worker finished: the popup offers Update now / Later */
@@ -38,20 +39,27 @@ const U = w.DV.updater, wait = (ms) => new Promise(r => setTimeout(r, ms)), $ = 
   const dialog = $('.dvu'); assert(dialog, 'the Update available popup opens by itself');
   assert(/Update available/.test(dialog.textContent) && $('#u-in') && /Update now/.test($('#u-in').textContent) && $('#u-l') && /Later/.test($('#u-l').textContent), 'popup offers Update now and Later');
   assert(dialog.querySelector('.dvu-ng'), 'popup groups the release notes');
-  assert(!/Redesigned:|Added:|Changed:/.test(dialog.textContent) && /three/.test(dialog.textContent), 'Redesigned / Added / Changed notes lose their raw prefix and are grouped (not left as "Redesigned: ..." under New)');
-  assert(dialog.querySelector('.dvu-ng[data-k="improved"]') && /three/.test(dialog.querySelector('.dvu-ng[data-k="improved"]').textContent), 'a Redesigned note is grouped under Improved');
+  assert(!/Redesigned:|Added:|Changed:/.test(dialog.textContent) && /three/i.test(dialog.textContent), 'Redesigned / Added / Changed notes lose their raw prefix and are grouped (not left as "Redesigned: ..." under New)');
+  assert(dialog.querySelector('.dvu-ng[data-k="improved"]') && /three/i.test(dialog.querySelector('.dvu-ng[data-k="improved"]').textContent), 'a Redesigned note is grouped under Improved');
   assert.strictEqual(dialog.getAttribute('role'), 'dialog'); assert.strictEqual(dialog.getAttribute('aria-modal'), 'true');
   assert(dialog.getAttribute('aria-labelledby') && dialog.getAttribute('aria-describedby'), 'dialog has an accessible name and description');
   assert.strictEqual(w.document.activeElement.id, 'u-in', 'focus moves to the primary action');
-  assert.strictEqual($('.dvb'), null, 'the notice is hidden while the popup is open');
+  assert.strictEqual($('.dvb:not(.is-out)'), null, 'the notice is hidden while the popup is open');
   const outside = w.document.createElement('button'); w.document.body.appendChild(outside); outside.focus();
   outside.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
   assert(dialog.contains(w.document.activeElement), 'Tab cannot leave the modal');
   assert.strictEqual(posted.length, 0, 'nothing is installed without a tap');
 
   /* 4. Later closes the popup and quiets the notice */
-  $('#u-l').click(); assert(!$('.dvu'), 'Later closes the popup'); assert.strictEqual($('.dvb'), null, 'Later hides the notice for a while');
+  $('#u-l').click(); assert(!$('.dvu:not(.is-out)'), 'Later closes the popup'); assert.strictEqual($('.dvb:not(.is-out)'), null, 'Later hides the notice for a while');
   assert.strictEqual(U.state().phase, 'ready'); assert.strictEqual(posted.length, 0);
+  /* 4b. iOS behaviour: the closed popup plays an exit (inert, aria-hidden) and is then removed; it never blocks the next one */
+  const ghost = w.document.querySelector('.dvu.is-out');
+  assert(!ghost || (ghost.getAttribute('aria-hidden') === 'true'), 'a leaving popup is hidden from assistive tech');
+  await wait(400); assert.strictEqual(w.document.querySelectorAll('.dvu.is-out, .dvb.is-out').length, 0, 'leaving popups are removed after their exit');
+  const styles = w.document.getElementById('dvu-css').textContent;
+  assert(/@keyframes dvu-spring/.test(styles) && /@keyframes dvu-bn-in/.test(styles) && /dvu-sheet-down/.test(styles), 'spring entrance and exit animations exist');
+  assert(/touch-action:none/.test(styles), 'the sheet header can be dragged on touch screens');
 
   /* 5. Update now installs */
   w.localStorage.removeItem('dv-update-later'); U.open();

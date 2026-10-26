@@ -124,7 +124,7 @@ API key for routine task management.
 ## The AI shows no Odoo data — checklist
 
 1. In **ai.html** type `status`. It prints the exact failing stage:
-   - `config` → a field is empty. With a workspace passcode the API key lives only in memory: unlock, or re-enter the key in Settings → Odoo and press Connect.
+   - `config` → a field is empty. The workspace lock is optional and off by default; without it the API key is simply kept on this device and nothing needs unlocking. Only if you turned the lock on does the API key live in memory after unlock: unlock, or re-enter the key in Settings → Odoo and press Connect.
    - `proxy` / `reach` → Worker URL wrong or not deployed, or `ALLOWED_ORIGINS` / `ALLOWED_ODOO_HOSTS` don't match.
    - `login` → Database must be the subdomain (name.odoo.com → `name`), login email, fresh API key.
    - table row "no access" → give the API user that app's rights in Odoo; "not installed" → ignore or install.

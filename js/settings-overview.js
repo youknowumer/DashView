@@ -229,8 +229,8 @@
   function secCard() {
     var c = null; try { c = window.DVSec && window.DVSec.checkup(); } catch (e) {}
     if (!c) return { tab: 'security', label: 'Security', tone: 'warn', value: 'n/a', sub: 'Checkup unavailable' };
-    var miss = c.items.filter(function (i) { return !i.ok; }).length;
-    return { tab: 'security', label: 'Security', tone: c.score >= 85 ? 'good' : c.score >= 60 ? 'warn' : 'bad', value: c.score + '/100', sub: miss ? miss + ' check' + (miss > 1 ? 's' : '') + ' to fix' : 'All checks passed', c: c };
+    var miss = c.items.filter(function (i) { return !i.ok && !i.na; }).length;
+    return { tab: 'security', label: 'Security', tone: c.score >= 85 ? 'good' : c.score >= 60 ? 'warn' : 'bad', value: c.score + '/100', sub: miss ? miss + ' check' + (miss > 1 ? 's' : '') + ' to fix' : (c.lock === false ? 'All checks passed \u00B7 lock optional' : 'All checks passed'), c: c };
   }
   function backupCard() {
     var m = load('dashview_version_meta', {}), a = ago(m.lastBackup), days = m.lastBackup ? (Date.now() - new Date(m.lastBackup)) / 864e5 : null;
@@ -247,7 +247,7 @@
     var cards = [odooCard(), aiCard(), secCard(), backupCard(), versionCard(ver)], sec = cards[2], tasks = [];
     if (cards[0].tone !== 'good') tasks.push({ tab: 'odoo', tone: 'warn', t: 'Connect Odoo', d: 'Live KPIs, the executive overview and AI answers need an Odoo connection.' });
     if (cards[1].tone !== 'good') tasks.push({ tab: 'ai', tone: cards[1].tone, t: cards[1].value === 'Setup needed' ? 'Finish AI provider setup' : 'Choose an AI provider', d: 'Add a provider key so the assistant can query live Odoo data.' });
-    if (sec.c) sec.c.items.filter(function (i) { return !i.ok; }).sort(function (a, b) { return b.weight - a.weight; }).slice(0, 3)
+    if (sec.c) sec.c.items.filter(function (i) { return !i.ok && !i.na; }).sort(function (a, b) { return b.weight - a.weight; }).slice(0, 3)
       .forEach(function (i) { tasks.push({ tab: 'security', tone: i.weight >= 20 ? 'bad' : 'warn', t: i.label.replace(/ is on$/, ' is off'), d: i.hint || '' }); });
     if (cards[3].never || cards[3].days > 30) tasks.push({ tab: 'data', tone: 'warn', t: cards[3].never ? 'Take your first backup' : 'Refresh your backup', d: 'Export a backup from Data & backup.' });
     host.innerHTML =

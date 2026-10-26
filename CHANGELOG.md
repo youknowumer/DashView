@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.28.0 - 2026-10-26
+- New: Software Update now looks and moves like iOS - the notice drops in from the top with a spring, the sheet rises with a grabber, swipe up to dismiss the notice, swipe down to dismiss the sheet on phones, and closing plays a soft exit (js/updater.js)
+- Improved: every toast and dialog uses the same iOS glass look with a springy entrance - on phones toasts become top banners and dialogs become bottom sheets (css/ios-smooth.css)
+- Improved: smooth scrolling on every page - the mouse wheel glides, scrolls the panel or table under the pointer first, then the page, and keeps trackpads, dialogs and reduced motion untouched (js/ios-smooth.js; set data-smooth-scroll="off" on <html> to turn it off)
+- Improved: slim iOS-style scrollbars, momentum and scroll containment in panels (css/ios-smooth.css)
+- Fixed: the dashboard could override its own smoothness styles because they loaded too early (dashboard.html)
+- New: tests for the popup motion and site-wide wheel scrolling (test/updater.smoke.test.js, test/ios-smooth.smoke.test.js)
+
+## 2.27.0 - 2026-10-26
+- Changed: the workspace lock is now optional and OFF by default - every feature, including saving the Odoo API key, works without it; turn it on in Settings > Security only if you want a passcode screen, auto-lock and an encrypted API key (js/dv-security.js, js/security-ui.js, dashboard.html)
+- Changed: turning the lock off now needs the current passcode and moves the Odoo API key back to normal storage, so the Odoo connection is never lost; the key is no longer stripped on load while the lock is off
+- Changed: Security checkup ignores lock-only checks (lock, key encryption, auto-lock, failed attempts) while the lock is off, so the score and Needs attention list no longer penalise it (js/settings-overview.js)
+- Fixed: Security checklist matched rows to the wrong checkup items (the CSP result was shown on the Odoo user row) and lost each row's Required / Recommended weight on re-render (js/settings-pro.js)
+- New: tests for the optional lock (test/workspace-lock.smoke.test.js, test/workspace-lock-ui.smoke.test.js); manual, settings and setup docs updated
+
 ## 2.26.2 - 2026-10-19
 - Reverted: tab bar animations (landing page and dashboard / People dock) are back to the previous version - css/index-tabbar.css, js/index-tabbar.js, css/sidebar-itb.css, js/sidebar-dock.js restored
 

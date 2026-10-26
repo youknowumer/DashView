@@ -145,3 +145,90 @@ html.ios-lite .ig-glass, html.ios-lite .ig-float { -webkit-backdrop-filter: none
 
 /* background keeps still while the hero is out of view (nothing to see, nothing to repaint) */
 html.ios-hero-off .ig-bg::after, html.ios-hero-off .ig-blob { animation-play-state: paused; }
+
+/* ── 7 · POPUPS · iOS notification banner, alert and sheet ─────────────────
+   Every toast and dialog in the product (landing, dashboard, People, AI, Settings) gets the same iOS material:
+   frosted glass with a hairline edge, continuous rounded corners, a springy entrance and a soft exit.
+   The software-update popup and its banner live in js/updater.js and follow the same rules. */
+:root {
+  --ios-glass: color-mix(in srgb, var(--paper, #1c1c1e) 74%, transparent);
+  --ios-glass-edge: rgba(255, 255, 255, .14);
+  --ios-pop-shadow: 0 1px 0 rgba(255, 255, 255, .12) inset, 0 18px 44px -14px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .22);
+}
+html[data-theme="light"] {
+  --ios-glass: rgba(255, 255, 255, .78);
+  --ios-glass-edge: rgba(255, 255, 255, .9);
+  --ios-pop-shadow: 0 1px 0 #fff inset, 0 18px 44px -16px rgba(20, 28, 60, .35), 0 2px 8px rgba(20, 28, 60, .1);
+}
+
+/* toasts = notification banners */
+.toast-stack { z-index: 2147481000; gap: 10px; max-width: min(420px, calc(100vw - 24px)); pointer-events: none; }
+.toast {
+  position: relative; display: flex; align-items: center; gap: 10px;
+  min-height: 48px; padding: 12px 18px; max-width: 100%;
+  font: 500 14px/1.35 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif; letter-spacing: -.005em;
+  color: var(--ink, #f2f2f7); text-wrap: pretty;
+  background: var(--ios-glass); -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%);
+  border: .5px solid var(--ios-glass-edge); border-left-width: .5px; border-radius: 22px;
+  box-shadow: var(--ios-pop-shadow); pointer-events: auto; touch-action: pan-y;
+}
+.toast::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--signal, #e8a33d); box-shadow: 0 0 0 4px color-mix(in srgb, var(--signal, #e8a33d) 18%, transparent); }
+.toast.toast-success::before { background: var(--ios-green, #30d158); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ios-green, #30d158) 18%, transparent); }
+.toast.toast-error::before   { background: var(--ios-red, #ff453a);   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ios-red, #ff453a) 18%, transparent); }
+.toast.toast-warning::before { background: var(--ios-orange, #ff9f0a); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ios-orange, #ff9f0a) 18%, transparent); }
+.toast.toast-info::before    { background: var(--ios-blue, #0a84ff);   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ios-blue, #0a84ff) 18%, transparent); }
+.toast.toast-success, .toast.toast-error, .toast.toast-warning, .toast.toast-info { border-left: .5px solid var(--ios-glass-edge); }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes iosToastUp   { 0% { opacity: 0; transform: translate3d(0, 22px, 0) scale(.94); } 60% { opacity: 1; } 78% { transform: translate3d(0, -2px, 0) scale(1.006); } 100% { opacity: 1; transform: none; } }
+  @keyframes iosToastDown { 0% { opacity: 0; transform: translate3d(0, -22px, 0) scale(.94); } 60% { opacity: 1; } 78% { transform: translate3d(0, 2px, 0) scale(1.006); } 100% { opacity: 1; transform: none; } }
+  @keyframes iosToastOutDown { to { opacity: 0; transform: translate3d(0, 14px, 0) scale(.95); } }
+  @keyframes iosToastOutUp   { to { opacity: 0; transform: translate3d(0, -14px, 0) scale(.95); } }
+  .toast { animation: iosToastUp .56s var(--ios-spring) both; }
+  .toast.leaving { animation: iosToastOutDown .28s cubic-bezier(.4, 0, 1, 1) forwards; }
+  html[data-toastpos="tr"] .toast { animation-name: iosToastDown; }
+  html[data-toastpos="tr"] .toast.leaving { animation-name: iosToastOutUp; }
+}
+/* phones: the toast is a real iOS banner at the top of the screen, under the status bar */
+@media (max-width: 640px) {
+  .toast-stack, html[data-toastpos] .toast-stack {
+    top: calc(env(safe-area-inset-top, 0px) + 8px); bottom: auto; left: 8px; right: 8px; transform: none; max-width: none; align-items: stretch;
+  }
+  .toast { animation-name: iosToastDown; border-radius: 26px; }
+  .toast.leaving { animation-name: iosToastOutUp; }
+}
+
+/* dialogs (waitlist, forms, confirmations): iOS alert / sheet */
+.modal-overlay { background: rgba(0, 0, 0, .34); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); transition: opacity .3s var(--ios-ease), visibility .3s; }
+html[data-theme="light"] .modal-overlay { background: rgba(80, 90, 120, .26); }
+.modal-card {
+  background: var(--ios-glass); -webkit-backdrop-filter: blur(40px) saturate(190%); backdrop-filter: blur(40px) saturate(190%);
+  border: .5px solid var(--ios-glass-edge); border-radius: 28px; box-shadow: var(--ios-pop-shadow);
+  transition: transform .5s var(--ios-spring), opacity .3s var(--ios-ease);
+}
+.modal-card h3 { letter-spacing: -.02em; }
+.modal-card button:active, .modal-card .btn:active { transform: scale(.97); }
+@media (max-width: 560px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-card { max-width: none; width: 100%; border-radius: 28px 28px 0 0; padding-bottom: calc(var(--sp-8, 24px) + env(safe-area-inset-bottom, 0px)); transform: translateY(100%); }
+  .modal-overlay.open .modal-card { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .toast, .modal-card, .modal-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .toast, .modal-card { background: var(--paper, #1c1c1e); }
+}
+@media (prefers-reduced-motion: reduce) { .toast, .toast.leaving { animation: none; } .modal-card, .modal-overlay { transition: none; } }
+
+/* ── 8 · SCROLLING · iOS feel on every page ────────────────────────────────
+   Wheel easing lives in js/ios-smooth.js (all pages). This part is what CSS alone can do:
+   slim overlay-style scrollbars, momentum + containment for panels, anchors that stop below sticky bars. */
+html { scroll-padding-top: 76px; }
+* { scrollbar-width: thin; scrollbar-color: rgba(128, 128, 140, .42) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(128, 128, 140, .38); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 140, .62); background-clip: content-box; border: 3px solid transparent; }
+*::-webkit-scrollbar-corner { background: transparent; }
+.dash-nav, .stg-content, .stg-rail, .dvu-bd, .table-wrap, .tbl-wrap, .cmd-list, .aiw-messages { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.dvu-bd { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html, .dvu-bd { scroll-behavior: auto; } }

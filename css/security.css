@@ -83,6 +83,7 @@ html.dv-locked body > *:not(#dvLock) { visibility: hidden !important; }
 .sec-checks li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
 .sec-checks b { font-weight: 600; display: block; } .sec-checks em { font-style: normal; color: var(--ink-50); font-size: 12px; }
 .sec-ico { width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 800; margin-top: 1px; }
+.sec-checks .na .sec-ico { background: var(--paper-soft, rgba(128,128,128,.14)); color: var(--ink-50); }
 .sec-checks .ok .sec-ico { background: color-mix(in srgb,var(--ios-green,#30d158) 18%,transparent); color: var(--ios-green,#30d158); } .sec-checks .todo .sec-ico { background: color-mix(in srgb,var(--ios-red,#ff453a) 16%,transparent); color: var(--ios-red,#ff453a); }
 .sec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .sec-meter { display: flex; gap: 4px; margin-top: 6px; } .sec-meter i { flex: 1; height: 4px; border-radius: 4px; background: rgba(127,127,127,.25); }

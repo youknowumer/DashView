@@ -10,6 +10,10 @@
    (or  "maintenance": true ) in version.json while you deploy, and set it back to false afterwards.
    A 503 answer from the host while it deploys is treated the same way.
 
+   Look and feel: iOS notification banner (top centre, springs in, swipe up to dismiss) and iOS sheet (springs in, grabber,
+   swipe down to dismiss on phones, soft exit, light haptic tick on supported devices). Critical updates and an install in
+   progress cannot be swiped away - they rubber-band back instead.
+
    Public API: DV.updater.check(manual) | .download() | .install() | .open() | .notes() | .state() | .info() | .history() | .prefs() | .setPrefs()
    Events:     window 'dv:update-state' (detail = state()) */
 (function () {
@@ -32,6 +36,42 @@
   var nxt = function () { return latest || cur; };
   var newerThanCur = function () { return !!(latest && latest.version && latest.version !== cur.version); };
   var later = function () { return Number(get(K.later)) > Date.now(); };
+  var calm = function () { try { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  /* light haptic tick (Android / supported browsers; iOS Safari ignores it). Never throws. */
+  function tick(ms) { try { if (!calm() && navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) {} }
+  /* Leave the screen the iOS way: the element keeps its look, plays a short exit, then is removed. `.is-out` elements no longer
+     count as open (aria-hidden, inert, no pointer events) so the next popup can appear immediately. */
+  function leave(el, ms) {
+    if (!el) return;
+    if (calm()) { el.remove(); return; }
+    el.classList.add('is-out'); el.setAttribute('aria-hidden', 'true'); try { el.inert = true; } catch (e) {}
+    setTimeout(function () { if (el.parentNode) el.remove(); }, ms || 320);
+  }
+  /* Drag-to-dismiss with iOS rubber-band. axis 'y' + dir 1 = swipe down, dir -1 = swipe up. If dismissing is not allowed (critical
+     update, install running) the element springs back instead. */
+  function swipe(el, handle, dir, canDismiss, onDismiss) {
+    if (!el || !window.PointerEvent) return;
+    var y0 = 0, dy = 0, t0 = 0, on = false, id = null;
+    var rubber = function (v) { return v * dir < 0 ? v * 0.18 : v; };
+    handle.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' || e.button > 0 || (e.target.closest && e.target.closest('button,a,summary,input'))) return;
+      if (handle.scrollTop > 0) return;
+      on = true; id = e.pointerId; y0 = e.clientY; dy = 0; t0 = Date.now(); el.classList.add('is-drag', 'is-moved'); el.classList.remove('is-snap');
+      try { handle.setPointerCapture(id); } catch (x) {}
+    });
+    handle.addEventListener('pointermove', function (e) {
+      if (!on) return; dy = e.clientY - y0;
+      var v = canDismiss() ? rubber(dy) : dy * dir > 0 ? dy * 0.22 : dy * 0.1;
+      el.style.transform = 'translateY(' + v + 'px)';
+    });
+    var end = function () {
+      if (!on) return; on = false; el.classList.remove('is-drag');
+      var v = (dy * dir) / Math.max(1, Date.now() - t0);                 /* px per ms in the dismiss direction */
+      if (canDismiss() && (dy * dir > 90 || v > 0.55 && dy * dir > 24)) { tick(10); onDismiss(); return; }
+      el.classList.add('is-snap'); el.style.transform = ''; setTimeout(function () { el.classList.remove('is-snap'); }, 460);
+    };
+    handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+  }
 
   /* ---------- icons ---------- */
   var IC = {
@@ -49,7 +89,7 @@
   /* ---------- styles (scoped tokens; follow the app's light/dark theme + accent) ---------- */
   var CSS = [
     '@keyframes dvu-in{from{opacity:0}to{opacity:1}}@keyframes dvu-pop{from{transform:translateY(14px) scale(.98);opacity:0}to{transform:none;opacity:1}}@keyframes dvu-up{from{transform:translateY(100%)}to{transform:none}}@keyframes dvu-slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}@keyframes dvu-drop{from{transform:translateY(-16px);opacity:0}to{transform:none;opacity:1}}@keyframes dvu-spin{to{transform:rotate(360deg)}}@keyframes dvu-ind{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}@keyframes dvu-draw{from{stroke-dashoffset:30}to{stroke-dashoffset:0}}',
-    '.dvu,.dvb{--u-bg:#1b2130;--u-bg2:#232b3d;--u-ink:#eef1f7;--u-mute:#a3adc2;--u-line:rgba(166,180,210,.18);--u-soft:rgba(166,180,210,.09);--u-acc:var(--signal,#e8a33d);--u-on-acc:#1f1708;--u-blue:#6fb0dd;--u-ok:#4fd18b;--u-bad:#f2705c;--u-shadow:0 24px 60px -20px rgba(6,10,24,.75),0 2px 6px rgba(6,10,24,.35);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}',
+    '.dvu:focus{outline:none}.dvu:not(.kb) button:focus-visible{outline:none}.dvu,.dvb{--u-bg:#1b2130;--u-bg2:#232b3d;--u-ink:#eef1f7;--u-mute:#a3adc2;--u-line:rgba(166,180,210,.18);--u-soft:rgba(166,180,210,.09);--u-acc:var(--signal,#e8a33d);--u-on-acc:#1f1708;--u-blue:#6fb0dd;--u-ok:#4fd18b;--u-bad:#f2705c;--u-shadow:0 24px 60px -20px rgba(6,10,24,.75),0 2px 6px rgba(6,10,24,.35);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}',
     'html[data-theme=light] .dvu,html[data-theme=light] .dvb{--u-bg:#ffffff;--u-bg2:#f4f6fa;--u-ink:#161a24;--u-mute:#5a647b;--u-line:rgba(22,32,64,.12);--u-soft:rgba(22,32,64,.05);--u-blue:#2563a8;--u-ok:#17814a;--u-bad:#c2362a;--u-shadow:0 24px 60px -24px rgba(22,32,64,.38),0 2px 6px rgba(22,32,64,.08)}',
     '.dvu *,.dvb *{box-sizing:border-box}.dvu svg,.dvb svg{display:block;width:100%;height:100%}',
     '[data-ph=available],[data-ph=maintenance]{--p:var(--u-acc)}[data-ph=downloading],[data-ph=installing]{--p:var(--u-blue)}[data-ph=ready],[data-ph=done],[data-ph=current]{--p:var(--u-ok)}[data-ph=failed]{--p:var(--u-bad)}',
@@ -93,7 +133,28 @@
     '.dvu-act{display:flex;gap:10px;margin-left:auto}.dvu-act button{min-height:42px}',
     '.dvu-mini{padding:34px 28px 26px;text-align:center}.dvu-mini .dvu-tile{margin:0 auto 16px}.dvu-mini .dvu-act{justify-content:center;margin-top:22px}.dvu-spin{width:44px;height:44px;margin:0 auto 16px;border-radius:50%;border:3px solid var(--u-line);border-top-color:var(--u-acc);animation:dvu-spin .8s linear infinite}',
     '@media (max-width:480px){.dvb{top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;left:8px;width:auto}.dvu{align-items:flex-end;padding:0}.dvu-sheet{width:100%;max-height:92vh;max-height:92dvh;border-radius:20px 20px 0 0;animation:dvu-up .34s cubic-bezier(.2,.8,.2,1)}.dvu-hd{padding:22px 20px 16px}.dvu-strip{margin:0 20px 14px}.dvu-bd{padding:2px 20px 12px}.dvu-ft{padding:14px 20px calc(env(safe-area-inset-bottom,0px) + 16px);flex-direction:column;align-items:stretch}.dvu-act{margin:0;flex-direction:column-reverse}.dvu-act button{width:100%}}',
-    '@media (prefers-reduced-motion:reduce){.dvb,.dvu,.dvu-sheet,.dvb-ico svg,.dvu-tile svg,.dvu-spin,.dvb-bar i,.dvu-bar i,.dvu button,.dvb button{animation:none!important;transition:none!important}.dvb-bar.ind i,.dvu-bar.ind i{width:100%;opacity:.5}}',
+    /* iOS motion + notification-banner layer (same specificity as css/8k-quality.css; this sheet loads later, so it wins) */
+    '@keyframes dvu-spring{0%{transform:translateY(26px) scale(.93);opacity:0}55%{opacity:1}72%{transform:translateY(-3px) scale(1.006)}100%{transform:none;opacity:1}}',
+    '@keyframes dvu-sheet-up{0%{transform:translateY(100%)}70%{transform:translateY(-6px)}100%{transform:none}}',
+    '@keyframes dvu-bn-in{0%{transform:translateY(-140%) scale(.9);opacity:0}60%{opacity:1}78%{transform:translateY(5px) scale(1.01)}100%{transform:none;opacity:1}}',
+    '@keyframes dvu-fade-out{to{opacity:0}}@keyframes dvu-sheet-out{to{transform:translateY(18px) scale(.96);opacity:0}}@keyframes dvu-sheet-down{to{transform:translateY(105%)}}@keyframes dvu-bn-out{to{transform:translateY(-130%) scale(.94);opacity:0}}@keyframes dvu-shine{from{transform:translateX(-120%)}to{transform:translateX(320%)}}',
+    '.dvu{animation:dvu-in .3s ease}.dvu .dvu-sheet{animation:dvu-spring .52s cubic-bezier(.32,.72,0,1) both;will-change:transform;touch-action:pan-y}',
+    '.dvu.is-out{pointer-events:none;animation:dvu-fade-out .24s ease forwards}.dvu.is-out .dvu-sheet{animation:dvu-sheet-out .24s cubic-bezier(.4,0,1,1) forwards}',
+    '.dvu .dvu-sheet.is-moved,.dvb .dvb-in.is-moved{animation:none}.dvu .dvu-sheet.is-drag{animation:none;transition:none}.dvu .dvu-sheet.is-snap{animation:none;transition:transform .42s cubic-bezier(.32,.72,0,1)}',
+    '.dvu.is-out .dvu-sheet.is-moved{animation:none;transition:transform .3s cubic-bezier(.4,0,1,1);transform:translateY(105%)!important}',
+    '.dvu-hd,.dvu-mini{touch-action:none}.dvu .dvu-sheet::before{width:38px;height:5px;margin-left:-19px;opacity:.32;cursor:grab}',
+    '.dvu .dvu-sheet .dvu-x:hover{background:var(--u-line)}',
+    '.dvb{left:0;right:0;margin:0 auto;top:calc(env(safe-area-inset-top,0px) + 10px);width:min(396px,calc(100vw - 20px));animation:none}',
+    '.dvb .dvb-in{animation:dvu-bn-in .62s cubic-bezier(.32,.72,0,1) both;touch-action:pan-x;will-change:transform;border-radius:28px;transition:transform .42s cubic-bezier(.32,.72,0,1)}',
+    '.dvb .dvb-in.is-drag{animation:none;transition:none}.dvb.is-out{pointer-events:none}.dvb.is-out .dvb-in{animation:dvu-bn-out .3s cubic-bezier(.4,0,1,1) forwards}',
+    '.dvb-app{display:flex;align-items:center;gap:6px;margin:0 0 2px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--u-mute)}.dvb-app i{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;opacity:.8}.dvb-app i:before{content:"\\00B7";margin-right:6px}',
+    '.dvb-tx{padding-right:26px}.dvb-tx b{font-size:15px;letter-spacing:-.012em}',
+    '.dvb .dvb-bar{height:4px;border-radius:4px}.dvb .dvb-bar i,.dvu-bar:not(.ind) i{position:relative;overflow:hidden;transition:width .45s cubic-bezier(.32,.72,0,1)}',
+    '.dvb .dvb-bar:not(.ind) i:after,.dvu-bar:not(.ind) i:after{content:"";position:absolute;top:0;bottom:0;width:36%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:dvu-shine 1.6s ease-in-out infinite}',
+    '.dvu button,.dvb button{transition:transform .22s cubic-bezier(.32,.72,0,1),background-color .18s ease,filter .18s ease}.dvu button:active,.dvb button:active{transform:scale(.96)}',
+    '.dvu .dvu-sheet .dvu-act button:active{background:var(--u-line)}.dvu .dvu-sheet .dvu-act button.p:active,.dvu .dvu-sheet .dvu-act button.ok:active{filter:brightness(.94)}',
+    '@media (max-width:480px){.dvb{top:calc(env(safe-area-inset-top,0px) + 6px);width:calc(100vw - 16px)}.dvu .dvu-sheet{animation:dvu-sheet-up .5s cubic-bezier(.32,.72,0,1) both}.dvu.is-out .dvu-sheet{animation:dvu-sheet-down .3s cubic-bezier(.4,0,1,1) forwards}}',
+    '@media (prefers-reduced-motion:reduce){.dvb,.dvb .dvb-in,.dvu,.dvu .dvu-sheet,.dvb-ico svg,.dvu-tile svg,.dvu-spin,.dvb-bar i,.dvu-bar i,.dvb-bar i:after,.dvu-bar i:after,.dvu button,.dvb button{animation:none!important;transition:none!important}.dvb-bar.ind i,.dvu-bar.ind i{width:100%;opacity:.5}.dvb-bar i:after,.dvu-bar i:after{display:none}}',
     '@media print{.dvu,.dvb{display:none!important}}'
   ].join('');
   function ensureCss() { if (!document.getElementById('dvu-css')) { var st = document.createElement('style'); st.id = 'dvu-css'; st.textContent = CSS; document.head.appendChild(st); } }
@@ -110,6 +171,7 @@
     if (!root) return;
     if (e.key === 'Escape' && phase !== 'installing') { hide(); return; }
     if (e.key === 'Tab') {
+      root.classList.add('kb');                           /* focus rings appear once the keyboard is used, like iOS full keyboard access */
       var f = focusables();
       if (!f.length) { e.preventDefault(); root.focus(); return; }
       var first = f[0], last = f[f.length - 1];
@@ -119,11 +181,13 @@
   }
   function show(html, ph) {
     ensureCss();
+    var fresh = !root;
     if (!root) {
       lastFocus = document.activeElement;
       root = document.createElement('div'); root.className = 'dvu'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'dvu-t'); root.setAttribute('tabindex', '-1');
       root.addEventListener('mousedown', function (e) { if (e.target === root && phase !== 'installing') hide(); });
       document.addEventListener('keydown', onKey, true);
+      root.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button.p,button.ok'); if (b) tick(8); });
       document.body.appendChild(root);
       try { document.documentElement.setAttribute('data-dvu-lock', document.documentElement.style.overflow || ''); document.documentElement.style.overflow = 'hidden'; } catch (e) {}
     }
@@ -133,12 +197,15 @@
     var desc = root.querySelector('.sub');
     if (desc) { desc.id = 'dvu-desc'; root.setAttribute('aria-describedby', 'dvu-desc'); } else root.removeAttribute('aria-describedby');
     var xb = $('.dvu-x'); if (xb) xb.onclick = hide;
+    var sh = root.firstChild, dismissable = function () { return phase !== 'installing' && !(nxt().critical && (phase === 'available' || phase === 'ready')); };
+    if (!fresh) sh.style.animation = 'none';                              /* a phase change inside an open sheet must not replay the entrance */
+    var grip = sh.querySelector('.dvu-hd,.dvu-mini'); if (grip) swipe(sh, grip, 1, dismissable, hide);
     var b = root.querySelector('button.p:not([disabled]),button.ok:not([disabled])') || focusables()[0];
     (b || root).focus();
   }
   function hide() {
     if (!root) return;
-    root.remove(); root = null; document.removeEventListener('keydown', onKey, true);
+    var gone = root; root = null; document.removeEventListener('keydown', onKey, true); leave(gone, 300);
     try { document.documentElement.style.overflow = document.documentElement.getAttribute('data-dvu-lock') || ''; document.documentElement.removeAttribute('data-dvu-lock'); } catch (e) {}
     try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch (e) {} lastFocus = null;
     renderBanner();
@@ -156,7 +223,7 @@
   var ORDER = ['security', 'new', 'improved', 'fixed'], LBL = { security: 'Security', new: 'New', improved: 'Improved', fixed: 'Fixed' };
   var TAGMAP = { fixed: 'fixed', new: 'new', added: 'new', improved: 'improved', redesigned: 'improved', rebuilt: 'improved', changed: 'improved', removed: 'improved', security: 'security' };
   function tagOf(t) { var m = /^(fixed|new|added|improved|redesigned|rebuilt|changed|removed|security)\b/i.exec(t); return m ? TAGMAP[m[1].toLowerCase()] : /^fix/i.test(t) ? 'fixed' : 'new'; }
-  function clean(x) { return String(x).replace(/^(fixed|new|added|improved|redesigned|rebuilt|changed|removed|security):?\s*/i, ''); }
+  function clean(x) { var t = String(x).replace(/^(fixed|new|added|improved|redesigned|rebuilt|changed|removed|security):?\s*/i, ''); return t.charAt(0).toUpperCase() + t.slice(1); }
   function notesHtml(n) {
     var g = { security: [], new: [], improved: [], fixed: [] }; (n || []).forEach(function (x) { g[tagOf(x)].push(clean(x)); });
     return ORDER.filter(function (k) { return g[k].length; }).map(function (k) {
@@ -187,7 +254,7 @@
   function renderBanner() {
     var n = nxt(), hold = (phase === 'available' || phase === 'ready') && later() && !n.critical;
     var vis = (phase === 'maintenance' && !maintHidden) || phase === 'downloading' || phase === 'available' || phase === 'ready' || (phase === 'failed' && !failHidden);
-    if (!vis || hold || root) { if (banner) { banner.remove(); banner = null; bannerKey = ''; } return; }
+    if (!vis || hold || root) { if (banner) { leave(banner, 340); banner = null; bannerKey = ''; } return; }
     ensureCss();
     if (!banner) { banner = document.createElement('div'); banner.className = 'dvb'; banner.setAttribute('role', 'status'); banner.setAttribute('aria-live', 'polite'); document.body.appendChild(banner); }
     var p = Math.round(pct);
@@ -199,14 +266,17 @@
     else if (phase === 'ready') { t = 'Update available'; s = 'DashView ' + (n.version || '') + ' is ready. Restart to apply it.'; ico = 'download'; btns = '<button class="ok" data-a="in">Update now</button><button data-a="info">Details</button>'; }
     else if (phase === 'available') { t = 'Update available'; s = 'DashView ' + (n.version || '') + (n.size ? ' · ' + size(n.size) : ''); ico = 'download'; btns = '<button class="p" data-a="dl">Download</button><button data-a="info">Details</button>'; if (n.critical) dismiss = false; }
     else { t = 'Update failed'; s = err || 'Check your connection and try again.'; ico = 'alert'; btns = '<button class="p" data-a="dl">Retry</button>'; }
-    banner.innerHTML = '<div class="dvb-in" data-ph="' + phase + '"><div class="dvb-ico">' + svg(ico) + '</div><div class="dvb-tx"><b>' + esc(t) + chip + '</b><span>' + esc(s) + '</span></div>' + bar + (btns ? '<div class="dvb-btns">' + btns + '</div>' : '') + (dismiss ? '<button class="x" data-a="later" aria-label="Dismiss">' + svg('x') + '</button>' : '') + '</div>';
+    banner.innerHTML = '<div class="dvb-in" data-ph="' + phase + '"><div class="dvb-ico">' + svg(ico) + '</div><div class="dvb-tx"><small class="dvb-app">DashView<i>now</i></small><b>' + esc(t) + chip + '</b><span>' + esc(s) + '</span></div>' + bar + (btns ? '<div class="dvb-btns">' + btns + '</div>' : '') + (dismiss ? '<button class="x" data-a="later" aria-label="Dismiss">' + svg('x') + '</button>' : '') + '</div>';
+    var dismissBanner = function () { if (phase === 'failed') failHidden = true; else if (phase === 'maintenance') maintHidden = true; else put(K.later, String(Date.now() + LATER_MS)); renderBanner(); };
     banner.querySelectorAll('[data-a]').forEach(function (b) {
       b.onclick = function () {
-        var a = b.getAttribute('data-a');
+        var a = b.getAttribute('data-a'); tick(8);
         if (a === 'dl') download(); else if (a === 'in') install(); else if (a === 'info') open();
-        else { if (phase === 'failed') failHidden = true; else if (phase === 'maintenance') maintHidden = true; else put(K.later, String(Date.now() + LATER_MS)); renderBanner(); }
+        else dismissBanner();
       };
     });
+    var bin = banner.firstChild;      /* swipe the notification up to dismiss it, like iOS */
+    swipe(bin, bin, -1, function () { return dismiss; }, dismissBanner);
   }
 
   /* ---------- popup: details for the current phase ---------- */
