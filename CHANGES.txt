@@ -1,4 +1,4 @@
-DashView 2.29.0 - changed files (same paths as the project; replace / add them as they are)
+DashView 2.29.1 - changed files (same paths as the project; replace / add them as they are)
 
 dashboard.html            zoom control + tab row, Hierarchy toolbar (search / sort / Top N / expand all), new stylesheet + script tags
 people.html               loads the new stylesheet too (People must use the same stylesheet stack as the dashboard)
@@ -10,6 +10,6 @@ js/studio-reconcile-ui.js setup folds after a run, result scrolls into view
 css/8k-quality.css        ultra-HD text boost no longer fights browser zoom-out
 js/8k-quality.js          zoom-out detection, chart canvases capped at 3x
 test/studio-core.test.js, test/studio-ui.smoke.test.js   new checks
-version.json, package.json, sw.js, CHANGELOG.md          release 2.29.0
+version.json, package.json, sw.js, CHANGELOG.md          release 2.29.1
 
 Then: commit + push, hard-refresh (Ctrl+Shift+R) so the new service worker cache loads.

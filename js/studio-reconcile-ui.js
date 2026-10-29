@@ -11,7 +11,8 @@
   var R = window.DVReconcile, d = document;
   if (!R) return;
 
-  var CHUNK_KEYS = 150, CHUNK_IDS = 80, PAGE = 100, MAX_MISSING_SCAN = 20000;
+  /* Odoo reads are capped per request by the Worker / server (200 on the account server, 500 on the legacy Worker): never ask for more than 200 and page with offset. */
+  var REQ_LIMIT = 200, CHUNK_KEYS = 100, CHUNK_IDS = 40, PAGE = 100, MAX_MISSING_SCAN = 20000;
   var ui = { dsRef: null, presetId: 'sale', mode: 'document', keyCol: '', keyField: 'name', hmap: {}, lmap: {}, tol: 0.01, dateTol: 0, scanMissing: true, scanAll: false,
     customModel: '', customFields: [], customMeta: null, running: false, cancel: false, progress: '', error: '', result: null, ctx: null,
     view: 'documents', status: 'all', q: '', page: 1, open: {}, setupOpen: true, justRan: false };
@@ -84,10 +85,16 @@
           if (i >= cs.length) return Promise.resolve();
           stop(); progress(label + ' ' + Math.min(i * CHUNK_KEYS, list.length).toLocaleString() + ' / ' + list.length.toLocaleString() + '…');
           var chunk = cs[i++];
-          return C.records(model, { domain: base.concat([[keyField, 'in', chunk]]), fields: fields, limit: chunk.length * 4 + 20, order: 'id' }).then(function (res) {
-            (res.rows || []).forEach(function (r) { out.docs.push(r); found[R.normKey(r[keyField])] = 1; var z = R.normKey(r[keyField]).replace(/^0+/, ''); if (z) found[z] = 1; });
-            return next();
-          });
+          var dom = base.concat([[keyField, 'in', chunk]]), off = 0;
+          function page() {   /* a few documents can share a number, so page instead of guessing a limit */
+            return C.records(model, { domain: dom, fields: fields, limit: REQ_LIMIT, offset: off, order: 'id' }).then(function (res) {
+              var got = res.rows || [];
+              got.forEach(function (r) { out.docs.push(r); found[R.normKey(r[keyField])] = 1; var z = R.normKey(r[keyField]).replace(/^0+/, ''); if (z) found[z] = 1; });
+              off += got.length;
+              if (got.length && off < (res.total || 0)) return page();
+            });
+          }
+          return page().then(next);
         }
         return next();
       }
@@ -121,7 +128,7 @@
           stop(); progress('Reading line items ' + Math.min(i * CHUNK_IDS, ids.length).toLocaleString() + ' / ' + ids.length.toLocaleString() + ' documents…');
           var chunk = cs[i++], off = 0;
           function page() {
-            return C.records(L.model, { domain: ldomain.concat([[L.parent, 'in', chunk]]), fields: lfields, limit: 4000, offset: off, order: 'id' }).then(function (res) {
+            return C.records(L.model, { domain: ldomain.concat([[L.parent, 'in', chunk]]), fields: lfields, limit: REQ_LIMIT, offset: off, order: 'id' }).then(function (res) {
               var got = res.rows || []; o.lines.push.apply(o.lines, got); off += got.length;
               if (got.length && off < (res.total || 0)) return page();
             });
@@ -145,7 +152,7 @@
         var wantF = pick(have, ['id', keyField, P.dateField].concat(o.mapSpecs.map(function (s) { return s.f; }), P.currencyField ? [P.currencyField] : [])), off = 0, all = [];
         function page() {
           stop(); progress('Looking for Odoo records not in your file ' + all.length.toLocaleString() + '…');
-          return C.records(model, { domain: dom, fields: wantF, limit: 1000, offset: off, order: 'id' }).then(function (res) {
+          return C.records(model, { domain: dom, fields: wantF, limit: REQ_LIMIT, offset: off, order: 'id' }).then(function (res) {
             var got = res.rows || []; all.push.apply(all, got); off += got.length;
             if (got.length && off < (res.total || 0) && all.length < MAX_MISSING_SCAN) return page();
             if ((res.total || 0) > MAX_MISSING_SCAN) o.notes.push('Odoo has ' + res.total.toLocaleString() + ' records in the file\'s date range; only the first ' + MAX_MISSING_SCAN.toLocaleString() + ' were checked for "missing from file".');

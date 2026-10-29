@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.29.1 - 2026-10-29
+- Fixed: Reconcile failed with "limit must be between 1 and 500" - it asked Odoo for up to 4000 records at a time; it now reads in pages of 200 (works with the account server and the Worker)
+
 ## 2.29.0 - 2026-10-29
 - New: Data Studio drill-down - click a bar/slice in any chart to drill into it, a drill path (All data > Region > Category) with one-click Up / Reset / View rows / Break down by, row counts and share of total, Alt+Up to go up
 - New: Hierarchy - find a group, sort, Top N with an Other roll-up that still adds up, expand/collapse all, value / share / rows columns, View rows (drill-through to the Data tab), keyboard navigation; toggling no longer recalculates the tree

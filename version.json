@@ -1,19 +1,19 @@
 {
-  "version": "2.29.0",
+  "version": "2.29.1",
   "build": "2026.10.29",
   "released": "2026-10-29",
   "notes": [
-    "New: Data Studio drill-down - click a bar/slice in any chart to drill into it, a drill path (All data > Region > Category) with one-click Up / Reset / View rows / Break down by, row counts and share of total, Alt+Up to go up",
-    "New: Hierarchy - find a group, sort, Top N with an Other roll-up that still adds up, expand/collapse all, value / share / rows columns, View rows (drill-through to the Data tab), keyboard navigation; toggling no longer recalculates the tree",
-    "New: workspace zoom (60-175%, Fit, Alt + / - / 0) on the Data Studio tab row - remembered on this device",
-    "Fixed: browser zoom-out made the page bigger again (ultra-HD text boost fought the zoom) - it now only applies on a real big screen (css/8k-quality.css, js/8k-quality.js)",
-    "Fixed: Overview layout at any zoom - KPI cards no longer wrap 3+1, widget rows end flush, charts keep a sensible height, Add widget is a slim bar, Fields panel becomes a drawer below 1100px",
-    "Fixed: Overview went blank when the Date range suggestion was added (text KPI had no aggregation); one broken widget can no longer blank the dashboard",
-    "Fixed: lag - removed per-card backdrop blur and hover lift inside the workspace, chart canvases capped at 3x",
-    "Fixed: Hierarchy kept the previous file's columns after importing a new file",
-    "Improved: Reconcile - setup folds into a one-line bar after a run and the result scrolls into view, mapping fields flow into columns, zoom is available on this tab too"
+    "Fixed: Reconcile failed with \"limit must be between 1 and 500\" - it asked Odoo for up to 4000 records at a time; it now reads in pages of 200 (works with the account server and the Worker)"
   ],
   "history": [
+    {
+      "version": "2.29.1",
+      "date": "2026-10-29",
+      "notes": [
+        "Fixed: Reconcile failed with \"limit must be between 1 and 500\" - it asked Odoo for up to 4000 records at a time; it now reads in pages of 200 (works with the account server and the Worker)"
+      ],
+      "critical": false
+    },
     {
       "version": "2.29.0",
       "date": "2026-10-29",
@@ -584,5 +584,5 @@
     }
   ],
   "critical": false,
-  "size": 4899112
+  "size": 4898679
 }
