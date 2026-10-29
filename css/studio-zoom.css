@@ -1,0 +1,258 @@
+/* ==========================================================================
+   DashView — Data Studio: zoom-proof layout, drill-down UI, performance
+   Load AFTER studio-workspace.css / studio-pro.css. Everything is scoped to
+   #view-studio so no other page changes.
+
+   1  Workspace zoom control (js/studio-zoom.js)
+   2  Overview: KPI row + widget grid that stay "justified" at any width
+   3  Drill path (breadcrumb trail, scope, Break down by, Up / View rows / Reset)
+   4  Hierarchy tab: toolbar + a real table-like tree (value · share · rows · actions)
+   5  Fields panel becomes a drawer earlier, so zoomed-in screens keep the width
+   6  Performance: no per-card backdrop blur / hover lift inside the workspace
+   ========================================================================== */
+
+/* ── 1 · Workspace zoom ──────────────────────────────────────────────────── */
+#view-studio .studio-tab-panel { zoom: var(--studio-zoom, 1); }
+.studio-zoom {
+  display: inline-flex; align-items: stretch; height: 34px; flex: 0 0 auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); overflow: hidden;
+}
+.studio-zoom button {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 34px; padding: 0 10px;
+  color: var(--ink-70); font-size: var(--fs-xs); font-weight: 600; border: 0; background: transparent; cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.studio-zoom button + button { border-left: 1px solid var(--line); }
+.studio-zoom button:hover:not(:disabled) { background: var(--paper-soft); color: var(--ink); }
+.studio-zoom button:disabled { opacity: .35; cursor: default; }
+.studio-zoom button:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+.studio-zoom .studio-zoom-level { min-width: 56px; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.studio-zoom .studio-zoom-fit { color: var(--signal); }
+.studio-zoom.is-fitted .studio-zoom-fit { background: var(--signal-10); }
+#view-studio[data-zoomed] .studio-zoom .studio-zoom-level { color: var(--signal); }
+/* the zoom control lives on the tab row, so it is there on every tab (Reconcile hides the summary strip) */
+#view-studio .studio-tabbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin-bottom: var(--sp-5, 20px); min-width: 0; }
+#view-studio .studio-tabbar > .studio-tabs { margin-bottom: 0; min-width: 0; max-width: 100%; }
+#view-studio .studio-summary-strip { flex-wrap: wrap; gap: 10px 14px; }
+#view-studio .studio-summary-strip > p { flex: 1 1 260px; min-width: 0; }
+#view-studio .studio-summary-actions { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 600px) {
+  #view-studio .studio-summary-actions { width: 100%; justify-content: flex-end; }
+  #view-studio .studio-tabbar { justify-content: flex-start; }
+  .studio-zoom button { min-width: 30px; padding: 0 8px; }
+}
+@media print { #view-studio .studio-tab-panel { zoom: 1 !important; } .studio-zoom { display: none; } }
+
+/* ── 2 · Overview grid ───────────────────────────────────────────────────── */
+/* KPI cards: as many as fit, then stretch to end flush - never "3 + 1 orphan" */
+#view-studio .kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(clamp(168px, 15vw, 240px), 1fr));
+  gap: var(--lx-gap, 16px); margin-bottom: var(--lx-gap, 16px);
+}
+#view-studio .kpi-card { min-width: 0; }
+#view-studio .kpi-card .kpi-value { font-size: clamp(1.5rem, 1.1rem + 1.1vw, 2.25rem); overflow-wrap: anywhere; line-height: 1.1; }
+#view-studio .kpi-card .kpi-label { overflow-wrap: anywhere; }
+
+/* Widget grid: width tiers are set by js/studio-ui.js (layoutWidgetGrid) from the width the grid
+   really has, so they hold at any browser zoom, with the Fields panel open or closed, and under the
+   workspace zoom. The last card of each row is stretched by the same script, so rows end flush. */
+#view-studio .widget-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: row; align-items: stretch; gap: var(--lx-gap, 16px); }
+#view-studio .widget-card { min-width: 0; grid-column: span 6; }
+#view-studio .widget-grid[data-w="xs"] .widget-card { grid-column: span 12; }
+#view-studio .widget-grid[data-w="sm"] .widget-card.size-s,
+#view-studio .widget-grid[data-w="sm"] .widget-card.size-m { grid-column: span 6; }
+#view-studio .widget-grid[data-w="sm"] .widget-card.size-l,
+#view-studio .widget-grid[data-w="sm"] .widget-card.size-full { grid-column: span 12; }
+#view-studio .widget-grid[data-w="md"] .widget-card.size-s { grid-column: span 4; }
+#view-studio .widget-grid[data-w="md"] .widget-card.size-m { grid-column: span 6; }
+#view-studio .widget-grid[data-w="md"] .widget-card.size-l { grid-column: span 8; }
+#view-studio .widget-grid[data-w="md"] .widget-card.size-full { grid-column: span 12; }
+#view-studio .widget-grid[data-w="lg"] .widget-card.size-s,
+#view-studio .widget-grid[data-w="xl"] .widget-card.size-s { grid-column: span 3; }
+#view-studio .widget-grid[data-w="lg"] .widget-card.size-m { grid-column: span 4; }
+#view-studio .widget-grid[data-w="xl"] .widget-card.size-m { grid-column: span 3; }
+#view-studio .widget-grid[data-w="lg"] .widget-card.size-l,
+#view-studio .widget-grid[data-w="xl"] .widget-card.size-l { grid-column: span 6; }
+#view-studio .widget-grid[data-w="lg"] .widget-card.size-full,
+#view-studio .widget-grid[data-w="xl"] .widget-card.size-full { grid-column: span 12; }
+/* the empty-dashboard message is a direct child too */
+#view-studio .widget-grid > .widget-empty { grid-column: 1 / -1; }
+
+/* "Add widget" is a slim full-width bar instead of a 4-column hole */
+#view-studio .widget-add-tile {
+  grid-column: 1 / -1 !important; flex-direction: row; min-height: 52px; gap: 10px; padding: 0 16px;
+  border-width: 1.5px; border-radius: var(--r-md);
+}
+#view-studio .widget-add-tile svg { width: 18px; height: 18px; }
+
+/* chart height follows the card, not a fixed 240/300 that looks flat when the card is wide */
+#view-studio .widget-body .chart-wrap { height: clamp(220px, 19vw, 320px); position: relative; }
+#view-studio .widget-card.size-l .chart-wrap,
+#view-studio .widget-card.size-full .chart-wrap { height: clamp(250px, 22vw, 380px); }
+#view-studio .widget-grid[data-w="xs"] .chart-wrap { height: 230px !important; }
+#view-studio .widget-head h4 { overflow-wrap: anywhere; }
+#view-studio .widget-head-sub { overflow-wrap: anywhere; }
+@media (max-width: 900px) { #view-studio .widget-card, #view-studio .widget-add-tile { grid-column: auto; } #view-studio .widget-add-tile { grid-column: 1 / -1 !important; } }
+
+/* wide tables and pivots always scroll inside their own frame, never push the page sideways */
+#view-studio .studio-tab-panel { min-width: 0; max-width: 100%; }
+#view-studio .grid-scroll, #view-studio .pivot-table-wrap { max-width: 100%; overscroll-behavior: contain; }
+#view-studio .studio-slicer-bar { flex-wrap: wrap; row-gap: 8px; }
+#view-studio .studio-slicer-bar .slicer-daterange { flex-wrap: wrap; }
+#view-studio .data-toolbar { row-gap: 8px; }
+#view-studio .data-pagination { flex-wrap: wrap; gap: 8px 14px; }
+
+/* ── 3 · Drill path ──────────────────────────────────────────────────────── */
+#view-studio .drill-breadcrumb {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px;
+  margin: 0 0 var(--sp-3); padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--signal) 30%, var(--line));
+  border-radius: var(--r-md); background: color-mix(in srgb, var(--signal-10) 55%, var(--paper));
+}
+#view-studio .drill-breadcrumb[style*="display: none"] { display: none !important; }
+.drill-trail { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+.drill-trail-label { font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-50); margin-right: 4px; }
+.drill-home {
+  padding: 4px 10px; border-radius: var(--r-full); border: 1px solid var(--line-strong); background: var(--paper);
+  color: var(--ink-70); font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.drill-home:hover { border-color: var(--signal); color: var(--ink); }
+#view-studio .drill-crumb { padding: 0 4px 0 0; gap: 0; max-width: 100%; border: 1px solid transparent; }
+#view-studio .drill-crumb .drill-crumb-label {
+  padding: 5px 4px 5px 12px; border-radius: var(--r-full); cursor: pointer; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28ch;
+}
+#view-studio .drill-crumb .drill-crumb-label em { font-style: normal; font-weight: 500; opacity: .75; }
+#view-studio .drill-crumb .drill-crumb-label:hover { text-decoration: underline; text-underline-offset: 3px; }
+#view-studio .drill-crumb .drill-crumb-label:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+#view-studio .drill-crumb.is-current { background: var(--signal); color: var(--on-signal, #17130d); }
+#view-studio .drill-crumb.is-current .drill-crumb-label { cursor: default; text-decoration: none; }
+#view-studio .drill-crumb button { width: 20px; height: 20px; flex: 0 0 auto; background: rgba(0, 0, 0, .1); }
+#view-studio .drill-crumb button:hover { background: rgba(0, 0, 0, .22); }
+#view-studio .drill-crumb button svg { width: 11px; height: 11px; }
+#view-studio .drill-crumb-sep { display: inline-flex; color: var(--ink-30); }
+#view-studio .drill-crumb-sep svg { width: 11px; height: 11px; }
+.drill-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.drill-scope { font-size: 12.5px; color: var(--ink-70); white-space: nowrap; }
+.drill-scope strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.drill-scope small { margin-left: 4px; padding: 1px 7px; border-radius: var(--r-full); background: var(--paper); border: 1px solid var(--line); font: 600 10.5px var(--f-mono); color: var(--signal); }
+.drill-next select { height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); font-size: var(--fs-xs); max-width: 170px; }
+@media (max-width: 700px) {
+  .drill-tools { width: 100%; }
+  .drill-scope { flex: 1 1 100%; }
+}
+
+/* ── 4 · Hierarchy ───────────────────────────────────────────────────────── */
+#view-studio .hierarchy-controls { row-gap: 8px; }
+#view-studio .hierarchy-controls-2 { align-items: center; margin-top: -4px; }
+#view-studio .hierarchy-controls select { min-width: 0; max-width: 100%; height: 34px; }
+#view-studio .h-search { flex: 1 1 200px; max-width: 320px; min-width: 150px; }
+#view-studio .h-summary { margin-left: auto; font-size: 12.5px; color: var(--ink-50); min-width: 0; overflow-wrap: anywhere; text-align: right; }
+#view-studio .h-summary strong { color: var(--ink); }
+#view-studio .h-summary .h-scope { color: var(--signal); font-weight: 600; }
+
+#view-studio .hierarchy-tree-wrap { padding: 6px; overflow: hidden; overflow: clip; }
+#view-studio .hierarchy-tree-wrap.is-widget { padding: 0; border: 0; }
+#view-studio .h-head,
+#view-studio .h-node-row {
+  display: grid; align-items: center; column-gap: 10px;
+  grid-template-columns: calc(18px + var(--lvl, 0) * 22px) max(110px, calc(28% - var(--lvl, 0) * 22px)) minmax(60px, 1fr) 86px 52px 62px 140px;
+}
+#view-studio .h-head { padding: 6px 8px 8px; font: 600 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-30); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+#view-studio .h-head > span { min-width: 0; }
+#view-studio .h-head .h-label { font: inherit; padding: 0; }
+#view-studio .h-head .h-bar-track { background: none; height: auto; }
+#view-studio .h-node-row > .h-toggle { justify-self: end; }
+#view-studio .h-node-row { padding: 6px 8px; min-height: 38px; border-radius: 7px; }
+#view-studio .h-node-row:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+#view-studio .h-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+#view-studio .h-label mark { background: color-mix(in srgb, var(--signal) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+#view-studio .h-value, #view-studio .h-share, #view-studio .h-count { width: auto; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#view-studio .h-share { font: 600 12px var(--f-mono); color: var(--ink-70); }
+#view-studio .h-count { font: 12px var(--f-mono); color: var(--ink-30); }
+#view-studio .h-bar-track { min-width: 0; height: 8px; }
+#view-studio .h-bar-track { display: block; }
+#view-studio .h-bar-fill { display: block; min-width: 2px; transition: width .2s ease; }
+#view-studio .h-actions { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; }
+#view-studio .h-drill-btn, #view-studio .h-rows-btn {
+  opacity: 1; padding: 4px 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink-70);
+}
+#view-studio .h-drill-btn { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 40%, var(--line)); }
+#view-studio .h-drill-btn:hover { background: var(--signal-10); }
+#view-studio .h-rows-btn:hover { border-color: var(--ink-50); color: var(--ink); }
+/* on a mouse the action buttons stay quiet until the row is hovered / focused; touch always shows them */
+@media (hover: hover) and (pointer: fine) {
+  #view-studio .hierarchy-tree-wrap:not(.is-widget) .h-actions { opacity: .0; transition: opacity var(--t-fast); }
+  #view-studio .h-node-row:hover .h-actions, #view-studio .h-node-row:focus-within .h-actions, #view-studio .h-node-row:focus .h-actions { opacity: 1; }
+}
+#view-studio .h-children { margin: 0; border: 0; }   /* indent lives in the first grid column, so value/share/rows line up at every depth */
+#view-studio .h-other { color: var(--ink-50); font-style: italic; }
+#view-studio .h-other .h-bar-fill { background: var(--ink-30); }
+/* the Overview widget version is narrower: drop the rarely needed columns first */
+#view-studio .is-widget .h-head, #view-studio .is-widget .h-node-row { grid-template-columns: calc(18px + var(--lvl, 0) * 16px) max(90px, calc(34% - var(--lvl, 0) * 16px)) minmax(40px, 1fr) 78px 46px 84px; }
+#view-studio .is-widget .h-count, #view-studio .is-widget .h-head .h-count { display: none; }
+#view-studio .is-widget .h-rows-btn { display: none; }
+@media (max-width: 760px) {
+  #view-studio .h-head, #view-studio .h-node-row { grid-template-columns: calc(18px + var(--lvl, 0) * 14px) max(80px, calc(40% - var(--lvl, 0) * 14px)) minmax(32px, 1fr) 70px 78px; column-gap: 6px; }
+  #view-studio .h-share, #view-studio .h-count, #view-studio .h-head .h-share, #view-studio .h-head .h-count { display: none; }
+  #view-studio .h-drill-btn, #view-studio .h-rows-btn { padding: 4px 7px; }
+  #view-studio .h-summary { margin-left: 0; text-align: left; flex: 1 1 100%; }
+}
+@media (max-width: 480px) {
+  #view-studio .h-head, #view-studio .h-node-row { grid-template-columns: calc(18px + var(--lvl, 0) * 12px) minmax(0, 1fr) 64px; }
+  #view-studio .h-bar-track, #view-studio .h-head .h-bar-track { display: none; }
+  #view-studio .h-actions { grid-column: 2 / -1; justify-content: flex-start; }
+  #view-studio .h-head .h-actions { display: none; }
+}
+
+/* ── 5 · Fields panel: drawer from 1100px down ───────────────────────────
+   At 150% browser zoom a 1440px screen is 960 CSS px wide; a 252px fixed rail plus the
+   sidebar left the canvas ~550px. The drawer pattern the app already uses below 900px now
+   starts at 1100px. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  #view-studio .studio-fields-rail {
+    position: fixed; left: 0; top: var(--nav-h, 56px); bottom: 0; z-index: 240; height: auto; margin: 0;
+    width: min(300px, calc(100vw - 44px)); transform: translateX(-100%); transition: transform var(--t-base);
+    box-shadow: var(--shadow-xl); border-radius: 0 var(--r-md) var(--r-md) 0; overflow: auto;
+  }
+  #view-studio .studio-fields-rail.open { transform: translateX(0); }
+  #view-studio .studio-fields-toggle { display: inline-flex; }
+}
+#view-studio .studio-main { min-height: 0; }
+#view-studio .studio-center { min-width: 0; }
+
+/* ── 6 · Performance ─────────────────────────────────────────────────────
+   Every card used to blur whatever was behind it (backdrop-filter) AND lift on hover; with a dozen
+   cards and 2-3x canvases that is a full-page blur recomputed per frame - the lag. Inside the
+   workspace the cards are solid (they sat on a flat page background anyway) and stay put on hover. */
+#view-studio .kpi-card, #view-studio .widget-card, #view-studio .hierarchy-tree-wrap,
+#view-studio .studio-slicer-bar, #view-studio .pivot-well, #view-studio .studio-fields-rail,
+#view-studio .studio-toolbar, #view-studio .studio-summary-strip {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background-color: var(--paper);
+}
+#view-studio .kpi-card:hover, #view-studio .widget-card:hover { transform: none; }
+#view-studio .widget-card, #view-studio .kpi-card { animation-duration: .18s; transition: border-color .15s ease, box-shadow .15s ease; }
+#view-studio .widget-card.dragging { will-change: opacity; }
+#view-studio .grid-scroll { contain: content; }
+#view-studio .chart-wrap { contain: layout paint; }
+@media (prefers-reduced-motion: reduce) {
+  #view-studio .widget-card, #view-studio .kpi-card { animation: none; }
+  #view-studio .h-bar-fill { transition: none; }
+}
+
+/* ── 7 · Reconcile ───────────────────────────────────────────────────────── */
+/* mapping rows flow into as many columns as fit instead of one 1100px-wide select per field */
+#view-studio .rc-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 8px 22px; }
+#view-studio .rc-maprow { grid-template-columns: minmax(96px, 150px) 18px minmax(0, 1fr); }
+#view-studio .rc-map .rc-maprow:has(.rc-x) { grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 30px; }
+/* once a run has finished the long setup form folds into one line, so the answer is on screen */
+#view-studio .rc-setup-min { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; padding: 12px 16px; }
+#view-studio .rc-setup-min .rc-eyebrow { margin: 0 0 4px; }
+#view-studio .rc-setup-min .rc-min-text { min-width: 0; flex: 1 1 320px; font-size: 13px; color: var(--ink-70); line-height: 1.5; overflow-wrap: anywhere; }
+#view-studio .rc-setup-min .rc-min-text b { color: var(--ink); }
+#view-studio .rc-setup-min .rc-min-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+#view-studio .rc-verdict-card { scroll-margin-top: calc(var(--nav-h, 56px) + 16px); }
+#view-studio .rc-kpis { grid-template-columns: repeat(auto-fit, minmax(clamp(130px, 12vw, 190px), 1fr)); }
+#view-studio .rc-tablewrap { max-height: min(70vh, 720px); }
+#view-studio .rc-root { gap: var(--lx-gap, 16px); }

@@ -446,6 +446,36 @@ function check(name, fn) {
     assert.strictEqual(document.querySelectorAll('#drillBreadcrumb .drill-crumb').length, 0);
   });
 
+  console.log('\n== Drill navigation, hierarchy tools, zoom ==');
+  check('drilling twice builds a path; Up goes one level; Reset clears it', () => {
+    click('#hierarchyTreeWrap .h-drill-btn');
+    assert.strictEqual(document.querySelectorAll('#drillBreadcrumb .drill-crumb').length, 1);
+    assert.ok(document.querySelector('#drillBreadcrumb .drill-scope'), 'row scope is shown');
+    click('#drillBreadcrumb [data-drill-up]');
+    assert.strictEqual(document.querySelectorAll('#drillBreadcrumb .drill-crumb').length, 0, 'Up from level 1 returns to all data');
+    click('#hierarchyTreeWrap .h-drill-btn');
+    click('#drillBreadcrumb [data-drill-reset]');
+    assert.strictEqual(document.getElementById('drillBreadcrumb').style.display, 'none');
+  });
+  check('hierarchy: expand all / collapse all / search work on the cached tree', () => {
+    const before = document.querySelectorAll('#hierarchyTreeWrap .h-node-row').length;
+    click('#hExpandAll');
+    const open = document.querySelectorAll('#hierarchyTreeWrap .h-node-row').length;
+    assert.ok(open > before, 'expand all shows more rows (' + before + ' -> ' + open + ')');
+    click('#hCollapseAll');
+    assert.strictEqual(document.querySelectorAll('#hierarchyTreeWrap .h-node-row').length, before);
+    const first = document.querySelector('#hierarchyTreeWrap .h-node-row .h-label').textContent;
+    const q = document.getElementById('hSearch'); q.value = first.slice(0, 2);
+    q.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  check('hierarchy rows expose share, row count and a View rows action', () => {
+    const r = document.querySelector('#hierarchyTreeWrap .h-node-row');
+    assert.ok(r.querySelector('.h-share') && r.querySelector('.h-count') && r.querySelector('[data-h-rows]'));
+  });
+  check('workspace zoom control is wired to the studio view', () => {
+    assert.ok(document.getElementById('studioZoom') && document.getElementById('zoomFitBtn'));
+  });
+
   console.log('\n== Add widget modal (manual) ==');
   click('.studio-tab[data-tab="overview"]');
   await wait(10);

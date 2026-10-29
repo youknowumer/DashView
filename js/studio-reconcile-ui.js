@@ -14,7 +14,7 @@
   var CHUNK_KEYS = 150, CHUNK_IDS = 80, PAGE = 100, MAX_MISSING_SCAN = 20000;
   var ui = { dsRef: null, presetId: 'sale', mode: 'document', keyCol: '', keyField: 'name', hmap: {}, lmap: {}, tol: 0.01, dateTol: 0, scanMissing: true, scanAll: false,
     customModel: '', customFields: [], customMeta: null, running: false, cancel: false, progress: '', error: '', result: null, ctx: null,
-    view: 'documents', status: 'all', q: '', page: 1, open: {} };
+    view: 'documents', status: 'all', q: '', page: 1, open: {}, setupOpen: true, justRan: false };
   var root = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
@@ -52,7 +52,7 @@
   }
   function syncDataset() {
     var s = ds();
-    if (s !== ui.dsRef) { ui.dsRef = s; if (s) autoMap(); else { ui.result = null; } }
+    if (s !== ui.dsRef) { ui.dsRef = s; ui.setupOpen = true; if (s) autoMap(); else { ui.result = null; } }
   }
 
   /* ── fetching ────────────────────────────────────────────────────────────── */
@@ -185,10 +185,17 @@
       var cl = Object.keys(cur); if (cl.length > 1) res.notes.push('Odoo documents are in ' + cl.length + ' currencies (' + cl.join(', ') + '). Amounts are compared as stored on each document, with no conversion.');
       else if (cl.length === 1) res.currency = cl[0];
       ui.result = res; ui.ctx = { model: model, presetLabel: P.custom ? model : P.label, fileName: window.DVStudioBridge.fileName(), seconds: Math.round((Date.now() - t0) / 100) / 10, odooUrl: (C.cfg().url || '').replace(/\/+$/, '') };
-      ui.view = 'documents'; ui.status = res.summary.withDiffs || res.summary.missingInOdoo || res.summary.duplicateKeys ? 'issues' : 'all'; ui.q = ''; ui.page = 1; ui.open = {};
+      ui.view = 'documents'; ui.status = res.summary.withDiffs || res.summary.missingInOdoo || res.summary.duplicateKeys ? 'issues' : 'all'; ui.q = ''; ui.page = 1; ui.open = {}; ui.setupOpen = false; ui.justRan = true;
     }).catch(function (e) {
       ui.error = e && e.stopped ? 'Stopped. Nothing was changed in Odoo or in your file.' : ((e && e.message) || 'The Odoo request failed.');
-    }).then(function () { ui.running = false; render(); });
+    }).then(function () {
+      ui.running = false; render();
+      if (ui.justRan) {   /* bring the answer into view - it used to sit below a screen-high form */
+        ui.justRan = false;
+        var v = root && root.querySelector('.rc-verdict-card');
+        if (v && v.scrollIntoView) v.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    });
   }
   function customSpec(c) {
     var meta = (ui.customMeta || {})[c.f] || {}, t = meta.type, kind = /^(float|integer|monetary)$/.test(t) ? 'number' : /^date/.test(t) ? 'date' : t === 'selection' ? 'state' : 'text';
@@ -201,7 +208,16 @@
     return '<select data-k="' + id + '" ' + (attrs || '') + '>' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(val) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
   }
   function colOpts(none) { return [['', none || '— not compared —']].concat(columns().map(function (c) { return [c, c]; })); }
+  function compactSetup() {
+    var P = preset(), c = ui.ctx || {}, cols = P.custom ? ui.customFields.filter(function (f) { return f.file && f.f; }).map(function (f) { return f.f; })
+      : P.fields.filter(function (sp) { return ui.hmap[sp.f]; }).map(function (sp) { return sp.label; });
+    if (ui.mode === 'line' && P.lines) P.lines.fields.forEach(function (sp) { if (ui.lmap[sp.f]) cols.push(sp.label + ' (lines)'); });
+    return '<div class="rc-card rc-setup-min"><div class="rc-min-text"><p class="rc-eyebrow">ODOO RECONCILIATION</p><b>' + esc(c.presetLabel || P.label) + '</b> · document number <b>' + esc(ui.keyCol) + '</b>' +
+      (cols.length ? ' · comparing <b>' + esc(cols.join(', ')) + '</b>' : '') + ' · tolerance ' + esc(ui.tol) + '</div>' +
+      '<div class="rc-min-btns"><button type="button" class="btn btn-outline btn-sm" data-act="edit">Edit setup</button><button type="button" class="btn btn-signal btn-sm" data-act="run">Run again</button></div></div>';
+  }
   function setup() {
+    if (ui.result && !ui.setupOpen && !ui.running) return compactSetup();
     var P = preset(), c = client(), st = c ? c.state() : 'none', h = '';
     h += '<div class="rc-card rc-setup">';
     h += '<div class="rc-head"><div><p class="rc-eyebrow">ODOO RECONCILIATION</p><h2>Check this file against Odoo</h2><p class="rc-sub">Reads the same documents from Odoo (read-only) and shows what differs - per document and per line item - and why. Your file and Odoo are never changed.</p></div></div>';
@@ -242,7 +258,7 @@
   function summary() {
     var res = ui.result, S = res.summary, h = '', cur = res.currency ? ' ' + res.currency : '';
     var ok = S.fileDocs && S.exact === S.fileDocs && !S.missingInFile;
-    h += '<div class="rc-card"><div class="rc-verdict ' + (ok ? 'good' : 'bad') + '" role="status">' + (ok ? 'Everything in this file matches Odoo.' : '<b>' + S.accuracy + '%</b> of the documents match Odoo exactly. ' + (S.withDiffs + S.missingInOdoo + S.duplicateKeys) + ' need a look.') +
+    h += '<div class="rc-card rc-verdict-card"><div class="rc-verdict ' + (ok ? 'good' : 'bad') + '" role="status">' + (ok ? 'Everything in this file matches Odoo.' : '<b>' + S.accuracy + '%</b> of the documents match Odoo exactly. ' + (S.withDiffs + S.missingInOdoo + S.duplicateKeys) + ' need a look.') +
       '<small>' + esc(ui.ctx.presetLabel) + ' · ' + S.fileDocs.toLocaleString() + ' documents from ' + S.fileRows.toLocaleString() + ' file rows · ' + ui.ctx.seconds + 's</small></div>';
     h += '<div class="rc-kpis">' +
       kpi('Matched exactly', fmtN(S.exact), 'good', '', 'match') +
@@ -406,8 +422,8 @@
   function onChange(e) {
     var t = e.target, k = t.getAttribute && t.getAttribute('data-k'); if (!k) return;
     var v = t.type === 'checkbox' ? t.checked : t.value;
-    if (k === 'preset') { ui.presetId = v; ui.result = null; autoMap(); ui.customFields = ui.customFields.length ? ui.customFields : [{ file: '', f: '' }]; render(); return; }
-    if (k === 'mode') { ui.mode = v; ui.result = null; render(); return; }
+    if (k === 'preset') { ui.presetId = v; ui.result = null; ui.setupOpen = true; autoMap(); ui.customFields = ui.customFields.length ? ui.customFields : [{ file: '', f: '' }]; render(); return; }
+    if (k === 'mode') { ui.mode = v; ui.result = null; ui.setupOpen = true; render(); return; }
     if (k === 'keyCol') ui.keyCol = v;
     else if (k === 'keyField') ui.keyField = v;
     else if (k === 'tol') ui.tol = Math.max(0, parseFloat(v) || 0);
@@ -436,6 +452,7 @@
       var a = b.getAttribute('data-act');
       if (a === 'run') run();
       else if (a === 'cancel') { ui.cancel = true; }
+      else if (a === 'edit') { ui.setupOpen = true; render(); }
       else if (a === 'addcf') { ui.customFields.push({ file: '', f: '' }); render(); }
       else if (a === 'exp') { var dd = b.closest('.studio-dropdown'); var o = !dd.classList.contains('open'); dd.classList.toggle('open', o); b.setAttribute('aria-expanded', o ? 'true' : 'false'); e.stopPropagation(); }
       return;

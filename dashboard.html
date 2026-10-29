@@ -68,6 +68,7 @@
 <link rel="stylesheet" href="css/sidebar-itb.css"/>
 <link rel="stylesheet" href="css/settings-topbar.css"/>
 <link rel="stylesheet" href="css/profile-pro.css"/>
+<link rel="stylesheet" href="css/studio-zoom.css"/>
 <link rel="stylesheet" href="css/ios-smooth.css"/>
 <script defer src="js/ios-smooth.js"></script>
 <script src="js/8k-quality.js" defer></script>
@@ -333,12 +334,24 @@
             <div class="drill-breadcrumb" id="drillBreadcrumb" style="display:none;"></div>
             <div class="studio-slicer-bar" id="slicerBar"></div>
 
+            <div class="studio-tabbar">
             <div class="studio-tabs" id="studioTabs" role="tablist" aria-label="Workbook views">
               <button class="studio-tab active" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" tabindex="0" data-tab="overview" type="button">Overview</button>
               <button class="studio-tab" id="tab-data" role="tab" aria-selected="false" aria-controls="panel-data" tabindex="-1" data-tab="data" type="button">Data<span class="badge" id="dataTabBadge"></span></button>
               <button class="studio-tab" id="tab-pivot" role="tab" aria-selected="false" aria-controls="panel-pivot" tabindex="-1" data-tab="pivot" type="button">Pivot table</button>
               <button class="studio-tab" id="tab-hierarchy" role="tab" aria-selected="false" aria-controls="panel-hierarchy" tabindex="-1" data-tab="hierarchy" type="button">Hierarchy</button>
               <button class="studio-tab" id="tab-reconcile" role="tab" aria-selected="false" aria-controls="panel-reconcile" tabindex="-1" data-tab="reconcile" type="button">Reconcile</button>
+            </div>
+              <div class="studio-zoom" id="studioZoom" role="group" aria-label="Workspace zoom">
+                <button type="button" id="zoomOutBtn" aria-label="Zoom out" title="Zoom out (Alt + −)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+                </button>
+                <button type="button" id="zoomLevelBtn" class="studio-zoom-level" title="Reset to 100% (Alt + 0)" aria-live="polite">100%</button>
+                <button type="button" id="zoomInBtn" aria-label="Zoom in" title="Zoom in (Alt + =)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <button type="button" id="zoomFitBtn" class="studio-zoom-fit" title="Fit this view to the window">Fit</button>
+              </div>
             </div>
 
             <div class="studio-tab-panel studio-print-target" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
@@ -413,13 +426,26 @@
                 <label class="visually-hidden" for="hLevel2">Level 2</label><select id="hLevel2"></select>
                 <label class="visually-hidden" for="hLevel3">Level 3</label><select id="hLevel3"></select>
                 <span class="studio-divider-v" style="background:var(--line-strong);"></span>
-                <select id="hMetricField"></select>
-                <select id="hMetricAgg">
+                <label class="visually-hidden" for="hMetricField">Measure</label><select id="hMetricField"></select>
+                <label class="visually-hidden" for="hMetricAgg">Aggregation</label><select id="hMetricAgg">
                   <option value="sum">Sum</option><option value="avg">Average</option><option value="count">Count</option>
                   <option value="min">Min</option><option value="max">Max</option><option value="countRows">Row count</option>
                 </select>
                 <button class="btn btn-outline btn-sm" id="hApplyBtn" type="button">Apply</button>
                 <button class="btn btn-primary btn-sm" id="hPinBtn" type="button" style="margin-left:auto;">Pin to Overview</button>
+              </div>
+              <div class="hierarchy-controls hierarchy-controls-2">
+                <div class="data-search h-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input type="search" id="hSearch" placeholder="Find a group…" aria-label="Find a group in the hierarchy" autocomplete="off"/>
+                </div>
+                <label class="visually-hidden" for="hSort">Sort groups</label>
+                <select id="hSort"><option value="desc">Largest first</option><option value="asc">Smallest first</option><option value="name">A → Z</option><option value="count">Most rows</option></select>
+                <label class="visually-hidden" for="hTop">Groups shown per level</label>
+                <select id="hTop"><option value="8">Top 8</option><option value="15" selected>Top 15</option><option value="25">Top 25</option><option value="50">Top 50</option><option value="0">All groups</option></select>
+                <button class="btn btn-outline btn-sm" id="hExpandAll" type="button">Expand all</button>
+                <button class="btn btn-outline btn-sm" id="hCollapseAll" type="button">Collapse all</button>
+                <span class="h-summary" id="hSummary" aria-live="polite"></span>
               </div>
               <div class="hierarchy-tree-wrap" id="hierarchyTreeWrap"></div>
             </div>
@@ -2099,6 +2125,7 @@
 <script src="js/studio-core.js"></script>
 <script src="js/studio-profile.js"></script>
 <script src="js/studio-ui.js"></script>
+<script src="js/studio-zoom.js"></script>
 <script src="js/studio-reconcile.js"></script>
 <script src="js/studio-reconcile-ui.js"></script>
 <script src="js/report-engine.js"></script>

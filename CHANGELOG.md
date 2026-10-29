@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.29.0 - 2026-10-29
+- New: Data Studio drill-down - click a bar/slice in any chart to drill into it, a drill path (All data > Region > Category) with one-click Up / Reset / View rows / Break down by, row counts and share of total, Alt+Up to go up
+- New: Hierarchy - find a group, sort, Top N with an Other roll-up that still adds up, expand/collapse all, value / share / rows columns, View rows (drill-through to the Data tab), keyboard navigation; toggling no longer recalculates the tree
+- New: workspace zoom (60-175%, Fit, Alt + / - / 0) on the Data Studio tab row - remembered on this device
+- Fixed: browser zoom-out made the page bigger again (ultra-HD text boost fought the zoom) - it now only applies on a real big screen (css/8k-quality.css, js/8k-quality.js)
+- Fixed: Overview layout at any zoom - KPI cards no longer wrap 3+1, widget rows end flush, charts keep a sensible height, Add widget is a slim bar, Fields panel becomes a drawer below 1100px
+- Fixed: Overview went blank when the Date range suggestion was added (text KPI had no aggregation); one broken widget can no longer blank the dashboard
+- Fixed: lag - removed per-card backdrop blur and hover lift inside the workspace, chart canvases capped at 3x
+- Fixed: Hierarchy kept the previous file's columns after importing a new file
+- Improved: Reconcile - setup folds into a one-line bar after a run and the result scrolls into view, mapping fields flow into columns, zoom is available on this tab too
+
 ## 2.28.1 - 2026-10-29
 - Fixed: PDF reports showed garbled symbols for Urdu / Arabic text, emoji and the rupee sign (the built-in PDF fonts cannot draw them) - every PDF now converts them to readable text (Rs, >=, to) or ?, and a footer note says the Excel export keeps the full text (js/report-engine.js)
 - Fixed: the People page was missing 7 stylesheets that the dashboard loads (Executive CEO, charts, Odoo explorer, Odoo Live, widgets, settings top bar, profile), so shared parts could look unstyled there - People now loads the same stylesheet stack as the dashboard (people.html)

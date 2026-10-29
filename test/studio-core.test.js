@@ -191,6 +191,21 @@ test('two-level hierarchy tree builds correctly', () => {
   assert.strictEqual(east.children.length, 2);
 });
 
+test('hierarchy: Other roll-up keeps totals, shares and sort options', () => {
+  const t = Studio.buildHierarchyTree(bigRows, ['Region'], 'Rev', 'sum', 1, { other: true });
+  assert.strictEqual(t.children.length, 2);
+  const other = t.children.find(c => c.isOther);
+  assert.ok(other && /^Other \(\d+\)$/.test(other.label) && other.path.length === 0);
+  assert.strictEqual(t.children.reduce((a, c) => a + c.value, 0), t.value, 'rolled-up total must equal the grand total');
+  assert.ok(Math.abs(t.children.reduce((a, c) => a + c.share, 0) - 1) < 1e-9, 'shares add to 100%');
+  const asc = Studio.buildHierarchyTree(bigRows, ['Region'], 'Rev', 'sum', 0, { sort: 'asc' });
+  assert.ok(asc.children[0].value <= asc.children[asc.children.length - 1].value);
+  const byName = Studio.buildHierarchyTree(bigRows, ['Region'], 'Rev', 'sum', 0, { sort: 'name' });
+  assert.deepStrictEqual(byName.children.map(c => c.label), byName.children.map(c => c.label).slice().sort());
+  const avg = Studio.buildHierarchyTree(bigRows, ['Region'], 'Rev', 'avg', 0);
+  assert.strictEqual(avg.children[0].share, null, 'shares are only meaningful for additive measures');
+});
+
 console.log('\n== Pivot ==');
 test('pivot with row+col fields totals correctly', () => {
   const pivot = Studio.buildPivot({ rows: bigRows, rowFields: ['Region'], colFields: ['Cat'], values: [{ field: 'Rev', fn: 'sum' }] });

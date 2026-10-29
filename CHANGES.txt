@@ -1,9 +1,15 @@
-DashView 2.21.0 - changed files (same paths as the project; replace them as they are)
+DashView 2.29.0 - changed files (same paths as the project; replace / add them as they are)
 
-dashboard.html            Odoo Live header (combined auto-refresh + Refresh), connection card markup, new stylesheet link
-css/odoo-live-pro.css     NEW - styles for the Odoo Live header, connection card and connection health
-js/odoo-live.js           connection card: clear title/message, setup progress steps, error state
-js/odoo-connectivity.js   "Connection health" card: meter, status tiles, full checklist toggle
-version.json, package.json, sw.js, CHANGELOG.md    release 2.21.0
+dashboard.html            zoom control + tab row, Hierarchy toolbar (search / sort / Top N / expand all), new stylesheet + script tags
+people.html               loads the new stylesheet too (People must use the same stylesheet stack as the dashboard)
+css/studio-zoom.css       NEW  zoom-proof Overview grid, drill path, Hierarchy table, Reconcile layout, no per-card blur (lag)
+js/studio-zoom.js         NEW  workspace zoom 60-175%, Fit, Alt + / - / 0
+js/studio-ui.js           drill navigation (chart click, path, Up / Reset / View rows / Break down by), Hierarchy rewrite (cached tree), grid balancing, Date-range KPI crash fix
+js/studio-core.js         buildHierarchyTree: sort, Other roll-up, share (old calls behave exactly as before)
+js/studio-reconcile-ui.js setup folds after a run, result scrolls into view
+css/8k-quality.css        ultra-HD text boost no longer fights browser zoom-out
+js/8k-quality.js          zoom-out detection, chart canvases capped at 3x
+test/studio-core.test.js, test/studio-ui.smoke.test.js   new checks
+version.json, package.json, sw.js, CHANGELOG.md          release 2.29.0
 
 Then: commit + push, hard-refresh (Ctrl+Shift+R) so the new service worker cache loads.

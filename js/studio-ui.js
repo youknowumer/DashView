@@ -457,23 +457,104 @@
     }
   });
 
+  /* ----------------------------------------------------------------------
+     DRILL NAVIGATION
+     A drill path is an ordered list of {field, value} crumbs; each crumb is an
+     equality filter. Everything (Overview charts, KPIs, Data, Pivot, Hierarchy,
+     exports) reads the same filter context, so drilling is a true cross-filter.
+       drillAdd(field, value)  go one level deeper (chart click, tree row)
+       drillTo(level)          jump back to a level (-1 = all data)
+       drillUp()               one level up            (Alt + Up Arrow)
+       drillReset()            back to all data        (Alt + Home)
+       drillThrough()          open the matching rows in the Data tab
+     ---------------------------------------------------------------------- */
+  function drillAdd(field, value, silent) {
+    var existing = state.drillCrumbs.findIndex(function (c) { return c.field === field; });
+    if (existing > -1) {
+      if (state.drillCrumbs[existing].value === String(value)) return false;   /* already there */
+      state.drillCrumbs.splice(existing);                                        /* same field, new value: replace it and anything deeper */
+    }
+    state.drillCrumbs.push({ field: field, value: String(value) });
+    state.filters[field] = { type: 'eq', value: String(value), fromHierarchy: true };
+    if (!silent) onFiltersChanged();
+    return true;
+  }
+  function drillTo(level) {
+    var removed = state.drillCrumbs.splice(level + 1);
+    removed.forEach(function (c) { delete state.filters[c.field]; });
+    if (removed.length) onFiltersChanged();
+  }
+  function drillUp() { if (state.drillCrumbs.length) drillTo(state.drillCrumbs.length - 2); }
+  function drillReset() { drillTo(-1); }
+  function drillInto(path) {
+    var changed = false;
+    path.forEach(function (p) { changed = drillAdd(p.field, p.value, true) || changed; });
+    if (changed) onFiltersChanged();
+    showToast('Drilled into ' + path[path.length - 1].value + '. Use the trail above to go back up.', 'success');
+  }
+  function drillThrough(path) {
+    if (path && path.length) drillInto(path);
+    switchTab('data');
+  }
+
   function renderDrillBreadcrumb() {
     var el = byId('drillBreadcrumb');
-    if (!state.drillCrumbs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.style.display = 'flex';
-    var html = '<span class="slicer-label">Drilled into</span>';
+    if (!el) return;
+    if (!state.drillCrumbs.length || !state.dataset) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    var total = state.dataset.typedRows.length, shown = getFilteredRows().length;
+    var pct = total ? Math.round((shown / total) * 1000) / 10 : 0;
+    var used = {}; state.drillCrumbs.forEach(function (c) { used[c.field] = 1; });
+    var more = state.dataset.fields.filter(function (f) { return f.isCategorical && !used[f.name] && f.cardinality >= 2; });
+    var last = state.drillCrumbs.length - 1;
+    var html = '<nav class="drill-trail" aria-label="Drill path">'
+      + '<span class="drill-trail-label">Drill path</span>'
+      + '<button type="button" class="drill-home" data-drill-home title="Back to all data (Alt+Home)">All data</button>';
     state.drillCrumbs.forEach(function (c, i) {
-      html += (i > 0 ? '<span class="drill-crumb-sep">/</span>' : '') + '<span class="drill-crumb">' + esc(c.field) + ': ' + esc(c.value) + '<button data-crumb-idx="' + i + '">' + ICON.close + '</button></span>';
+      html += '<span class="drill-crumb-sep" aria-hidden="true">' + ICON.chevron + '</span>'
+        + '<span class="drill-crumb' + (i === last ? ' is-current' : '') + '"' + (i === last ? ' aria-current="location"' : '') + '>'
+        + '<span class="drill-crumb-label" role="button" tabindex="0" data-crumb-jump="' + i + '" title="' + (i === last ? 'Current level' : 'Go back to this level') + '"><em>' + esc(c.field) + '</em> ' + esc(c.value) + '</span>'
+        + '<button type="button" data-crumb-idx="' + i + '" aria-label="Remove ' + esc(c.field) + ' ' + esc(c.value) + ' and anything deeper" title="Remove this level">' + ICON.close + '</button></span>';
     });
+    html += '</nav><div class="drill-tools">'
+      + '<span class="drill-scope" title="Rows left after drilling"><strong>' + shown.toLocaleString() + '</strong> of ' + total.toLocaleString() + ' rows <small>' + pct + '%</small></span>';
+    if (more.length) {
+      html += '<label class="drill-next"><span class="visually-hidden">Break down by</span><select data-drill-next aria-label="Break down the current selection by"><option value="">Break down by…</option>'
+        + more.map(function (f) { return '<option value="' + esc(f.name) + '">' + esc(f.name) + '</option>'; }).join('') + '</select></label>';
+    }
+    html += '<button type="button" class="btn btn-outline btn-sm" data-drill-up title="Up one level (Alt+↑)">↑ Up</button>'
+      + '<button type="button" class="btn btn-outline btn-sm" data-drill-rows title="Open these rows in the Data tab">View rows</button>'
+      + '<button type="button" class="btn btn-ghost btn-sm" data-drill-reset title="Clear the whole drill path">Reset</button></div>';
     el.innerHTML = html;
   }
   on(byId('drillBreadcrumb'), 'click', function (e) {
-    var btn = e.target.closest('[data-crumb-idx]');
-    if (!btn) return;
-    var idx = parseInt(btn.dataset.crumbIdx, 10);
-    var removed = state.drillCrumbs.splice(idx);
-    removed.forEach(function (c) { delete state.filters[c.field]; });
-    onFiltersChanged();
+    var rm = e.target.closest('[data-crumb-idx]');
+    if (rm) { drillTo(parseInt(rm.dataset.crumbIdx, 10) - 1); return; }
+    var jump = e.target.closest('[data-crumb-jump]');
+    if (jump) { drillTo(parseInt(jump.dataset.crumbJump, 10)); return; }
+    if (e.target.closest('[data-drill-home],[data-drill-reset]')) { drillReset(); return; }
+    if (e.target.closest('[data-drill-up]')) { drillUp(); return; }
+    if (e.target.closest('[data-drill-rows]')) { switchTab('data'); }
+  });
+  on(byId('drillBreadcrumb'), 'keydown', function (e) {
+    var jump = e.target.closest('[data-crumb-jump]');
+    if (jump && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); drillTo(parseInt(jump.dataset.crumbJump, 10)); }
+  });
+  on(byId('drillBreadcrumb'), 'change', function (e) {
+    var sel = e.target.closest('[data-drill-next]');
+    if (!sel || !sel.value) return;
+    var field = sel.value;
+    /* open the Hierarchy tab on that field so the person sees the split of what they drilled into */
+    populateHierarchySelectsOnce();
+    byId('hLevel1').value = field; byId('hLevel2').value = ''; byId('hLevel3').value = '';
+    switchTab('hierarchy');
+    showToast('Showing ' + (byId('hMetricField').value || 'rows') + ' by ' + field + ' inside your drill path.', 'success');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!e.altKey || e.ctrlKey || e.metaKey || !state.dataset || !state.drillCrumbs.length) return;
+    if (/^(input|textarea|select)$/i.test((e.target.tagName || '')) || e.target.isContentEditable) return;
+    if (e.key === 'ArrowUp') { e.preventDefault(); drillUp(); }
+    else if (e.key === 'Home') { e.preventDefault(); drillReset(); }
   });
 
   function onFiltersChanged() {
@@ -483,17 +564,13 @@
     renderActiveTab();
   }
 
-  function drillInto(path) {
-    state.drillCrumbs = path.map(function (p) { return { field: p.field, value: p.value }; });
-    path.forEach(function (p) { state.filters[p.field] = { type: 'eq', value: p.value, fromHierarchy: true }; });
-    onFiltersChanged();
-    showToast('Drilled into ' + path[path.length - 1].value + '. Clear it from the breadcrumb above anytime.', 'success');
-  }
-
   /* ======================================================================
      OVERVIEW TAB
      ====================================================================== */
   function computeKpiValue(spec, rows) {
+    /* "Date range" suggestions are text KPIs with no aggregation - they used to throw here and blank the whole Overview. */
+    if (spec.kind === 'kpi-text') return spec.text || '—';
+    if (!spec.agg) return '—';
     if (spec.agg.fn === 'dateRange') {
       var vals = rows.map(function (r) { return r[spec.agg.field]; }).filter(function (v) { return v !== null && v !== undefined; });
       if (!vals.length) return '—';
@@ -541,18 +618,59 @@
     var html = otherWidgets.map(renderWidgetCardHtml).join('') + addWidgetTileHtml();
     widgetGrid.innerHTML = html;
 
+    layoutWidgetGrid();
     otherWidgets.forEach(function (w) {
-      if (w.kind === 'chart') renderChartWidget(w, rows);
-      else if (w.kind === 'hierarchy') renderHierarchyWidget(w, rows);
-      else if (w.kind === 'pivot') renderPivotWidget(w, rows);
+      /* one broken widget must never take the rest of the dashboard down with it */
+      try {
+        if (w.kind === 'chart') renderChartWidget(w, rows);
+        else if (w.kind === 'hierarchy') renderHierarchyWidget(w, rows);
+        else if (w.kind === 'pivot') renderPivotWidget(w, rows);
+      } catch (err) {
+        var body = byId('widget-body-' + w.id);
+        if (body) body.innerHTML = '<p class="widget-empty">This widget could not be drawn. Remove it and add it again.</p>';
+        if (window.console) console.warn('DashView widget failed', w.kind, err);
+      }
     });
   }
+  /* ---- Overview grid: width tiers + "justified" rows ------------------------------------------
+     The span of s/m/l/full cards depends on the width the grid really has (not the screen), so it stays
+     right at any browser zoom, with or without the Fields panel, and under the workspace zoom control.
+     Then the last card of every row that does not add up to a full row is stretched, so rows end flush. */
+  var GRID_TIERS = [[620, 'xs'], [960, 'sm'], [1500, 'md'], [2200, 'lg'], [Infinity, 'xl']];
+  function layoutWidgetGrid() {
+    var grid = byId('overviewWidgetGrid');
+    if (!grid || !grid.clientWidth) return;
+    var w = grid.clientWidth, tier = GRID_TIERS.filter(function (t) { return w < t[0]; })[0][1];
+    if (grid.getAttribute('data-w') !== tier) grid.setAttribute('data-w', tier);
+    var cards = Array.prototype.slice.call(grid.children).filter(function (c) { return c.classList.contains('widget-card'); });
+    cards.forEach(function (c) { c.style.gridColumn = ''; });
+    var cols = 12, row = [], sum = 0;
+    function flush() { if (row.length && sum < cols) { var last = row[row.length - 1]; last.el.style.gridColumn = 'span ' + (last.span + cols - sum); } row = []; sum = 0; }
+    cards.forEach(function (c) {
+      var m = /span\s+(\d+)/.exec(getComputedStyle(c).gridColumnStart || '');
+      var span = Math.min(cols, m ? parseInt(m[1], 10) : cols);
+      if (sum + span > cols) flush();
+      row.push({ el: c, span: span }); sum += span;
+    });
+    flush();
+  }
+  (function watchWidgetGrid() {
+    if (!window.ResizeObserver) { window.addEventListener('resize', debounce(layoutWidgetGrid, 120)); return; }
+    var grid = byId('overviewWidgetGrid'), lastW = 0, raf = 0;
+    if (!grid) return;
+    new ResizeObserver(function () {
+      if (grid.clientWidth === lastW) return;
+      lastW = grid.clientWidth;
+      cancelAnimationFrame(raf); raf = requestAnimationFrame(layoutWidgetGrid);
+    }).observe(grid);
+  })();
+  window.addEventListener('dv:studio-zoom', function () { layoutWidgetGrid(); });
   function addWidgetTileHtml() {
     return '<button class="widget-add-tile" id="overviewAddWidgetTile" type="button">'
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add widget</button>';
   }
   function widgetSubtitle(w) {
-    if (w.kind === 'chart') return (w.spec.chartType || '') + (w.spec.y ? ' · ' + w.spec.y : '');
+    if (w.kind === 'chart') return (w.spec.chartType || '') + (w.spec.y ? ' · ' + w.spec.y : '') + (drillableChart(w.spec) ? ' · click to drill' : '');
     if (w.kind === 'hierarchy') return w.spec.levels.join(' → ');
     if (w.kind === 'pivot') return 'Pivot table';
     return '';
@@ -577,7 +695,38 @@
     chartInstances[w.id] = new Chart(canvas.getContext('2d'), cfg);
   }
 
-  function buildChartConfig(spec, rows) {
+  /* Click a bar / slice / stacked segment to drill into it (cross-filters the whole workspace). */
+  function isOtherLabel(l) { return /^Other \(\d+\)$/.test(String(l)); }
+  function drillableChart(spec) {
+    if (!spec || (spec.chartType !== 'bar' && spec.chartType !== 'doughnut' && spec.chartType !== 'pie' && spec.chartType !== 'stackedBar')) return false;
+    var f = fieldByName(spec.x);
+    return !!f && f.type !== Studio.Types.DATE && f.type !== Studio.Types.NUMBER && f.type !== Studio.Types.CURRENCY && f.type !== Studio.Types.PERCENT;
+  }
+  function decorateDrill(cfg, spec) {
+    if (!drillableChart(spec)) return cfg;
+    var o = cfg.options;
+    o.onHover = function (evt, els, chart) {
+      var ok = els.length && !isOtherLabel(chart.data.labels[els[0].index]);
+      if (chart.canvas) chart.canvas.style.cursor = ok ? 'pointer' : 'default';
+    };
+    o.onClick = function (evt, els, chart) {
+      if (!els.length) return;
+      var label = chart.data.labels[els[0].index];
+      if (isOtherLabel(label)) { showToast('“Other” groups several values — use the Hierarchy tab to see them.', 'info'); return; }
+      var series = spec.chartType === 'stackedBar' ? chart.data.datasets[els[0].datasetIndex].label : null;
+      setTimeout(function () {      /* the charts are rebuilt by the drill - never destroy a chart from inside its own click */
+        var changed = drillAdd(spec.x, label, true);
+        if (series != null) changed = drillAdd(spec.series, series, true) || changed;
+        if (changed) { onFiltersChanged(); showToast('Drilled into ' + label + (series != null ? ' · ' + series : '') + '. Use the drill path above to go back.', 'success'); }
+        else showToast('Already drilled into ' + label + '.', 'info');
+      }, 0);
+    };
+    o.plugins = o.plugins || {};
+    o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, { callbacks: Object.assign({}, (o.plugins.tooltip || {}).callbacks, { footer: function () { return 'Click to drill into'; } }) });
+    return cfg;
+  }
+  function buildChartConfig(spec, rows) { var cfg = buildChartConfigBase(spec, rows); return cfg ? decorateDrill(cfg, spec) : cfg; }
+  function buildChartConfigBase(spec, rows) {
     var textColor = chartTextColor(), gridColor = chartGridColor();
     var baseOptions = { responsive: true, maintainAspectRatio: false, color: textColor, plugins: { legend: { display: false, labels: { color: textColor } } }, scales: {} };
     if (spec.chartType === 'bar' || spec.chartType === 'line' || spec.chartType === 'histogram') {
@@ -639,12 +788,6 @@
     return null;
   }
 
-  function renderHierarchyWidget(w, rows) {
-    var body = byId('widget-body-' + w.id);
-    if (!body) return;
-    var tree = Studio.buildHierarchyTree(rows, w.spec.levels, w.spec.metric.field, w.spec.metric.fn, 8);
-    body.innerHTML = '<div class="hierarchy-tree-wrap" style="border:none;padding:0;">' + renderTreeChildrenHtml(tree, 0, 'w' + w.id, {}) + '</div>';
-  }
   function renderPivotWidget(w, rows) {
     var body = byId('widget-body-' + w.id);
     if (!body) return;
@@ -1385,8 +1528,6 @@
     }
   });
 
-  function renderTreeChildrenHtml() { /* placeholder reassigned below */ }
-
   function renderPivotTableHtml(pivot, values, rowFields, expandedMap) {
     var thead = '<thead><tr><th>' + esc(rowFields[rowFields.length - 1] || '') + '</th>';
     pivot.colKeys.forEach(function (ck) {
@@ -1495,76 +1636,200 @@
     byId('hLevel3').innerHTML = opts(catFields, true);
     byId('hMetricField').innerHTML = '<option value="">(row count)</option>' + opts(metricFields, false);
 
-    var defaults = Studio.detectHierarchyFields(ds.fields, 3);
-    state.hierarchyConfig.levels = defaults;
-    state.hierarchyConfig.metric = { field: metricFields[0] ? metricFields[0].name : null, fn: metricFields[0] ? 'sum' : 'countRows' };
+    /* a reopened workbook keeps the levels it was saved with, when those columns still exist */
+    var saved = state.hierarchyConfig || {};
+    var names = catFields.map(function (f) { return f.name; });
+    var savedLevels = (saved.levels || []).filter(function (n) { return names.indexOf(n) > -1; });
+    var defaults = savedLevels.length ? savedLevels : Studio.detectHierarchyFields(ds.fields, 3);
+    var savedMetric = saved.metric && saved.metric.field && metricFields.some(function (f) { return f.name === saved.metric.field; }) ? saved.metric : null;
+    var metric = savedMetric || { field: metricFields[0] ? metricFields[0].name : null, fn: metricFields[0] ? 'sum' : 'countRows' };
+    state.hierarchyConfig = { levels: defaults, metric: metric, sort: saved.sort || 'desc', top: saved.top === 0 ? 0 : (saved.top || 15) };
     byId('hLevel1').value = defaults[0] || '';
     byId('hLevel2').value = defaults[1] || '';
     byId('hLevel3').value = defaults[2] || '';
-    byId('hMetricField').value = state.hierarchyConfig.metric.field || '';
-    byId('hMetricAgg').value = state.hierarchyConfig.metric.fn;
+    byId('hMetricField').value = metric.field || '';
+    byId('hMetricAgg').value = metric.fn === 'countRows' ? 'sum' : metric.fn;
+    if (byId('hSort')) byId('hSort').value = state.hierarchyConfig.sort;
+    if (byId('hTop')) byId('hTop').value = String(state.hierarchyConfig.top);
   }
+  /* A different dataset must not inherit the previous one's levels, tree or expanded groups (the selects used to keep stale columns). */
+  function resetHierarchyUi(clearConfig) {
+    ['hLevel1', 'hLevel2', 'hLevel3', 'hMetricField'].forEach(function (id) { var el = byId(id); if (el) el.innerHTML = ''; });
+    if (clearConfig) state.hierarchyConfig = { levels: [], metric: { field: null, fn: 'sum' } };
+    state.hTree = null; state.hierarchyExpanded = {}; widgetTrees = {}; widgetExpanded = {};
+    var q = byId('hSearch'); if (q) q.value = '';
+  }
+  function populateHierarchySelectsOnce() { if (state.dataset && !byId('hLevel1').options.length) populateHierarchySelects(); }
 
-  function renderTreeNodeHtml(node, depth, pathKey, rootValue) {
+  /* ---- tree painting (shared by the Hierarchy tab and the Overview widgets) ---- */
+  function fmtShare(sh) { return sh == null ? '' : (sh >= 0.1 ? Math.round(sh * 100) : Math.round(sh * 1000) / 10) + '%'; }
+  function hlText(text, q) {
+    var t = String(text);
+    if (!q) return esc(t);
+    var i = t.toLowerCase().indexOf(q);
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length));
+  }
+  function nodeMatches(node, q) {            /* self or any descendant matches the search text */
+    if (!q) return true;
+    if (String(node.label).toLowerCase().indexOf(q) > -1) return true;
+    return (node.children || []).some(function (c) { return nodeMatches(c, q); });
+  }
+  function renderTreeNodeHtml(node, pathKey, ctx) {
     var key = pathKey + '/' + node.label;
-    var expanded = state.hierarchyExpanded[key] === true;
-    var hasChildren = node.children && node.children.length;
-    var pct = rootValue ? Math.max(1, (node.value / rootValue) * 100) : 0;
-    var f = state.hierarchyConfig.metric.field ? fieldByName(state.hierarchyConfig.metric.field) : null;
-    var valType = f ? f.type : Studio.Types.NUMBER;
-    var html = '<div class="h-node-row" data-hkey="' + esc(key) + '" data-hpath=\'' + esc(JSON.stringify(node.path || [])) + '\'>'
-      + '<span class="h-toggle' + (hasChildren ? (expanded ? ' open' : '') : ' leaf') + '" data-h-toggle="' + esc(key) + '">' + (hasChildren ? ICON.chevron : '') + '</span>'
-      + '<span class="h-label">' + esc(node.label) + '</span>'
-      + '<span class="h-bar-track"><span class="h-bar-fill" style="width:' + pct + '%"></span></span>'
-      + '<span class="h-value">' + esc(Studio.formatByType(node.value, valType, { compact: true })) + '</span>';
-    if (node.path && node.path.length) html += '<button class="h-drill-btn" data-h-drill="' + esc(key) + '">Drill in →</button>';
-    html += '</div>';
-    if (hasChildren && expanded) html += '<div class="h-children">' + node.children.map(function (c) { return renderTreeNodeHtml(c, depth + 1, key, rootValue); }).join('') + '</div>';
+    var kids = node.children || [];
+    var selfHit = ctx.q && String(node.label).toLowerCase().indexOf(ctx.q) > -1;
+    var shownKids = ctx.q && !selfHit ? kids.filter(function (c) { return nodeMatches(c, ctx.q); }) : kids;
+    var hasChildren = shownKids.length > 0 && !node.isOther;
+    var expanded = hasChildren && (ctx.expanded[key] === true || (ctx.q && !selfHit));
+    var pct = node.siblingMax > 0 && node.value > 0 ? Math.max(2, Math.min(100, (node.value / node.siblingMax) * 100)) : 0;
+    var canDrill = !node.isOther && node.path && node.path.length;
+    var html = '<div class="h-node-row' + (node.isOther ? ' h-other' : '') + '" role="treeitem" aria-level="' + (node.depth + 1) + '"' + (hasChildren ? ' aria-expanded="' + (expanded ? 'true' : 'false') + '"' : '') + ' tabindex="-1"'
+      + ' data-hkey="' + esc(key) + '" data-hpath=\'' + esc(JSON.stringify(node.isOther ? [] : (node.path || []))) + '\' style="--lvl:' + node.depth + '">'
+      + '<span class="h-toggle' + (hasChildren ? (expanded ? ' open' : '') : ' leaf') + '"' + (hasChildren ? ' data-h-toggle="' + esc(key) + '"' : '') + '>' + (hasChildren ? ICON.chevron : '') + '</span>'
+      + '<span class="h-label" title="' + esc(node.label) + '">' + hlText(node.label, ctx.q) + '</span>'
+      + '<span class="h-bar-track" aria-hidden="true"><span class="h-bar-fill" style="width:' + pct.toFixed(1) + '%"></span></span>'
+      + '<span class="h-value">' + esc(Studio.formatByType(node.value, ctx.valType, { compact: true })) + '</span>'
+      + '<span class="h-share">' + fmtShare(node.share) + '</span>'
+      + '<span class="h-count">' + node.count.toLocaleString() + '</span>'
+      + '<span class="h-actions">'
+      + (canDrill ? '<button type="button" class="h-drill-btn" data-h-drill="' + esc(key) + '" title="Filter the whole workspace to ' + esc(node.label) + '">Drill in →</button>'
+        + '<button type="button" class="h-rows-btn" data-h-rows="' + esc(key) + '" title="Open the matching rows in the Data tab" aria-label="View rows for ' + esc(node.label) + '">Rows</button>' : '')
+      + '</span></div>';
+    if (expanded) html += '<div class="h-children" role="group">' + shownKids.map(function (c) { return renderTreeNodeHtml(c, key, ctx); }).join('') + '</div>';
     return html;
   }
-  function renderTreeRootHtml(tree) {
-    if (!tree.children.length) return '<p class="widget-empty">No categorical columns available to build a hierarchy from.</p>';
-    return tree.children.map(function (c) { return renderTreeNodeHtml(c, 0, 'root', tree.value); }).join('');
+  function treeHeadHtml() {
+    return '<div class="h-head" aria-hidden="true"><span class="h-toggle leaf"></span><span class="h-label">Group</span><span class="h-bar-track h-head-bar"></span><span class="h-value">Value</span><span class="h-share">Share</span><span class="h-count">Rows</span><span class="h-actions"></span></div>';
   }
-  // used by mini hierarchy widgets on Overview too
-  renderTreeChildrenHtml = function (tree, depth, keyPrefix, expandedOverride) {
-    var savedExpanded = state.hierarchyExpanded;
-    if (expandedOverride) state.hierarchyExpanded = {};
-    var html = renderTreeRootHtml(tree);
-    if (expandedOverride) state.hierarchyExpanded = savedExpanded;
-    return html || '<p class="widget-empty">No data.</p>';
-  };
+  function treeRootHtml(tree, ctx, prefix) {
+    if (!tree || !tree.children.length) return '<p class="widget-empty">No data for these levels under the current filters.</p>';
+    var kids = ctx.q ? tree.children.filter(function (c) { return nodeMatches(c, ctx.q); }) : tree.children;
+    if (!kids.length) return '<p class="widget-empty">Nothing matches “' + esc(ctx.q) + '”.</p>';
+    return treeHeadHtml() + kids.map(function (c) { return renderTreeNodeHtml(c, prefix || 'root', ctx); }).join('');
+  }
+  function hierarchyCtx(expanded, q) {
+    var cfg = state.hierarchyConfig;
+    return { expanded: expanded, q: q || '', valType: fieldTypeFor(cfg.metric.field, cfg.metric.fn) };
+  }
 
   function renderHierarchyTab() {
     var ds = state.dataset;
     if (!ds) return;
-    if (!byId('hLevel1').options.length) populateHierarchySelects();
+    populateHierarchySelectsOnce();
     var levels = [byId('hLevel1').value, byId('hLevel2').value, byId('hLevel3').value].filter(Boolean);
-    if (!levels.length) { byId('hierarchyTreeWrap').innerHTML = '<p class="widget-empty">Pick at least one level above.</p>'; return; }
+    if (!levels.length) { state.hTree = null; byId('hierarchyTreeWrap').innerHTML = '<p class="widget-empty">Pick at least one level above.</p>'; return; }
     var metricField = byId('hMetricField').value || null;
     var metricFn = metricField ? byId('hMetricAgg').value : 'countRows';
-    state.hierarchyConfig = { levels: levels, metric: { field: metricField, fn: metricFn } };
-    var rows = getFilteredRows();
-    var tree = Studio.buildHierarchyTree(rows, levels, metricField, metricFn, 15);
-    byId('hierarchyTreeWrap').innerHTML = renderTreeRootHtml(tree);
+    var sort = byId('hSort') ? byId('hSort').value : 'desc';
+    var top = byId('hTop') ? parseInt(byId('hTop').value, 10) || 0 : 15;
+    state.hierarchyConfig = { levels: levels, metric: { field: metricField, fn: metricFn }, sort: sort, top: top };
+    var t0 = (window.performance && performance.now) ? performance.now() : 0;
+    state.hTree = Studio.buildHierarchyTree(getFilteredRows(), levels, metricField, metricFn, top, { sort: sort, other: true });
+    state.hBuildMs = t0 ? Math.round(performance.now() - t0) : 0;
+    paintHierarchyTree();
+  }
+  /* Expanding / collapsing / searching only repaints the cached tree - it never re-aggregates the rows. */
+  function paintHierarchyTree() {
+    var wrap = byId('hierarchyTreeWrap');
+    if (!wrap) return;
+    var focusKey = document.activeElement && document.activeElement.closest && document.activeElement.closest('#hierarchyTreeWrap .h-node-row');
+    focusKey = focusKey ? focusKey.dataset.hkey : null;
+    var q = ((byId('hSearch') || {}).value || '').toLowerCase().trim();
+    wrap.setAttribute('role', 'tree');
+    wrap.setAttribute('aria-label', 'Hierarchy');
+    wrap.innerHTML = treeRootHtml(state.hTree, hierarchyCtx(state.hierarchyExpanded, q), 'root');
+    var sum = byId('hSummary');
+    if (sum && state.hTree) {
+      var cfg = state.hierarchyConfig;
+      sum.innerHTML = '<strong>' + state.hTree.count.toLocaleString() + '</strong> rows · ' + esc(cfg.levels.join(' → ')) + ' · ' + esc(Studio.formatByType(state.hTree.value, fieldTypeFor(cfg.metric.field, cfg.metric.fn), { compact: true })) + ' total'
+        + (state.drillCrumbs.length ? ' · <span class="h-scope">inside ' + esc(state.drillCrumbs.map(function (c) { return c.value; }).join(' → ')) + '</span>' : '');
+    }
+    if (focusKey) {
+      var again = Array.prototype.slice.call(wrap.querySelectorAll('.h-node-row')).filter(function (r) { return r.dataset.hkey === focusKey; })[0];
+      if (again) again.focus({ preventScroll: true });
+    }
+  }
+  function treeKeys(tree, prefix, out, cap) {
+    (tree.children || []).forEach(function (n) {
+      if (out.length > cap) return;
+      var k = prefix + '/' + n.label;
+      if (!n.isOther && n.children && n.children.length) { out.push(k); treeKeys(n, k, out, cap); }
+    });
+    return out;
+  }
+  function hierarchyAll(open) {
+    if (!state.hTree) return;
+    if (!open) { state.hierarchyExpanded = {}; paintHierarchyTree(); return; }
+    var keys = treeKeys(state.hTree, 'root', [], 1500);
+    if (keys.length > 1500) { showToast('Too many groups to expand at once. Narrow with “Show: Top N”, search, or drill in first.', 'error'); return; }
+    keys.forEach(function (k) { state.hierarchyExpanded[k] = true; });
+    paintHierarchyTree();
   }
 
+  /* Overview widget version: its own expanded map, so toggling never touches the tab and repaints only that card. */
+  var widgetTrees = {}, widgetExpanded = {};
+  function renderHierarchyWidget(w, rows) {
+    var body = byId('widget-body-' + w.id);
+    if (!body) return;
+    widgetTrees[w.id] = Studio.buildHierarchyTree(rows, w.spec.levels, w.spec.metric.field, w.spec.metric.fn, 8, { other: true });
+    paintHierarchyWidget(w);
+  }
+  function paintHierarchyWidget(w) {
+    var body = byId('widget-body-' + w.id);
+    if (!body || !widgetTrees[w.id]) return;
+    var ctx = { expanded: widgetExpanded[w.id] || (widgetExpanded[w.id] = {}), q: '', valType: fieldTypeFor(w.spec.metric.field, w.spec.metric.fn) };
+    body.innerHTML = '<div class="hierarchy-tree-wrap is-widget" role="tree">' + treeRootHtml(widgetTrees[w.id], ctx, 'w' + w.id) + '</div>';
+  }
+
+  function nodeFromRow(row) { try { return JSON.parse(row.dataset.hpath || '[]'); } catch (e) { return []; } }
+  document.addEventListener('click', function (e) {
+    var row = e.target.closest('.h-node-row');
+    if (!row) return;
+    var drill = e.target.closest('[data-h-drill]');
+    if (drill) { var path = nodeFromRow(row); if (path.length) drillInto(path); return; }
+    var rowsBtn = e.target.closest('[data-h-rows]');
+    if (rowsBtn) { drillThrough(nodeFromRow(row)); return; }
+    if (e.target.closest('button, a, input, select')) return;
+    var tg = row.querySelector('[data-h-toggle]');
+    if (!tg) return;
+    var key = tg.dataset.hToggle;
+    var card = row.closest('.widget-card[data-widget-id]');
+    if (card) {
+      var w = state.widgets.find(function (x) { return x.id === card.dataset.widgetId; });
+      if (w) { var m = widgetExpanded[w.id] || (widgetExpanded[w.id] = {}); m[key] = !(m[key] === true); paintHierarchyWidget(w); }
+      return;
+    }
+    state.hierarchyExpanded[key] = !(state.hierarchyExpanded[key] === true);
+    paintHierarchyTree();
+  });
+  document.addEventListener('keydown', function (e) {
+    var row = e.target.closest && e.target.closest('.h-node-row');
+    if (!row) return;
+    var rows = Array.prototype.slice.call(row.closest('[role="tree"]').querySelectorAll('.h-node-row'));
+    var i = rows.indexOf(row), tg = row.querySelector('[data-h-toggle]'), open = row.getAttribute('aria-expanded') === 'true';
+    if (e.key === 'ArrowDown' && rows[i + 1]) { e.preventDefault(); rows[i + 1].focus(); }
+    else if (e.key === 'ArrowUp' && rows[i - 1] && !e.altKey) { e.preventDefault(); rows[i - 1].focus(); }
+    else if ((e.key === 'ArrowRight' && tg && !open) || (e.key === 'ArrowLeft' && tg && open) || ((e.key === 'Enter' || e.key === ' ') && tg && e.target === row)) { e.preventDefault(); row.click(); }
+    else if (e.key === 'Enter' && !tg && e.target === row) { var b = row.querySelector('[data-h-drill]'); if (b) { e.preventDefault(); b.click(); } }
+  });
+  /* focusable rows: first row is reachable with Tab, the rest with arrow keys */
+  document.addEventListener('focusin', function (e) {
+    var r = e.target.closest && e.target.closest('.h-node-row'); if (!r) return;
+    r.closest('[role="tree"]').querySelectorAll('.h-node-row[tabindex="0"]').forEach(function (x) { if (x !== r) x.tabIndex = -1; });
+    r.tabIndex = 0;
+  });
+
   on(byId('hApplyBtn'), 'click', renderHierarchyTab);
+  ['hLevel1', 'hLevel2', 'hLevel3', 'hMetricField', 'hMetricAgg', 'hSort', 'hTop'].forEach(function (id) { on(byId(id), 'change', renderHierarchyTab); });
+  on(byId('hSearch'), 'input', debounce(paintHierarchyTree, 120));
+  on(byId('hExpandAll'), 'click', function () { hierarchyAll(true); });
+  on(byId('hCollapseAll'), 'click', function () { hierarchyAll(false); });
   on(byId('hPinBtn'), 'click', function () {
     var levels = [byId('hLevel1').value, byId('hLevel2').value, byId('hLevel3').value].filter(Boolean);
     if (!levels.length) { showToast('Pick at least one level first.', 'error'); return; }
     addWidget({ kind: 'hierarchy', size: 'l', spec: { title: 'Hierarchy: ' + levels.join(' → '), levels: levels, metric: { field: byId('hMetricField').value || null, fn: byId('hMetricField').value ? byId('hMetricAgg').value : 'countRows' } } });
     showToast('Pinned to Overview.', 'success');
-  });
-  document.addEventListener('click', function (e) {
-    var toggle = e.target.closest('[data-h-toggle]');
-    if (toggle) { var k = toggle.dataset.hToggle; state.hierarchyExpanded[k] = !(state.hierarchyExpanded[k] === true); renderHierarchyTab(); return; }
-    var drill = e.target.closest('[data-h-drill]');
-    if (drill) {
-      var row = drill.closest('.h-node-row');
-      var path = JSON.parse(row.dataset.hpath || '[]');
-      if (path.length) drillInto(path);
-    }
   });
 
   /* ======================================================================
@@ -2119,7 +2384,7 @@
     state.filters = {}; state.drillCrumbs = []; extraSlicerFields = [];
     state.widgets = []; state.pivot = { rows: [], columns: [], values: [] }; state.pivotExpanded = {};
     state.dataSort = { field: null, dir: 'asc' }; state.dataSearch = ''; state.dataPage = 1; resetGridState();
-    state.hiddenColumns = {}; state.selectedRows = {}; state.hierarchyExpanded = {};
+    state.hiddenColumns = {}; state.selectedRows = {}; resetHierarchyUi(true);
     byId('workbookNameInput').value = state.workbookName;
 
     var dateField = ds.fields.find(function (f) { return f.type === Studio.Types.DATE; });
@@ -2398,7 +2663,7 @@
     state.hierarchyConfig = wb.hierarchyConfig || { levels: [], metric: { field: null, fn: 'sum' } };
     state.filters = {}; state.drillCrumbs = []; extraSlicerFields = [];
     state.dataSort = { field: null, dir: 'asc' }; state.dataSearch = ''; state.dataPage = 1; resetGridState();
-    state.hiddenColumns = {}; state.selectedRows = {}; state.pivotExpanded = {}; state.hierarchyExpanded = {};
+    state.hiddenColumns = {}; state.selectedRows = {}; state.pivotExpanded = {}; resetHierarchyUi(false);
     byId('workbookNameInput').value = state.workbookName;
     pickAutoSlicerFields();
     byId('emptyState').style.display = 'none';

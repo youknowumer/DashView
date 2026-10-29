@@ -892,7 +892,22 @@ var Studio = (function () {
       .map(function (f) { return f.name; });
   }
 
-  function buildHierarchyTree(rows, levelFields, metricField, metricFn, topPerLevel) {
+  /** opts (all optional - the 5-argument call behaves exactly as before):
+   *    sort  'desc' (default) | 'asc' | 'name' | 'count'  - order of siblings
+   *    other true -> the groups cut off by topPerLevel are rolled into one
+   *          "Other (n)" row (aggregated from the real rows, so totals add up)
+   *  Every node also carries `share` (its part of the root total, only for
+   *  additive metrics) and `siblingMax` (largest sibling value, for bar width). */
+  function buildHierarchyTree(rows, levelFields, metricField, metricFn, topPerLevel, opts) {
+    opts = opts || {};
+    var additive = metricFn === 'sum' || metricFn === 'count' || metricFn === 'countRows';
+    var total = aggregate(rows, metricField, metricFn);
+    function cmp(a, b) {
+      if (opts.sort === 'asc') return a.value - b.value;
+      if (opts.sort === 'name') return String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: 'base' });
+      if (opts.sort === 'count') return b.count - a.count || b.value - a.value;
+      return b.value - a.value;
+    }
     function build(subset, depth, pathFilters) {
       if (depth >= levelFields.length) return [];
       var field = levelFields[depth];
@@ -904,26 +919,41 @@ var Studio = (function () {
       });
       var nodes = order.map(function (key) {
         var childRows = groups[key];
+        var value = aggregate(childRows, metricField, metricFn);
         return {
           label: key,
           field: field,
-          value: aggregate(childRows, metricField, metricFn),
+          depth: depth,
+          value: value,
           count: childRows.length,
+          share: additive && total ? value / total : null,
           path: pathFilters.concat([{ field: field, value: key }]),
           children: null,
           _rows: childRows,
         };
       });
-      nodes.sort(function (a, b) { return b.value - a.value; });
-      if (topPerLevel && nodes.length > topPerLevel) nodes = nodes.slice(0, topPerLevel);
+      nodes.sort(cmp);
+      var rest = null;
+      if (topPerLevel && nodes.length > topPerLevel) {
+        rest = nodes.slice(topPerLevel);
+        nodes = nodes.slice(0, topPerLevel);
+      }
       nodes.forEach(function (node) {
         node.children = build(node._rows, depth + 1, node.path);
         delete node._rows;
       });
+      if (rest && opts.other) {
+        var restRows = [];
+        rest.forEach(function (n) { restRows = restRows.concat(n._rows); });
+        var ov = aggregate(restRows, metricField, metricFn);
+        nodes.push({ label: 'Other (' + rest.length + ')', field: field, depth: depth, value: ov, count: restRows.length, share: additive && total ? ov / total : null, path: [], isOther: true, children: [] });
+      }
+      var mx = 0;
+      nodes.forEach(function (n) { if (n.value > mx) mx = n.value; });
+      nodes.forEach(function (n) { n.siblingMax = mx; });
       return nodes;
     }
-    var total = aggregate(rows, metricField, metricFn);
-    return { label: 'All', value: total, count: rows.length, path: [], children: build(rows, 0, []) };
+    return { label: 'All', value: total, count: rows.length, path: [], additive: additive, children: build(rows, 0, []) };
   }
 
   /* ======================================================================

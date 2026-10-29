@@ -39,11 +39,14 @@
   }
 }
 
-/* ── 2. Ultra-HD scaling (CSS px, so it follows the OS scale factor) ─────── */
-@media (min-width: 2560px) { html { font-size: 112.5%; } }   /* 2.5K / 4K @150% */
-@media (min-width: 3840px) { html { font-size: 137.5%; } }   /* 4K @100% / 8K @200% */
-@media (min-width: 5120px) { html { font-size: 175%; } }     /* 5K / 8K @150% */
-@media (min-width: 7680px) { html { font-size: 250%; } }     /* 8K @100% */
+/* ── 2. Ultra-HD scaling (CSS px, so it follows the OS scale factor) ───────
+   Only on a real big screen. When the person ZOOMS OUT in the browser the viewport grows past the
+   screen (js/8k-quality.js sets html[data-zoom-out]); boosting the text there fought the zoom, so the
+   page looked bigger and more broken the further they zoomed out. Now zooming out simply shows more. */
+@media (min-width: 2560px) { html:not([data-zoom-out]) { font-size: 112.5%; } }   /* 2.5K / 4K @150% */
+@media (min-width: 3840px) { html:not([data-zoom-out]) { font-size: 137.5%; } }   /* 4K @100% / 8K @200% */
+@media (min-width: 5120px) { html:not([data-zoom-out]) { font-size: 175%; } }     /* 5K / 8K @150% */
+@media (min-width: 7680px) { html:not([data-zoom-out]) { font-size: 250%; } }     /* 8K @100% */
 
 /* ── 3. Crisp rendering ─────────────────────────────────────────────────── */
 html {
