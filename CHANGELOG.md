@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.28.1 - 2026-10-29
+- Fixed: PDF reports showed garbled symbols for Urdu / Arabic text, emoji and the rupee sign (the built-in PDF fonts cannot draw them) - every PDF now converts them to readable text (Rs, >=, to) or ?, and a footer note says the Excel export keeps the full text (js/report-engine.js)
+- Fixed: the People page was missing 7 stylesheets that the dashboard loads (Executive CEO, charts, Odoo explorer, Odoo Live, widgets, settings top bar, profile), so shared parts could look unstyled there - People now loads the same stylesheet stack as the dashboard (people.html)
+- Improved: reports - numbers in the trillions print as T instead of 1000B; new regression test for PDF text safety (test/pdf-safe-text.test.js)
+
 ## 2.28.0 - 2026-10-26
 - New: Software Update now looks and moves like iOS - the notice drops in from the top with a spring, the sheet rises with a grabber, swipe up to dismiss the notice, swipe down to dismiss the sheet on phones, and closing plays a soft exit (js/updater.js)
 - Improved: every toast and dialog uses the same iOS glass look with a springy entrance - on phones toasts become top banners and dialogs become bottom sheets (css/ios-smooth.css)

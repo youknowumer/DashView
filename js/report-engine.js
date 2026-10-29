@@ -171,12 +171,56 @@ var DVReportEngine = (function () {
   function roundTo(n, d) { var m = Math.pow(10, d == null ? 2 : d); return Math.round(n * m) / m; }
   /** The built-in PDF fonts cover Latin-1 only: swap arrows / minus signs for plain equivalents so they never print as garbage. */
   function pdfText(s) { return String(s == null ? '' : s).replace(/\s*[\u2192\u2794\u27a1]\s*/g, ' to ').replace(/\u2212/g, '-'); }
+  /* The built-in PDF fonts only draw Western (WinAnsi) characters. Anything else (Urdu / Arabic, emoji, rupee sign ...) used to
+     come out as garbled symbols, so it is mapped to a readable stand-in here and the full text stays in the Excel export. */
+  var PDF_MAP = { '\u20A8': 'Rs', '\u20B9': 'Rs', '\u2265': '>=', '\u2264': '<=', '\u2260': '!=', '\u2192': ' to ', '\u2794': ' to ', '\u27A1': ' to ', '\u2212': '-', '\u2713': 'OK', '\u2714': 'OK', '\u2717': 'x', '\u2718': 'x', '\u2022': '\u2022', '\u00A0': ' ', '\u200B': '', '\u200E': '', '\u200F': '', '\uFEFF': '' };
+  var WIN_EXTRA = '\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178';
+  function pdfSafeText(s, tally) {
+    s = String(s == null ? '' : s);
+    if (/^[\x20-\x7E]*$/.test(s)) return s;                       // plain ASCII: nothing to do
+    var out = '', lossy = false;
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i), c = s.charCodeAt(i);
+      if (PDF_MAP.hasOwnProperty(ch)) out += PDF_MAP[ch];
+      else if (c === 9 || c === 10 || c === 13 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || WIN_EXTRA.indexOf(ch) >= 0) out += ch;
+      else if (c >= 0xD800 && c <= 0xDBFF) { i++; if (out.slice(-1) !== '?') out += '?'; lossy = true; }   // emoji / astral pair
+      else if (c >= 0x0300 && c <= 0x036F) { /* combining accent: drop */ }
+      else { if (out.slice(-1) !== '?') out += '?'; lossy = true; }
+    }
+    if (lossy && tally) tally.n++;
+    return out;
+  }
+  function pdfDeep(v, tally) {
+    if (typeof v === 'string') return pdfSafeText(v, tally);
+    if (Array.isArray(v)) return v.map(function (x) { return pdfDeep(x, tally); });
+    if (v && typeof v === 'object' && typeof v.content === 'string') return Object.assign({}, v, { content: pdfSafeText(v.content, tally) });
+    return v;
+  }
+  /** Makes every string that reaches jsPDF / AutoTable safe for the built-in fonts. Idempotent. */
+  function pdfGuard(doc) {
+    if (!doc || doc.__dvGuard) return doc;
+    doc.__dvGuard = true; doc.__dvLossy = { n: 0 };
+    var t = doc.text, sp = doc.splitTextToSize, at = doc.autoTable;
+    doc.text = function (text) { var a = Array.prototype.slice.call(arguments); a[0] = pdfDeep(text, doc.__dvLossy); return t.apply(doc, a); };
+    doc.splitTextToSize = function (text) { var a = Array.prototype.slice.call(arguments); a[0] = pdfDeep(text, doc.__dvLossy); return sp.apply(doc, a); };
+    if (typeof at === 'function') doc.autoTable = function (opts) {
+      if (opts && typeof opts === 'object') {
+        opts = Object.assign({}, opts);
+        if (opts.head) opts.head = opts.head.map(function (r) { return pdfDeep(r, doc.__dvLossy); });
+        if (opts.body) opts.body = opts.body.map(function (r) { return pdfDeep(r, doc.__dvLossy); });
+        if (opts.foot) opts.foot = opts.foot.map(function (r) { return pdfDeep(r, doc.__dvLossy); });
+      }
+      return at.call(doc, opts);
+    };
+    return doc;
+  }
   function clipText(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
   /** 1,234.56 style; very large values are compacted (1.2M) so tiles and axis labels never overflow. */
   function fmtNumber(n, maxDecimals) {
     n = Number(n);
     if (!isFinite(n)) return '\u2014';
     var abs = Math.abs(n);
+    if (abs >= 1e12) return roundTo(n / 1e12, 2) + 'T';
     if (abs >= 1e9) return roundTo(n / 1e9, 2) + 'B';
     if (abs >= 1e7) return roundTo(n / 1e6, 2) + 'M';
     return n.toLocaleString('en-US', { maximumFractionDigits: maxDecimals == null ? 2 : maxDecimals });
@@ -1260,7 +1304,7 @@ var DVReportEngine = (function () {
 
   function composeAIDashboardPdf(jsPDFCtor, payload) {
     payload = prepAI(payload || {});
-    var doc = new jsPDFCtor({ unit: 'pt', format: 'a4', compress: true });
+    var doc = pdfGuard(new jsPDFCtor({ unit: 'pt', format: 'a4', compress: true }));
     var kpis = payload.kpis.map(function (k) { return { label: k.label, value: k.value, hint: k.hint, tone: k.tone, change: k.change }; });
     payload._highlights = deriveHighlights(payload);
     var insights = insightParagraphs(payload).join('\n\n'), steps = nextStepsOf(payload);
@@ -1338,7 +1382,7 @@ var DVReportEngine = (function () {
     payload = normalizeReportPayload(payload);
     if (typeof jsPDFCtor !== 'function') throw new TypeError('PDF report library is unavailable.');
     if (payload.includeData !== false && payload.rows.length && payload.fields.length) payload._profile = profileFields(payload);
-    var doc = new jsPDFCtor({ unit: 'pt', format: 'a4', compress: true });
+    var doc = pdfGuard(new jsPDFCtor({ unit: 'pt', format: 'a4', compress: true }));
     payload._highlights = deriveHighlights(payload);
     var hasKpis = !!(payload.includeKpis && payload.kpis && payload.kpis.length);
     var hasInsights = !!((payload.insightsText && String(payload.insightsText).trim()) || (payload.snapshot && payload.snapshot.image));
@@ -1417,6 +1461,7 @@ var DVReportEngine = (function () {
       doc.text('Page ' + i + ' of ' + total, PAGE.w - PAGE.margin, 22, { align: 'right' });
       doc.text(BRAND.name + ' · ' + String(payload.companyName || 'Not specified') + ' · ' + stamp(payload.generatedAt), PAGE.margin, PAGE.h - 20);
       doc.text('Confidential · for internal use', PAGE.w - PAGE.margin, PAGE.h - 20, { align: 'right' });
+      if (doc.__dvLossy && doc.__dvLossy.n > 0) { doc.setFontSize(7); doc.text('Some characters outside the PDF font (for example Urdu / Arabic text or emoji) are shown as ? \u2014 the Excel export keeps the full text.', PAGE.margin, PAGE.h - 9); }
     }
   }
 
@@ -1519,6 +1564,7 @@ var DVReportEngine = (function () {
     deriveHighlights: deriveHighlights,
     describeMetric: describeMetric,
     fmtNumber: fmtNumber,
+    pdfSafeText: pdfSafeText,
     numFmtForType: numFmtForType,
     excelValue: excelValue,
     normalizeReportPayload: normalizeReportPayload,
