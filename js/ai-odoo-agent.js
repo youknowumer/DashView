@@ -364,6 +364,16 @@
     try { return Array.isArray(d) && d.length <= 25 && JSON.stringify(d).length < 900 && validDomain(d) ? d : null; } catch (e) { return null; }
   }
 
+  /* Compact, storable chart payload for ordinary data answers: up to 3 metrics with 2+ rows (time series keep the latest 15 points). */
+  function slimVisuals(a) {
+    if (!a || !Array.isArray(a.metrics)) return null;
+    var ms = a.metrics.filter(function (m) { return m.rows && m.rows.length >= 2; }).slice(0, 3).map(function (m) {
+      var series = m.chartType === 'line';
+      return { title: m.title, model: m.model, groupBy: m.groupBy, measure: m.measure, chartType: m.chartType, rows: series ? m.rows.slice(-15) : m.rows.slice(0, 15) };
+    });
+    return ms.length ? { version: 1, source: a.source, currency: a.currency, metrics: ms } : null;
+  }
+
   function isDashboardQuestion(question) {
     return /\b(dashboards?|dash-board|board\s+report|visual(?:ization)?s?\s+dashboards?)\b/i.test(String(question || ''));
   }
@@ -641,9 +651,11 @@
         var block = dataQueries.length ? formatAll(dataQueries, results) : '(no Odoo query was needed or none returned data)';
         step('answer', 'Writing the answer from the returned rows');
         var fileBlock = opts.fileContext ? 'ATTACHED FILE DATA (uploaded by the user in this chat; treat as user-supplied, unverified, and never mix it with Odoo numbers without saying which is which):\n' + clip(opts.fileContext, 9000) : '';
+        var visPre = dataQueries.length ? dashboardArtifact(question, dataQueries, results, s) : null, T0 = tplLib();
+        var findings = visPre && T0 && T0.findingsText ? T0.findingsText(visPre) : '';
         var system = [opts.systemPrompt, ANSWER_RULES, templateBlock(question),
           'TODAY: ' + iso(new Date()) + (s.currency ? ' · company currency: ' + s.currency : '') + (s.company ? ' · company: ' + s.company : '') + '\n' + areasLine(s),
-          'LIVE QUERY RESULTS (' + trace.queries + ' queries, ' + trace.ms + ' ms):\n' + block, fileBlock].filter(Boolean).join('\n\n');
+          'LIVE QUERY RESULTS (' + trace.queries + ' queries, ' + trace.ms + ' ms):\n' + block, findings ? 'COMPUTED FINDINGS (calculated by code from the rows above and also shown as charts - exact; quote them in Key insights, never recompute them):\n' + findings : '', fileBlock].filter(Boolean).join('\n\n');
         return callLLM(history, system).then(function (text) {
           var foot = dataQueries.length
             ? '\n\n*Live Odoo · ' + dataQueries.length + ' quer' + (dataQueries.length === 1 ? 'y' : 'ies') + ' (' + uniq(dataQueries.map(function (q) { return q.model; })).join(', ') + ') · ' + (trace.ms / 1000).toFixed(1) + 's' + (trace.failed ? ' · ' + trace.failed + ' failed' : '') + '*'
@@ -653,12 +665,12 @@
             followups = line.split('|').map(function (x) { return x.replace(/^[\s*_\-\u2022]+|[\s*_]+$/g, ''); }).filter(function (x) { return x.length > 3 && x.length < 140; }).slice(0, 3);
             return '';
           });
-          var artifact = isDashboardQuestion(question) ? dashboardArtifact(question, dataQueries, results, s) : null;
+          var artifact = isDashboardQuestion(question) ? visPre : null;
           trace.ms = Date.now() - t0;
           var full = compactTrace(executed, results, s, trace);
           full.steps = closeSteps();
           var sk = skillFor(question);
-          return { content: text + foot, dashboard: artifact, liveOdoo: dataQueries.length > 0, followups: followups, trace: full, skill: sk ? { id: sk.id, title: sk.title } : null };
+          return { content: text + foot, dashboard: artifact, liveOdoo: dataQueries.length > 0, followups: followups, trace: full, skill: sk ? { id: sk.id, title: sk.title } : null, visuals: artifact ? null : slimVisuals(visPre) };
         });
       });
     });

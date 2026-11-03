@@ -288,9 +288,63 @@
     };
   }
 
+
+  /* ── 5. Computed insights for charts (exact, calculated by code from returned rows) ──────────────── */
+  function fmtCompact(v) {
+    v = Number(v); if (!isFinite(v)) return '';
+    var a = Math.abs(v), sign = v < 0 ? '-' : '', u = a >= 1e12 ? [1e12, 'T'] : a >= 1e9 ? [1e9, 'B'] : a >= 1e6 ? [1e6, 'M'] : a >= 1e4 ? [1e3, 'K'] : null;
+    function trim(t) { return t.indexOf('.') >= 0 ? t.replace(/0+$/, '').replace(/\.$/, '') : t; }
+    if (u) { var x = a / u[0]; return sign + trim(x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2)) + u[1]; }
+    return sign + (Math.abs(a - Math.round(a)) < 0.005 ? Math.round(a).toLocaleString('en-US') : trim(a.toFixed(2)));
+  }
+  function pct1(x) { return (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '') + '%'; }
+  function isSeries(m) { return !!m && (m.chartType === 'line' || /(^|\W)(date|month|week|day|quarter|year)/i.test((m.groupBy || []).join(' '))); }
+  function isMoney(m) { return /amount|total|revenue|price|cost|balance|residual|untaxed|expected|subtotal/i.test(String((m && m.measure) || '')); }
+  function lowerIsBetter(m) { return /overdue|residual|unpaid|late|cancel|refund|due|backlog|lost/i.test(String((m && (m.title + ' ' + m.measure)) || '')); }
+
+  /* Returns { series, additive, total, shares[], insights[{tone,text,ri?}] } or null (fewer than 2 numeric rows). */
+  function analyzeMetric(m) {
+    var rows = ((m && m.rows) || []).map(function (r, i) { return { i: i, label: String(r.label == null ? '' : r.label), v: Number(r.value) }; }).filter(function (r) { return isFinite(r.v); });
+    if (rows.length < 2) return null;
+    var series = isSeries(m), additive = !/:(avg|min|max)\b|average|percent|rate|ratio/i.test(String((m && m.measure) || '')), allPos = rows.every(function (r) { return r.v >= 0; });
+    var total = rows.reduce(function (a, r) { return a + r.v; }, 0), canShare = additive && allPos && total > 0 && !series;
+    var out = { series: series, additive: additive, total: total, shares: rows.map(function (r) { return canShare ? r.v / total * 100 : null; }), insights: [] }, ins = out.insights, n = rows.length;
+    if (series && n >= 3) {
+      var last = rows[n - 1], prev = rows[n - 2], good = lowerIsBetter(m) ? -1 : 1;
+      if (prev.v !== 0) { var ch = (last.v - prev.v) / Math.abs(prev.v) * 100; if (Math.abs(ch) >= 0.05) ins.push({ tone: ch * good > 0 ? 'good' : 'warn', ri: last.i, text: last.label + ' is ' + (ch > 0 ? '+' : '-') + pct1(Math.abs(ch)) + ' vs ' + prev.label + ' (' + fmtCompact(last.v) + ' vs ' + fmtCompact(prev.v) + ')' }); }
+      var a3 = rows.slice(-3).map(function (r) { return r.v; });
+      if (n >= 4 && a3[0] < a3[1] && a3[1] < a3[2]) ins.push({ tone: good > 0 ? 'good' : 'warn', text: 'Rising for 3 periods in a row' });
+      else if (n >= 4 && a3[0] > a3[1] && a3[1] > a3[2]) ins.push({ tone: good > 0 ? 'warn' : 'good', text: 'Falling for 3 periods in a row' });
+      var hi = rows.reduce(function (b, r) { return r.v > b.v ? r : b; }, rows[0]), lo = rows.reduce(function (b, r) { return r.v < b.v ? r : b; }, rows[0]);
+      if (hi.v !== lo.v) { ins.push({ tone: 'neutral', ri: hi.i, text: 'Peak: ' + hi.label + ' (' + fmtCompact(hi.v) + ')' }); ins.push({ tone: 'neutral', ri: lo.i, text: 'Lowest: ' + lo.label + ' (' + fmtCompact(lo.v) + ')' }); }
+      var avg = total / n; if (avg !== 0 && n >= 4) { var da = (last.v - avg) / Math.abs(avg) * 100; if (Math.abs(da) >= 5) ins.push({ tone: da * good > 0 ? 'good' : 'warn', text: 'Latest is ' + pct1(Math.abs(da)) + (da > 0 ? ' above' : ' below') + ' the period average (' + fmtCompact(avg) + ')' }); }
+    } else if (canShare) {
+      var sorted = rows.slice().sort(function (a, b) { return b.v - a.v; }), t1 = sorted[0], s1 = t1.v / total * 100;
+      ins.push({ tone: s1 >= 40 ? 'warn' : 'neutral', ri: t1.i, text: t1.label + ' is ' + pct1(s1) + ' of the total (' + fmtCompact(t1.v) + ' of ' + fmtCompact(total) + ')' });
+      if (n >= 4) { var s3 = (sorted[0].v + sorted[1].v + sorted[2].v) / total * 100; ins.push({ tone: s3 >= 80 ? 'warn' : 'neutral', text: 'Top 3 = ' + pct1(s3) + ' of the total' }); }
+      var med = sorted[Math.floor(n / 2)].v;
+      if (n >= 5 && med > 0 && t1.v >= 3 * med) ins.push({ tone: 'warn', ri: t1.i, text: t1.label + ' is ' + (Math.round(t1.v / med * 10) / 10) + 'x the median row' });
+      if (n >= 8) { var tail = sorted.slice(Math.ceil(n / 2)).reduce(function (a, r) { return a + r.v; }, 0) / total * 100; ins.push({ tone: 'neutral', text: 'The smaller half (' + Math.floor(n / 2) + ' rows) adds only ' + pct1(tail) }); }
+    } else {
+      var mx = rows.reduce(function (b, r) { return r.v > b.v ? r : b; }, rows[0]), mn = rows.reduce(function (b, r) { return r.v < b.v ? r : b; }, rows[0]);
+      if (mx.v !== mn.v) { ins.push({ tone: 'neutral', ri: mx.i, text: 'Highest: ' + mx.label + ' (' + fmtCompact(mx.v) + ')' }); ins.push({ tone: 'neutral', ri: mn.i, text: 'Lowest: ' + mn.label + ' (' + fmtCompact(mn.v) + ')' }); }
+    }
+    out.insights = ins.slice(0, 4);
+    return out;
+  }
+  /* A block for the answer prompt: the same findings the chart shows, so the written insights quote exact code-calculated numbers. */
+  function findingsText(payload) {
+    var lines = [];
+    ((payload && payload.metrics) || []).slice(0, 5).forEach(function (m) {
+      var a = analyzeMetric(m); if (a && a.insights.length) lines.push('- ' + (m.title || 'metric') + ' (' + (m.rows || []).length + ' rows' + (a.additive && !a.series ? ', total ' + fmtCompact(a.total) : '') + '): ' + a.insights.map(function (x) { return x.text; }).join('; '));
+    });
+    return lines.join('\n');
+  }
+
   return {
     VERSION: VERSION, SKILLS: SKILLS, detectSkill: detectSkill, skillById: skillById, skillPrompt: skillPrompt, planHint: planHint, skillCatalogue: skillCatalogue,
     promptFor: promptFor, classifyHeading: classifyHeading, calloutKind: calloutKind, chipKind: chipKind,
-    extract: extract, stats: stats, headings: headings, parseNumber: parseNumber, tablesOf: tablesOf, sectionsOf: sectionsOf, toReportPayload: toReportPayload
+    extract: extract, stats: stats, headings: headings, parseNumber: parseNumber, tablesOf: tablesOf, sectionsOf: sectionsOf, toReportPayload: toReportPayload,
+    fmtCompact: fmtCompact, isSeries: isSeries, isMoney: isMoney, analyzeMetric: analyzeMetric, findingsText: findingsText
   };
 });

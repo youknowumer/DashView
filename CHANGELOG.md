@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.31.0 - 2026-11-03
+- New: Insight board under every Odoo data answer - interactive charts (bars with share %, donut share view, line with average / peak / latest) built only from the rows Odoo returned; switch chart type in place, hover for value, share and record count
+- New: code-calculated insights above each chart (top share, top-3 concentration, outlier vs median, latest vs previous period, peak / lowest, rising or falling streak; overdue-style metrics flip good / bad) - the same findings are given to the AI so its written insights quote exact numbers
+- New: drill-in - click any bar, slice, point or insight chip to open the records behind it (then a single record and Open in Odoo); CSV of any chart; Ask why button; Export PDF now includes the chart rows and calculated findings
+- Improved: model-written charts are click-to-ask (click a row or slice to get its breakdown); keyboard Enter / Space works on every chart element (js/ai-embed.js, js/ai-response-template.js, js/ai-odoo-agent.js, css/ai-embed.css, test/ai-visuals.smoke.test.js)
+
 ## 2.30.0 - 2026-11-03
 - New: AI chat answers follow one professional template - Bottom line, Key figures, What changed, Key insights, Risks and watch-list, Recommended actions, Assumptions and Confidence - at lookup, brief or full-report depth (js/ai-response-template.js, AI_RESPONSE_TEMPLATE.md)
 - New: 9 reporting skills (executive, sales, receivables, pipeline, inventory, purchasing, people, comparison, exceptions) picked from the question, in English, Urdu or Roman Urdu; shown as a tag and added to the planner and answer prompts; new Reports tab of ready questions

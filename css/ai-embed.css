@@ -726,3 +726,72 @@ button.aiw-drow:hover .go { opacity: 1; }
 .aiw-conf[data-l="low"] { --cc: var(--aiw-bad); background: rgba(216,90,69,.10); }
 
 @media print { .aiw-toc { display: none !important; } .ai-embed-content .aiw-callout, .aiw-md-table { break-inside: avoid; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Insight board (v2.31) — interactive charts + code-calculated insights under data answers.
+   Bars / share / line switch in place; every bar, slice and point with an Odoo domain opens its records.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ai-embed-content .aiw-vis { margin: 14px 0 4px; display: grid; gap: 10px; }
+.aiw-vis-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.aiw-vis-head b { font: 700 11.5px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-70); }
+.aiw-vis-head span { font-size: 11.5px; color: var(--ink-50); }
+.aiw-vis-card { padding: 12px 14px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); }
+.aiw-vis-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.aiw-vis-top h4 { margin: 0; font: 700 13px var(--f-display); color: var(--ink); text-transform: capitalize; }
+.aiw-vis-top small { font: 500 10.5px var(--f-mono); color: var(--ink-50); }
+.aiw-seg { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-full); background: var(--paper-soft); }
+.aiw-seg button { padding: 3px 11px; border: 0; border-radius: var(--r-full); background: none; color: var(--ink-70); font: 600 11px var(--f-body); cursor: pointer; transition: background var(--t-base), color var(--t-base); }
+.aiw-seg button[aria-pressed="true"] { background: var(--signal); color: var(--paper); }
+.aiw-vins { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.aiw-vin { --tc: var(--ink-70); --tb: rgba(128,128,128,.10); display: inline-flex; align-items: center; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--r-full); background: var(--tb); color: var(--tc); font: 600 11.5px/1.35 var(--f-body); text-align: left; }
+.aiw-vin::before { content: ''; flex: none; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--tc); }
+.aiw-vin[data-tone="good"] { --tc: var(--aiw-good); --tb: rgba(63,155,95,.12); }
+.aiw-vin[data-tone="warn"] { --tc: var(--aiw-bad); --tb: rgba(216,90,69,.11); }
+button.aiw-vin { cursor: pointer; transition: border-color var(--t-base), transform .1s; }
+button.aiw-vin:hover { border-color: var(--tc); }
+button.aiw-vin:active { transform: scale(.98); }
+.aiw-vbars { display: grid; gap: 6px; }
+.aiw-vbar { display: grid; grid-template-columns: minmax(70px, 28%) 1fr 54px 44px; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 7px; font-size: 12px; }
+.aiw-vbar.is-drill { cursor: pointer; }
+.aiw-vbar.is-drill:hover, .aiw-vleg[role="button"]:hover { background: var(--signal-10); }
+.aiw-vbar:focus-visible, .aiw-vleg:focus-visible, .aiw-vdot:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+.aiw-vbar-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-70); }
+.aiw-vbar-t { height: 11px; border-radius: var(--r-full); background: rgba(128,128,128,.12); overflow: hidden; }
+.aiw-vbar-f { display: block; height: 100%; border-radius: inherit; background: linear-gradient(120deg, var(--signal), var(--signal-bright)); transform-origin: left; animation: aiwGrow .5s cubic-bezier(.2,.8,.2,1) both; }
+.aiw-vbar.neg .aiw-vbar-f { background: var(--aiw-bad); }
+.aiw-vbar.other .aiw-vbar-f { background: var(--ink-50); opacity: .55; }
+.aiw-vbar-v { font: 600 11.5px var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.aiw-vbar-s { font: 500 11px var(--f-mono); text-align: right; color: var(--ink-50); }
+@keyframes aiwGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.aiw-vline { display: block; width: 100%; height: auto; overflow: visible; }
+.aiw-vaxis { stroke: rgba(128,128,128,.35); stroke-width: 1; }
+.aiw-vavg { stroke: var(--ink-50); stroke-width: 1; stroke-dasharray: 4 4; opacity: .6; }
+.aiw-vpath { fill: none; stroke: var(--signal); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+.aiw-varea { fill: var(--signal-10); stroke: none; }
+.aiw-vdot { fill: var(--paper); stroke: var(--signal); stroke-width: 2; }
+.aiw-vdot.last { fill: var(--signal); }
+.aiw-vdot[role="button"] { cursor: pointer; }
+.aiw-vdot[role="button"]:hover { fill: var(--signal); }
+.aiw-vline text { font-size: 11px; fill: currentColor; opacity: .6; font-family: inherit; }
+.aiw-vline text.aiw-vpt { opacity: 1; font-weight: 700; }
+.aiw-vdonut-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.aiw-vdonut { position: relative; flex: none; width: 128px; height: 128px; border-radius: 50%; }
+.aiw-vdonut > span { position: absolute; inset: 24%; display: grid; place-content: center; text-align: center; border-radius: 50%; background: var(--paper); }
+.aiw-vdonut b { font: 700 13px var(--f-mono); color: var(--ink); }
+.aiw-vdonut small { font-size: 10px; color: var(--ink-50); text-transform: uppercase; letter-spacing: .08em; }
+.aiw-vlegend { flex: 1; min-width: 190px; display: grid; gap: 2px; }
+.aiw-vleg { display: grid; grid-template-columns: 10px 1fr auto 46px; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 7px; font-size: 12px; }
+.aiw-vleg[role="button"] { cursor: pointer; }
+.aiw-vleg i { width: 10px; height: 10px; border-radius: 3px; }
+.aiw-vleg-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-70); }
+.aiw-vleg b { font: 600 11.5px var(--f-mono); color: var(--ink); }
+.aiw-vleg em { font: 500 11px var(--f-mono); font-style: normal; text-align: right; color: var(--ink-50); }
+.aiw-vis-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.aiw-vis-foot > span { font-size: 11px; color: var(--ink-50); }
+.aiw-vis-foot > div { display: flex; gap: 4px; }
+/* model-authored ```chart rows are clickable too (ask for the breakdown) */
+.ai-embed-content .ai-chart-row[role="button"], .ai-embed-content .ai-donut-item[role="button"] { cursor: pointer; border-radius: 6px; }
+.ai-embed-content .ai-chart-row[role="button"]:hover, .ai-embed-content .ai-donut-item[role="button"]:hover { background: var(--signal-10); }
+@media (max-width: 560px) { .aiw-vbar { grid-template-columns: minmax(60px, 30%) 1fr 48px; } .aiw-vbar-s { display: none; } }
+@media (prefers-reduced-motion: reduce) { .aiw-vbar-f { animation: none; } }
+@media print { .aiw-vis-foot, .aiw-seg { display: none !important; } .aiw-vis-card { break-inside: avoid; } }

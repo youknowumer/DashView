@@ -164,7 +164,7 @@
           return PALETTE[i % PALETTE.length] + ' ' + from.toFixed(2) + '% ' + to.toFixed(2) + '%';
         }).join(', ');
         var legend = rows.map(function (r, i) {
-          return '<div class="ai-donut-item"><span class="ai-donut-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></span>' +
+          return '<div class="ai-donut-item" role="button" tabindex="0" data-act="chart-ask" data-label="' + r.label + '" data-title="' + title + '" title="Click to dig into this slice"><span class="ai-donut-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></span>' +
             '<span class="ai-donut-label">' + (r.label) + '</span>' +
             '<span class="ai-chart-value">' + (fmt(r.value)) + ' · ' + (Math.abs(r.value) / total * 100).toFixed(1) + '%</span></div>';
         }).join('');
@@ -175,7 +175,7 @@
       var max = Math.max.apply(null, vals.map(Math.abs)) || 1;
       var barsHtml = rows.map(function (r) {
         var pct = Math.max((Math.abs(r.value) / max) * 100, 3);
-        return '<div class="ai-chart-row">' +
+        return '<div class="ai-chart-row" role="button" tabindex="0" data-act="chart-ask" data-label="' + r.label + '" data-title="' + title + '" title="Click to dig into this row">' +
           '<span class="ai-chart-label">' + (r.label) + '</span>' +
           '<span class="ai-chart-bar-track"><span class="ai-chart-bar-fill" style="width:' + pct.toFixed(1) + '%"></span></span>' +
           '<span class="ai-chart-value">' + (fmt(r.value)) + '</span></div>';
@@ -588,6 +588,83 @@
       return tags.join('');
     }
 
+    /* ══════════ interactive insight board: charts + code-calculated insights, built only from the rows Odoo returned ══════════ */
+    var visPayloads = Object.create(null), visTypes = Object.create(null);
+    var VIS_PAL = (window.DVFmt && window.DVFmt.PALETTE && window.DVFmt.PALETTE.length >= 8) ? window.DVFmt.PALETTE : ['#ff9f0a', '#0a84ff', '#bf5af2', '#63e6e2', '#ffd60a', '#7d7aff', '#40c8e0', '#ac8e68', '#64d2ff', '#98989d'];
+    function visMetrics(v) { return (v && Array.isArray(v.metrics) ? v.metrics : []).filter(function (m) { return m && Array.isArray(m.rows) && m.rows.filter(function (r) { return r && isFinite(Number(r.value)); }).length >= 2; }).slice(0, 3); }
+    function visCur(pl, me) { var T = window.DVAITemplate; return pl && pl.currency && T && T.isMoney(me) ? pl.currency : ''; }
+    function visTip(me, r, share, cur) {
+      var T = window.DVAITemplate;
+      return String(r.label || '') + ' · ' + (cur ? cur + ' ' : '') + T.fmtCompact(r.value) + (share != null ? ' · ' + (Math.round(share * 10) / 10) + '% of total' : '') + (r.count != null ? ' · ' + r.count + ' record' + (r.count === 1 ? '' : 's') : '') + (Array.isArray(r.domain) && me.model ? ' — click to open the records' : '');
+    }
+    function visAttrs(mid, mi, ri, me, tip) {
+      var can = Array.isArray(me.rows[ri].domain) && me.model;
+      return (can ? ' data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + ri + '" role="button" tabindex="0"' : '') + ' title="' + esc(tip) + '"';
+    }
+    function visTypesFor(me, an) { var n = me.rows.length; return an.series ? (n >= 3 ? ['line', 'bar'] : ['bar']) : (an.additive && an.shares[0] != null ? ['bar', 'donut'] : ['bar']); }
+    function visChartHtml(mid, mi, type) {
+      var pl = visPayloads[mid], me = pl && pl.metrics[mi], T = window.DVAITemplate; if (!me || !T) return '';
+      var an = T.analyzeMetric(me); if (!an) return '';
+      var cur = visCur(pl, me), items = me.rows.map(function (r, i) { return { r: r, i: i, v: Number(r.value) }; }).filter(function (x) { return isFinite(x.v); });
+      var total = an.total, shareOf = function (x) { return an.shares[0] != null && total > 0 ? x.v / total * 100 : null; };
+      if (type === 'line') {
+        var W = 560, H = 176, L = 14, R = 16, TP = 22, B = 28, n = items.length, vals = items.map(function (x) { return x.v; }), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), span = (mx - mn) || 1;
+        var pts = items.map(function (x, k) { return { x: L + k * (W - L - R) / (n - 1), y: TP + (1 - (x.v - mn) / span) * (H - TP - B) }; });
+        var d = pts.map(function (p, k) { return (k ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '), avgY = TP + (1 - ((total / n) - mn) / span) * (H - TP - B), step = Math.ceil(n / 7);
+        var iMax = vals.indexOf(mx), iLast = n - 1;
+        var dots = pts.map(function (p, k) { var x = items[k]; return '<circle class="aiw-vdot' + (k === iLast ? ' last' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (k === iLast ? 5 : 3.6) + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, null, cur)) + '><title>' + esc(visTip(me, x.r, null, cur)) + '</title></circle>'; }).join('');
+        var xl = items.map(function (x, k) { return k % step && k !== iLast ? '' : '<text x="' + pts[k].x.toFixed(1) + '" y="' + (H - 9) + '" text-anchor="' + (k === 0 ? 'start' : k === iLast ? 'end' : 'middle') + '">' + esc(String(x.r.label).slice(0, 14)) + '</text>'; }).join('');
+        var tags = [iMax].concat(iLast !== iMax ? [iLast] : []).map(function (k) { return '<text class="aiw-vpt" x="' + Math.min(Math.max(pts[k].x, 28), W - 28).toFixed(1) + '" y="' + Math.max(12, pts[k].y - 10).toFixed(1) + '" text-anchor="middle">' + esc(T.fmtCompact(items[k].v)) + '</text>'; }).join('');
+        return '<svg class="aiw-vline" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(me.title || 'Line chart') + '"><line class="aiw-vaxis" x1="' + L + '" y1="' + (H - B) + '" x2="' + (W - R) + '" y2="' + (H - B) + '"/>' +
+          (n >= 4 ? '<line class="aiw-vavg" x1="' + L + '" y1="' + avgY.toFixed(1) + '" x2="' + (W - R) + '" y2="' + avgY.toFixed(1) + '"><title>Average ' + esc(T.fmtCompact(total / n)) + '</title></line>' : '') +
+          '<path class="aiw-varea" d="' + d + ' L' + pts[n - 1].x.toFixed(1) + ' ' + (H - B) + ' L' + pts[0].x.toFixed(1) + ' ' + (H - B) + ' Z"/><path class="aiw-vpath" d="' + d + '"/>' + dots + xl + tags + '</svg>';
+      }
+      if (type === 'donut') {
+        var sorted = items.slice().sort(function (a, b) { return b.v - a.v; }), top = sorted.slice(0, 6), rest = sorted.slice(6), other = rest.reduce(function (a, x) { return a + x.v; }, 0);
+        var segs = top.map(function (x) { return { x: x, label: x.r.label, v: x.v }; }); if (rest.length) segs.push({ x: null, label: 'Other (' + rest.length + ' more)', v: other });
+        var acc = 0, stops = segs.map(function (g, k) { var a = acc / total * 100; acc += g.v; return VIS_PAL[k % VIS_PAL.length] + ' ' + a.toFixed(2) + '% ' + (acc / total * 100).toFixed(2) + '%'; }).join(', ');
+        var legend = segs.map(function (g, k) {
+          var tip = g.x ? visTip(me, g.x.r, shareOf(g.x), cur) : g.label + ' · ' + T.fmtCompact(g.v) + ' · ' + (Math.round(g.v / total * 1000) / 10) + '% of total';
+          return '<div class="aiw-vleg"' + (g.x ? visAttrs(mid, mi, g.x.i, me, tip) : ' title="' + esc(tip) + '"') + '><i style="background:' + VIS_PAL[k % VIS_PAL.length] + '"></i><span class="aiw-vleg-l">' + esc(g.label) + '</span><b>' + esc(T.fmtCompact(g.v)) + '</b><em>' + (Math.round(g.v / total * 1000) / 10) + '%</em></div>';
+        }).join('');
+        return '<div class="aiw-vdonut-wrap"><div class="aiw-vdonut" style="background:conic-gradient(' + stops + ')" role="img" aria-label="' + esc(me.title || 'Donut chart') + '"><span><b>' + esc((cur ? cur + ' ' : '') + T.fmtCompact(total)) + '</b><small>total</small></span></div><div class="aiw-vlegend">' + legend + '</div></div>';
+      }
+      var list = items, otherRow = null;
+      if (!an.series) { list = items.slice().sort(function (a, b) { return b.v - a.v; }); if (list.length > 10) { var tail = list.slice(10); list = list.slice(0, 10); otherRow = { label: 'Other (' + tail.length + ' more)', v: tail.reduce(function (a, x) { return a + x.v; }, 0) }; } }
+      var max = Math.max.apply(null, list.map(function (x) { return Math.abs(x.v); }).concat(otherRow ? [Math.abs(otherRow.v)] : [])) || 1;
+      var bars = list.map(function (x, k) {
+        var sh = shareOf(x);
+        return '<div class="aiw-vbar' + (x.v < 0 ? ' neg' : '') + (Array.isArray(x.r.domain) && me.model ? ' is-drill' : '') + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, sh, cur)) + '><span class="aiw-vbar-l">' + esc(x.r.label) + '</span><span class="aiw-vbar-t"><span class="aiw-vbar-f" style="width:' + Math.max(2, Math.abs(x.v) / max * 100).toFixed(1) + '%' + (an.series ? '' : ';background:' + VIS_PAL[k % VIS_PAL.length]) + '"></span></span><span class="aiw-vbar-v">' + esc(T.fmtCompact(x.v)) + '</span><span class="aiw-vbar-s">' + (sh != null ? (Math.round(sh * 10) / 10) + '%' : '') + '</span></div>';
+      }).join('');
+      if (otherRow) bars += '<div class="aiw-vbar other" title="' + esc(otherRow.label + ' · ' + T.fmtCompact(otherRow.v)) + '"><span class="aiw-vbar-l">' + esc(otherRow.label) + '</span><span class="aiw-vbar-t"><span class="aiw-vbar-f" style="width:' + Math.max(2, otherRow.v / max * 100).toFixed(1) + '%"></span></span><span class="aiw-vbar-v">' + esc(T.fmtCompact(otherRow.v)) + '</span><span class="aiw-vbar-s">' + (Math.round(otherRow.v / total * 1000) / 10) + '%</span></div>';
+      return '<div class="aiw-vbars" role="img" aria-label="' + esc(me.title || 'Bar chart') + '">' + bars + '</div>';
+    }
+    function visCardHtml(mid, mi) {
+      var pl = visPayloads[mid], me = pl.metrics[mi], T = window.DVAITemplate, an = T.analyzeMetric(me); if (!an) return '';
+      var types = visTypesFor(me, an), type = visTypes[mid + ':' + mi]; if (types.indexOf(type) < 0) type = types[0];
+      var cur = visCur(pl, me), drillable = me.model && me.rows.some(function (r) { return Array.isArray(r.domain); });
+      var seg = types.length > 1 ? '<div class="aiw-seg" role="group" aria-label="Chart type">' + types.map(function (t) { return '<button type="button" data-act="vis-type" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-t="' + t + '" aria-pressed="' + (t === type) + '">' + ({ bar: 'Bars', line: 'Line', donut: 'Share' }[t]) + '</button>'; }).join('') + '</div>' : '';
+      var ins = an.insights.map(function (x) {
+        var can = x.ri != null && me.model && Array.isArray(me.rows[x.ri] && me.rows[x.ri].domain);
+        return can ? '<button type="button" class="aiw-vin" data-tone="' + x.tone + '" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + x.ri + '" title="Open the records behind this">' + esc(x.text) + '</button>' : '<span class="aiw-vin" data-tone="' + x.tone + '">' + esc(x.text) + '</span>';
+      }).join('');
+      return '<article class="aiw-vis-card" data-mi="' + mi + '"><header class="aiw-vis-top"><div><h4>' + esc(me.title || me.model || 'Metric') + '</h4><small>' + esc(me.rows.length + ' rows' + (me.measure ? ' · ' + me.measure : '') + (cur ? ' · ' + cur : '')) + '</small></div>' + seg + '</header>' +
+        (ins ? '<div class="aiw-vins" aria-label="Calculated insights">' + ins + '</div>' : '') +
+        '<div class="aiw-vis-chart">' + visChartHtml(mid, mi, type) + '</div>' +
+        '<footer class="aiw-vis-foot"><span>' + (drillable ? 'Click a bar, slice or point to open the records behind it' : 'Exact values from the returned rows') + '</span><div><button type="button" class="aiw-tool" data-act="vis-csv" data-mid="' + esc(mid) + '" data-mi="' + mi + '">CSV</button><button type="button" class="aiw-tool" data-act="vis-ask" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Ask why</button></div></footer></article>';
+    }
+    function visBoardHtml(m) {
+      var T = window.DVAITemplate; if (!T || !T.analyzeMetric) return '';
+      var ms = visMetrics(m.visuals); if (!ms.length) return '';
+      visPayloads[m.id] = Object.assign({}, m.visuals, { metrics: ms });
+      var cards = ms.map(function (x, mi) { return visCardHtml(m.id, mi); }).join('');
+      return cards ? '<section class="aiw-vis" aria-label="Insight board"><header class="aiw-vis-head"><b>Insight board</b><span>Charts and insights are calculated from the rows Odoo returned</span></header>' + cards + '</section>' : '';
+    }
+    function visRowsCsv(pl, me) {
+      var T = window.DVAITemplate, an = T.analyzeMetric(me), rows = me.rows.filter(function (r) { return isFinite(Number(r.value)); });
+      return csvOf(['Group', me.measure || 'Value', 'Share of total %', 'Records'], rows.map(function (r, i) { return [r.label, r.value, an && an.shares[i] != null ? Math.round(an.shares[i] * 100) / 100 : '', r.count == null ? '' : r.count]; }));
+    }
+
     // Structured footer of an answer: confidence, assumptions and (when there is no query path strip) the data source.
     function answerFootHtml(parts, m) {
       var rows = [];
@@ -622,10 +699,10 @@
         var dash = m.dashboard ? renderDashboard(m.dashboard, m.content) : null;
         parts = T && T.extract ? T.extract(m.content) : null;
         if (parts) { foot = answerFootHtml(parts, m); toc = tocHtml(parts.body, m.id); }
-        body = '<div class="ai-embed-content"><p>' + renderMarkdown(parts ? parts.body : m.content, m.liveOdoo) + '</p>' + (dash || '') + '</div>';
+        body = '<div class="ai-embed-content"><p>' + renderMarkdown(parts ? parts.body : m.content, m.liveOdoo) + '</p>' + (dash || '') + (m.visuals ? visBoardHtml(m) : '') + '</div>';
         body = body.replace(/<p><\/p>/g, '').replace(/<p>(?=<(?:h2|h3|ul|ol|aside|div|pre|hr)\b)/g, '').replace(/(<\/(?:h2|h3|ul|ol|aside|div|pre)>|<hr\/>)<\/p>/g, '$1').replace(/<p><\/p>/g, '');
       }
-      var st = T && !m.report && m.content ? T.stats(m.content) : null, canExport = !!(st && !m.dashboard && (st.isReport || (st.tables >= 1 && st.words > 60)));
+      var st = T && !m.report && m.content ? T.stats(m.content) : null, canExport = !!(st && !m.dashboard && (st.isReport || m.visuals || (st.tables >= 1 && st.words > 60)));
       var hasPath = !!(m.trace || m.report);
       var tools = '<button type="button" class="aiw-tool" data-act="copy" data-mid="' + m.id + '">Copy</button>' +
         (hasPath ? '<button type="button" class="aiw-tool" data-act="path" data-mid="' + m.id + '">Path &amp; drill ›</button>' : '') +
@@ -825,6 +902,10 @@
     /* Resolve “what would opening this open?” from a button's data attributes (used by click and by hover prefetch). */
     function frameFromEl(t) {
       var act = t.getAttribute('data-act');
+      if (act === 'vis-drill') {
+        var vp = visPayloads[t.getAttribute('data-mid')], vm = vp && vp.metrics[+t.getAttribute('data-mi')], vr = vm && vm.rows[+t.getAttribute('data-ri')];
+        if (vm && vr && Array.isArray(vr.domain)) return { kind: 'records', model: vm.model, domain: vr.domain, title: vm.title + ' · ' + vr.label, label: vr.label, offset: 0 };
+      }
       if (act === 'dash-drill') {
         var pl = dashboardPayloads[t.getAttribute('data-dash')], me = pl && pl.metrics[+t.getAttribute('data-mi')], row = me && me.rows[+t.getAttribute('data-ri')];
         if (me && row && Array.isArray(row.domain)) return { kind: 'records', model: me.model, domain: row.domain, title: me.title + ' · ' + row.label, label: row.label, offset: 0 };
@@ -841,7 +922,7 @@
     }
     var hoverTimer = 0;
     root.addEventListener('mouseover', function (e) {
-      var t = e.target.closest && e.target.closest('[data-act="dash-drill"],[data-act="q-group"],[data-act="q-records"]');
+      var t = e.target.closest && e.target.closest('[data-act="dash-drill"],[data-act="vis-drill"],[data-act="q-group"],[data-act="q-records"]');
       if (!t) return;
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(function () { var f = frameFromEl(t); if (f) recordsFor(f).catch(function () {}); }, 140);   // warm the cache so the click is instant
@@ -1194,7 +1275,7 @@
             S.provider.outcome = r.liveOdoo || (r.trace && r.trace.kind !== 'fallback') ? 'ok' : S.provider.outcome; updateChips();
             if (r.trace && r.trace.status) { S.health = Object.assign({}, S.health || {}, { ok: true, latencyMs: r.trace.status.latencyMs, version: r.trace.status.version, company: r.trace.status.company, currency: r.trace.status.currency, areas: (S.health && S.health.areas) || [], readable: S.health ? S.health.readable : 0, checkedAt: Date.now() }); updateChips(); }
             var tag = r.dashboard ? 'Odoo dashboard' : (/\*\*Live company data is unavailable\./.test(r.content) ? 'Live Odoo unavailable' : /Odoo connection: ❌/.test(r.content) ? 'Odoo status' : 'Live Odoo');
-            finishAnswer(r.content, { tag: tag, dashboard: r.dashboard || null, liveOdoo: !!r.liveOdoo, followups: r.followups || [], trace: r.trace || null, engine: 'odoo', skill: r.skill || null });
+            finishAnswer(r.content, { tag: tag, dashboard: r.dashboard || null, liveOdoo: !!r.liveOdoo, followups: r.followups || [], trace: r.trace || null, engine: 'odoo', skill: r.skill || null, visuals: r.visuals || null });
           }).catch(function (e) { fail(e, /provider|api key|rate limit|model/i.test(String(e && e.message)) ? 'provider' : null); });
       }
       if (p.configured) {
@@ -1312,7 +1393,15 @@
         var T = window.DVAITemplate, E = window.DVReportEngine;
         if (!T || !E || typeof E.generateAIDashboardPdf !== 'function') return toast('PDF export is not available on this page.');
         var payload;
-        try { payload = T.toReportPayload(f.m.content, { title: reportTitle(precedingQuestion(f.i, f.t), f.m), time: f.m.time }); } catch (e) { return toast('This answer could not be turned into a report.'); }
+        try {
+          payload = T.toReportPayload(f.m.content, { title: reportTitle(precedingQuestion(f.i, f.t), f.m), time: f.m.time });
+          if (f.m.visuals) {   // the board's exact rows + calculated insights go into the PDF too
+            var vm = visMetrics(f.m.visuals), found = T.findingsText({ metrics: vm });
+            payload.metrics = vm.concat(payload.metrics).slice(0, 6);
+            if (found) payload.insightsText = (payload.insightsText ? payload.insightsText + '\n\n' : '') + 'Calculated findings\n' + found;
+            if (f.m.visuals.source) payload.source = f.m.visuals.source; if (f.m.visuals.currency) payload.currency = f.m.visuals.currency;
+          }
+        } catch (e) { return toast('This answer could not be turned into a report.'); }
         toast('Building the PDF report…');
         E.generateAIDashboardPdf(payload).then(function () { toast('Report PDF exported.'); }).catch(function () { toast('The PDF library could not load (offline?). Copy the answer instead.'); });
       },
@@ -1338,6 +1427,26 @@
       'q-group': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
       'q-records': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
       'dash-drill': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
+      'vis-drill': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
+      'vis-type': function (t) {
+        var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), card = t.closest('.aiw-vis-card'); if (!card) return;
+        visTypes[mid + ':' + mi] = t.getAttribute('data-t');
+        card.querySelector('.aiw-vis-chart').innerHTML = visChartHtml(mid, mi, t.getAttribute('data-t'));
+        Array.prototype.forEach.call(card.querySelectorAll('.aiw-seg button'), function (b) { b.setAttribute('aria-pressed', String(b === t)); });
+      },
+      'vis-csv': function (t) {
+        var pl = visPayloads[t.getAttribute('data-mid')], me = pl && pl.metrics[+t.getAttribute('data-mi')]; if (!me) return;
+        download(String(me.title || 'chart').replace(/[^\w.-]+/g, '-').slice(0, 60) + '.csv', visRowsCsv(pl, me), 'text/csv;charset=utf-8'); toast('CSV downloaded.');
+      },
+      'vis-ask': function (t) {
+        var pl = visPayloads[t.getAttribute('data-mid')], me = pl && pl.metrics[+t.getAttribute('data-mi')], T = window.DVAITemplate; if (!me || !T || S.busy) return;
+        var an = T.analyzeMetric(me), top = me.rows.reduce(function (b, r) { return Number(r.value) > Number(b.value) ? r : b; }, me.rows[0]);
+        send(an && an.series ? 'Explain what drove the change in "' + me.title + '" over the last periods, with the records behind the biggest movers.' : 'Why is "' + top.label + '" the largest in "' + me.title + '"? Break it down further and tell me what to do about it.');
+      },
+      'chart-ask': function (t) {
+        if (S.busy) return; var l = t.getAttribute('data-label'), ti = t.getAttribute('data-title');
+        send('Break down "' + l + '"' + (ti ? ' from "' + ti + '"' : '') + ': show the details and the records behind it.');
+      },
       'q-rec': function (t) { openPopup({ kind: 'record', model: t.getAttribute('data-model'), id: +t.getAttribute('data-id'), title: t.getAttribute('data-model') + ' #' + t.getAttribute('data-id'), label: '#' + t.getAttribute('data-id') }); },
       'q-explorer': function (t) {
         var f = findMsg(t.getAttribute('data-mid')), q = f && f.m.trace.queries.filter(function (x) { return x.id === t.getAttribute('data-q'); })[0]; if (!q || !window.DVDrill) return;
@@ -1387,7 +1496,7 @@
       if (fn) { e.preventDefault(); e.stopPropagation(); fn(t, e); }
     });
     root.addEventListener('keydown', function (e) {
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.ai-dashboard-bar-row[role="button"], tr[data-act]')) { e.preventDefault(); e.target.click(); }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.ai-dashboard-bar-row[role="button"], tr[data-act], .aiw-vbar[role="button"], .aiw-vleg[role="button"], circle[role="button"], .ai-chart-row[role="button"], .ai-donut-item[role="button"]')) { e.preventDefault(); e.target.click(); }
     });
     root.addEventListener('change', function (e) {
       var k = e.target.getAttribute && e.target.getAttribute('data-rf'); if (!k || !S.rf) return;
