@@ -257,33 +257,58 @@
     }
 
     function renderMarkdown(text, liveOdoo) {
-      text = String(text == null ? '' : text);
+      text = String(text == null ? '' : text).replace(/\u0000/g, '');
       if (liveOdoo) text = text.replace(/```(?:kpi|chart|dashboard)\s*\r?\n[\s\S]*?```/gi, '');
+      var stash = [];   // code blocks are set aside so headings / lists / bold are never applied inside them
+      var T = (typeof window !== 'undefined' && window.DVAITemplate) || null;
+      // Table cells: numbers right-aligned, signed changes coloured (only in "vs / change" columns), High/Medium/Low as chips.
+      var NUMRE = /^(?:[A-Za-z]{2,4}\.?\s?|[$€£₹]\s?)?[+\-−]?\d[\d,]*(?:\.\d+)?\s?[KMBT]?\s?%?(?:\s?(?:pts?|days?|d))?$/;
+      function level(c) { var v = String(c).trim().toLowerCase(); return v === 'high' || v === 'critical' ? 'high' : (v === 'medium' || v === 'med' ? 'mid' : (v === 'low' ? 'low' : '')); }
+      function td(c, kind, tag) {
+        var v = String(c).trim(), cls = '', inner = c;
+        if (kind === 'sem' && T && T.chipKind && T.chipKind(v)) inner = '<span class="aiw-lv" data-k="' + T.chipKind(v) + '">' + c + '</span>';
+        else if (kind === 'lvl' && level(v)) inner = '<span class="aiw-lv" data-k="lvl-' + level(v) + '">' + c + '</span>';
+        else if (NUMRE.test(v)) { cls = 'num'; if (kind === 'delta' && /^[+\-−]/.test(v)) cls += /^\+/.test(v) ? ' up' : ' down'; }
+        return '<' + tag + (cls ? ' class="' + cls + '"' : '') + '>' + inner + '</' + tag + '>';
+      }
       return esc(text)
         .replace(/```kpi\n?([\s\S]*?)```/g, function (match, body) { return renderKpiBlock(body) || match; })
         .replace(/```chart\n?([\s\S]*?)```/g, function (match, body) { return renderChartBlock(body) || match; })
-        .replace(/```(\w*)\n?([\s\S]*?)```/g, function (_, lang, code) { return '<pre><code>' + code.trim() + '</code></pre>'; })
+        .replace(/```(\w*)\n?([\s\S]*?)```/g, function (_, lang, code) { stash.push('<pre><code>' + code.trim() + '</code></pre>'); return '\u0000' + (stash.length - 1) + '\u0000'; })
         .replace(/((?:^\|.*\|[ \t]*(?:\n|$)){2,})/gm, function (block) {
           var lines = block.trim().split('\n').filter(Boolean);
           if (lines.length < 2 || !/^\|[\s:|-]+\|$/.test(lines[1].trim())) return block;
           var cells = function (l) { return l.trim().replace(/^\||\|$/g, '').split('|').map(function (c) { return c.trim(); }); };
           var head = cells(lines[0]), body = lines.slice(2).map(cells);
-          return '<div class="aiw-md-table"><table><thead><tr>' + head.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' +
-            body.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+          var kinds = head.map(function (h) { return /priority|status|read|risk|severity|level/i.test(h) ? 'sem' : (/effort|impact/i.test(h) ? 'lvl' : (/\bvs\b|change|growth|delta|Δ/i.test(h) ? 'delta' : '')); });
+          var numCols = head.map(function (h, i) { return body.length && body.filter(function (r) { return NUMRE.test(String(r[i] || '').trim()); }).length >= Math.ceil(body.length / 2) ? ' class="num"' : ''; });
+          return '<div class="aiw-md-table" role="region" tabindex="0" aria-label="Table"><table><thead><tr>' + head.map(function (c, i) { return '<th' + numCols[i] + '>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' +
+            body.map(function (r) { return '<tr>' + r.map(function (c, i) { return td(c, kinds[i], 'td'); }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
         })
+        .replace(/^[ \t]*\d+[.)] (.+)$/gm, '<li data-o>$1</li>')
+        .replace(/(<li data-o>.*<\/li>\n?)+/g, function (m) { return '<ol>' + m.replace(/ data-o/g, '').replace(/\n/g, '') + '</ol>'; })
+        .replace(/^[ \t]*[\-\*•] (.+)$/gm, '<li data-b>$1</li>')
+        .replace(/(<li data-b>.*<\/li>\n?)+/g, function (m) { return '<ul>' + m.replace(/ data-b/g, '').replace(/\n/g, '') + '</ul>'; })
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^#{1,2} (.+)$/gm, function (_, t) { var k = T && T.classifyHeading ? T.classifyHeading(t.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, '')) : ''; return '<h2 class="aiw-h"' + (k ? ' data-sec="' + k + '"' : '') + '>' + t + '</h2>'; })
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/<blockquote><strong>([^<]{2,28}?):?<\/strong>:?\s*([\s\S]*?)<\/blockquote>/g, function (m, label, body) {
+          var k = T && T.calloutKind ? T.calloutKind(label) : '';
+          return k ? '<aside class="aiw-callout" data-k="' + k + '"><b class="aiw-callout-l">' + label + '</b><span>' + body + '</span></aside>' : m;
+        })
         .replace(/^---$/gm, '<hr/>')
-        .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>\n?)+/g, function (m) { return '<ul>' + m + '</ul>'; })
         .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br/>');
+        .replace(/\n/g, '<br/>')
+        .replace(/\u0000(\d+)\u0000/g, function (_, i) { return stash[+i] || ''; })
+        .replace(/(<\/(?:h2|h3|ul|ol|aside|blockquote|pre|div)>|<hr\/>)(?:<br\/>)+/g, '$1')
+        .replace(/(?:<br\/>)+(<(?:h2|h3|ul|ol|aside|div|pre)\b)/g, '$1')
+        .replace(/<\/p><p>(?=<(?:h2|h3|ul|ol|aside|div|pre|hr)\b)/g, '')
+        .replace(/(<\/(?:h2|h3|ul|ol|aside|div|pre)>|<hr\/>)<\/p>/g, '$1')
+        .replace(/<p>(?=<(?:h2|h3|ul|ol|aside|div|pre|hr)\b)/g, '');
     }
 
     /* ── provider / Odoo state ──────────────────────────────────────────── */
@@ -436,6 +461,7 @@
       CRM:       { c: '#AF52DE', re: /pipeline|lead|opportunit|crm|won|lost|stage/i, ic: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>' },
       People:    { c: '#FF2D55', re: /employee|headcount|leave|time off|applicant|position|hr\b|department|payroll|attendance/i, ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .6 3 2.3 3 5.2"/>' },
       Files:     { c: '#30B0C7', re: null, ic: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>' },
+      Reports:   { c: '#5E5CE6', re: null, ic: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>' },
       General:   { c: '#8E8E93', re: null, ic: '<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>' }
     };
     function catIcon(k, sz) { return '<svg width="' + (sz || 14) + '" height="' + (sz || 14) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + CAT[k].ic + '</svg>'; }
@@ -503,7 +529,9 @@
       Finance: ['Receivables aging by customer: not due, 1-30, 31-60, 61-90, 90+ days', 'Unpaid vendor bills due in the next 14 days', 'Cash in vs cash out by month this year', 'Invoices overdue by more than 60 days'],
       Inventory: ['Products that are low on stock and need reordering', 'Late deliveries: scheduled before today and not done', 'Stock quantity by internal location', 'Purchase orders waiting for approval'],
       CRM: ['Pipeline by stage with expected revenue', 'Opportunities with a deadline this month', 'Won vs lost opportunities by salesperson this quarter', 'New leads per week for the last 8 weeks'],
-      People: ['Headcount by department', 'Who is on time off this week?', 'Open positions and applicants per stage', 'Leave requests awaiting approval']
+      People: ['Headcount by department', 'Who is on time off this week?', 'Open positions and applicants per stage', 'Leave requests awaiting approval'],
+      Reports: (window.DVAITemplate && window.DVAITemplate.SKILLS ? window.DVAITemplate.SKILLS.map(function (k) { return k.example; }) :
+        ['Give me a board-ready company report for this month', 'Sales this month vs last month, by salesperson', 'Receivables aging by customer with the top 5 debtors', 'Where are the mistakes or stuck items in my Odoo data?'])
     };
     var areaOpen = 'Sales';
 
@@ -549,12 +577,37 @@
     function tagHtml(m) {
       var tags = [];
       if (m.role !== 'ai') return '';
+      var T = window.DVAITemplate, st = T && !m.report && m.content ? T.stats(m.content) : null;
       if (m.report) tags.push('<span class="aiw-tag" data-t="info">' + (m.report.kind === 'reconcile' ? 'File ⇄ Odoo' : 'File report') + '</span>');
       else if (m.tag) tags.push('<span class="aiw-tag"' + (/unavailable|setup/i.test(m.tag) ? ' data-t="bad"' : /Live Odoo|dashboard|status/i.test(m.tag) ? ' data-t="good"' : '') + '>' + esc(m.tag) + '</span>');
       else if (m.liveOdoo) tags.push('<span class="aiw-tag" data-t="good">Live Odoo</span>');
       else if (m.engine === 'provider') tags.push('<span class="aiw-tag" data-t="info">' + esc(m.providerLabel || 'AI provider') + '</span>');
       else if (m.engine === 'local') tags.push('<span class="aiw-tag">Local</span>');
+      if (m.skill && m.skill.title) tags.push('<span class="aiw-tag" data-t="skill" title="Reporting skill used for this answer">' + esc(m.skill.title) + '</span>');
+      if (st && st.isReport) tags.push('<span class="aiw-tag" data-t="report" title="Structured report">Report · ' + st.sections + ' sections</span>');
       return tags.join('');
+    }
+
+    // Structured footer of an answer: confidence, assumptions and (when there is no query path strip) the data source.
+    function answerFootHtml(parts, m) {
+      var rows = [];
+      if (parts.confidence) {
+        var lv = parts.confidence.level.toLowerCase();
+        rows.push('<div class="aiw-foot-row"><span class="aiw-conf" data-l="' + lv + '" title="How much of this answer is backed by complete, verified data"><i aria-hidden="true"></i>Confidence: ' + esc(parts.confidence.level) + '</span>' + (parts.confidence.reason ? '<span class="aiw-foot-t">' + esc(parts.confidence.reason) + '</span>' : '') + '</div>');
+      }
+      if (parts.assumptions) rows.push('<div class="aiw-foot-row"><span class="aiw-foot-k">Assumptions</span><span class="aiw-foot-t">' + esc(parts.assumptions) + '</span></div>');
+      if (parts.source && !m.trace) rows.push('<div class="aiw-foot-row"><span class="aiw-foot-k">Source</span><span class="aiw-foot-t">' + esc(parts.source) + '</span></div>');
+      return rows.length ? '<div class="aiw-foot">' + rows.join('') + '</div>' : '';
+    }
+    // "In this report" chips for long structured answers (4+ sections).
+    function tocHtml(body, mid) {
+      var T = window.DVAITemplate; if (!T || !T.stats || !T.headings) return '';
+      if (T.stats(body).sections < 4) return '';
+      return '<nav class="aiw-toc" aria-label="Sections in this report">' + T.headings(body).slice(0, 8).map(function (h, i) { return '<button type="button" data-act="jump" data-mid="' + mid + '" data-i="' + i + '">' + esc(h) + '</button>'; }).join('') + '</nav>';
+    }
+    function reportTitle(question, m) {
+      var q = String(question || '').replace(/\s+/g, ' ').trim();
+      return ((m && m.skill && m.skill.title) || 'DashView report') + (q ? ' - ' + (q.length > 70 ? q.slice(0, 67) + '...' : q) : '');
     }
 
     function msgHtml(m, isLast) {
@@ -563,21 +616,25 @@
         var files = (m.files || []).map(function (f) { return '<span class="aiw-file-chip"><span class="aiw-file-ic">' + esc((f.name.split('.').pop() || 'F').slice(0, 4).toUpperCase()) + '</span><b>' + esc(f.name) + '</b><small>' + fmtSize(f.size) + '</small></span>'; }).join('');
         return '<div class="aiw-msg user" data-mid="' + m.id + '"><div class="aiw-av">You</div><div class="aiw-bubble"><div class="aiw-card">' + (files ? '<div class="aiw-attach-line">' + files + '</div>' : '') + (m.content ? '<div class="ai-embed-content"><p>' + esc(m.content).replace(/\n/g, '<br/>') + '</p></div>' : '') + '</div></div></div>';
       }
-      var body;
+      var body, parts = null, foot = '', toc = '', T = window.DVAITemplate;
       if (m.report) body = reportHtml(m.report, m.id);
       else {
         var dash = m.dashboard ? renderDashboard(m.dashboard, m.content) : null;
-        body = '<div class="ai-embed-content"><p>' + renderMarkdown(m.content, m.liveOdoo) + '</p>' + (dash || '') + '</div>';
-        body = body.replace(/<p><\/p>/g, '');
+        parts = T && T.extract ? T.extract(m.content) : null;
+        if (parts) { foot = answerFootHtml(parts, m); toc = tocHtml(parts.body, m.id); }
+        body = '<div class="ai-embed-content"><p>' + renderMarkdown(parts ? parts.body : m.content, m.liveOdoo) + '</p>' + (dash || '') + '</div>';
+        body = body.replace(/<p><\/p>/g, '').replace(/<p>(?=<(?:h2|h3|ul|ol|aside|div|pre|hr)\b)/g, '').replace(/(<\/(?:h2|h3|ul|ol|aside|div|pre)>|<hr\/>)<\/p>/g, '$1').replace(/<p><\/p>/g, '');
       }
+      var st = T && !m.report && m.content ? T.stats(m.content) : null, canExport = !!(st && !m.dashboard && (st.isReport || (st.tables >= 1 && st.words > 60)));
       var hasPath = !!(m.trace || m.report);
       var tools = '<button type="button" class="aiw-tool" data-act="copy" data-mid="' + m.id + '">Copy</button>' +
         (hasPath ? '<button type="button" class="aiw-tool" data-act="path" data-mid="' + m.id + '">Path &amp; drill ›</button>' : '') +
+        (canExport ? '<button type="button" class="aiw-tool" data-act="rexport" data-mid="' + m.id + '" title="Download this answer as a PDF report">Export PDF</button>' : '') +
         (isLast && m.retry ? '<button type="button" class="aiw-tool" data-act="retry" data-mid="' + m.id + '">Retry</button>' : '') +
         (m.liveOdoo || m.trace && m.trace.kind === 'odoo' ? '<button type="button" class="aiw-tool" data-act="why" data-mid="' + m.id + '">How was this calculated?</button>' : '');
       var fups = isLast && m.followups && m.followups.length ? '<div class="aiw-followups" aria-label="Suggested next steps">' + m.followups.map(function (f, i) { return '<button type="button" data-act="fup" data-mid="' + m.id + '" data-i="' + i + '">' + esc(typeof f === 'string' ? f : f.label) + '</button>'; }).join('') + '</div>' : '';
       return '<div class="aiw-msg ai" data-mid="' + m.id + '"><div class="aiw-av">' + ICON.spark + '</div><div class="aiw-bubble"><div class="aiw-card' + (sel ? ' selected' : '') + '">' +
-        '<div class="aiw-meta">' + tagHtml(m) + '<span class="aiw-time">' + fmtTime(m.time) + '</span></div>' + body + (m.report ? '' : pathStripHtml(m)) +
+        '<div class="aiw-meta"><span class="aiw-who">DashView Assistant</span>' + tagHtml(m) + '<span class="aiw-time">' + fmtTime(m.time) + '</span></div>' + toc + body + foot + (m.report ? '' : pathStripHtml(m)) +
         (m.setup ? '<div class="aiw-btns" style="margin-top:10px"><button type="button" class="aiw-btn primary" data-act="open-conn">Open connection details</button><button type="button" class="aiw-btn" data-act="settings-ai">AI settings</button><button type="button" class="aiw-btn" data-act="settings-odoo">Odoo settings</button></div>' : '') +
         '<div class="aiw-msg-tools">' + tools + '</div></div>' + fups + '</div></div>';
     }
@@ -1137,7 +1194,7 @@
             S.provider.outcome = r.liveOdoo || (r.trace && r.trace.kind !== 'fallback') ? 'ok' : S.provider.outcome; updateChips();
             if (r.trace && r.trace.status) { S.health = Object.assign({}, S.health || {}, { ok: true, latencyMs: r.trace.status.latencyMs, version: r.trace.status.version, company: r.trace.status.company, currency: r.trace.status.currency, areas: (S.health && S.health.areas) || [], readable: S.health ? S.health.readable : 0, checkedAt: Date.now() }); updateChips(); }
             var tag = r.dashboard ? 'Odoo dashboard' : (/\*\*Live company data is unavailable\./.test(r.content) ? 'Live Odoo unavailable' : /Odoo connection: ❌/.test(r.content) ? 'Odoo status' : 'Live Odoo');
-            finishAnswer(r.content, { tag: tag, dashboard: r.dashboard || null, liveOdoo: !!r.liveOdoo, followups: r.followups || [], trace: r.trace || null, engine: 'odoo' });
+            finishAnswer(r.content, { tag: tag, dashboard: r.dashboard || null, liveOdoo: !!r.liveOdoo, followups: r.followups || [], trace: r.trace || null, engine: 'odoo', skill: r.skill || null });
           }).catch(function (e) { fail(e, /provider|api key|rate limit|model/i.test(String(e && e.message)) ? 'provider' : null); });
       }
       if (p.configured) {
@@ -1250,6 +1307,19 @@
       'cat': function (t) { S.cat = t.getAttribute('data-k'); renderThreads(); },
       'prompt': function (t) { send(t.getAttribute('data-q')); },
       'copy': function (t) { var f = findMsg(t.getAttribute('data-mid')); if (f) copyText(f.m.content || ''); },
+      'rexport': function (t) {
+        var f = findMsg(t.getAttribute('data-mid')); if (!f) return;
+        var T = window.DVAITemplate, E = window.DVReportEngine;
+        if (!T || !E || typeof E.generateAIDashboardPdf !== 'function') return toast('PDF export is not available on this page.');
+        var payload;
+        try { payload = T.toReportPayload(f.m.content, { title: reportTitle(precedingQuestion(f.i, f.t), f.m), time: f.m.time }); } catch (e) { return toast('This answer could not be turned into a report.'); }
+        toast('Building the PDF report…');
+        E.generateAIDashboardPdf(payload).then(function () { toast('Report PDF exported.'); }).catch(function () { toast('The PDF library could not load (offline?). Copy the answer instead.'); });
+      },
+      'jump': function (t) {
+        var card = t.closest('.aiw-card'), hs = card ? card.querySelectorAll('h2.aiw-h') : [], h = hs[+t.getAttribute('data-i')];
+        if (h && h.scrollIntoView) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
       'path': function (t) { selectMsg(t.getAttribute('data-mid'), 'path'); },
       'why': function (t) { var mid = t.getAttribute('data-mid'), f = findMsg(mid); if (f && f.m.trace && f.m.trace.queries[0]) S.openQ[mid + ':' + f.m.trace.queries[0].id] = true; selectMsg(mid, 'path'); },
       'retry': function (t) {

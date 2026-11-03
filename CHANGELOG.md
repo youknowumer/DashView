@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.30.0 - 2026-11-03
+- New: AI chat answers follow one professional template - Bottom line, Key figures, What changed, Key insights, Risks and watch-list, Recommended actions, Assumptions and Confidence - at lookup, brief or full-report depth (js/ai-response-template.js, AI_RESPONSE_TEMPLATE.md)
+- New: 9 reporting skills (executive, sales, receivables, pipeline, inventory, purchasing, people, comparison, exceptions) picked from the question, in English, Urdu or Roman Urdu; shown as a tag and added to the planner and answer prompts; new Reports tab of ready questions
+- Improved: chat view - assistant name, headline banner, coloured section headings, callouts, right-aligned numeric columns with tinted changes and level chips, proper numbered lists, In this report chips, confidence and assumptions footer, code blocks left untouched (js/ai-embed.js, css/ai-embed.css)
+- New: Export PDF on any structured chat answer (KPIs, evidence tables, next steps, assumptions, confidence)
+- Improved: the Python AI service uses the same template and skills (ai-service/app/prompt.py); new tests in test/ai-template.smoke.test.js
+
 ## 2.29.1 - 2026-10-29
 - Fixed: Reconcile failed with "limit must be between 1 and 500" - it asked Odoo for up to 4000 records at a time; it now reads in pages of 200 (works with the account server and the Worker)
 
