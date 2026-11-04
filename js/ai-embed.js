@@ -588,8 +588,8 @@
       return tags.join('');
     }
 
-    /* ══════════ interactive insight board: charts + code-calculated insights, built only from the rows Odoo returned ══════════ */
-    var visPayloads = Object.create(null), visTypes = Object.create(null);
+    /* ══════════ interactive insight board v2: KPIs, prioritised findings, chart views (bars / pareto / share / line / table), AI insights and drill - built only from the rows Odoo returned ══════════ */
+    var visPayloads = Object.create(null), visTypes = Object.create(null), visState = Object.create(null), visAiBusy = Object.create(null), visAiErr = Object.create(null);
     var VIS_PAL = (window.DVFmt && window.DVFmt.PALETTE && window.DVFmt.PALETTE.length >= 8) ? window.DVFmt.PALETTE : ['#ff9f0a', '#0a84ff', '#bf5af2', '#63e6e2', '#ffd60a', '#7d7aff', '#40c8e0', '#ac8e68', '#64d2ff', '#98989d'];
     function visMetrics(v) { return (v && Array.isArray(v.metrics) ? v.metrics : []).filter(function (m) { return m && Array.isArray(m.rows) && m.rows.filter(function (r) { return r && isFinite(Number(r.value)); }).length >= 2; }).slice(0, 3); }
     function visCur(pl, me) { var T = window.DVAITemplate; return pl && pl.currency && T && T.isMoney(me) ? pl.currency : ''; }
@@ -601,23 +601,55 @@
       var can = Array.isArray(me.rows[ri].domain) && me.model;
       return (can ? ' data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + ri + '" role="button" tabindex="0"' : '') + ' title="' + esc(tip) + '"';
     }
-    function visTypesFor(me, an) { var n = me.rows.length; return an.series ? (n >= 3 ? ['line', 'bar'] : ['bar']) : (an.additive && an.shares[0] != null ? ['bar', 'donut'] : ['bar']); }
+    function vst(mid, mi) { var k = mid + ':' + mi; return visState[k] || (visState[k] = { k: '', dir: 0, q: '', more: false }); }
+    function visCanDrill(me, ri) { return !!(me && me.model && me.rows[ri] && Array.isArray(me.rows[ri].domain)); }
+    function visTypesFor(me, an) {
+      var n = me.rows.length;
+      if (an.series) return n >= 3 ? ['line', 'bar', 'table'] : ['bar', 'table'];
+      return an.additive && an.shares[0] != null ? (n >= 4 ? ['bar', 'pareto', 'donut', 'table'] : ['bar', 'donut', 'table']) : ['bar', 'table'];
+    }
+    var VIS_TYPE_LABEL = { bar: 'Bars', line: 'Line', donut: 'Share', pareto: 'Pareto', table: 'Table' };
+    function visItems(me) { return me.rows.map(function (r, i) { return { r: r, i: i, v: Number(r.value) }; }).filter(function (x) { return isFinite(x.v); }); }
+    function visChg(items, k) { var a = items[k - 1], b = items[k]; return a && a.v !== 0 ? (b.v - a.v) / Math.abs(a.v) * 100 : null; }
+    function visPct(x) { return (x > 0 ? '+' : x < 0 ? '-' : '') + (Math.round(Math.abs(x) * 10) / 10) + '%'; }
+
     function visChartHtml(mid, mi, type) {
       var pl = visPayloads[mid], me = pl && pl.metrics[mi], T = window.DVAITemplate; if (!me || !T) return '';
       var an = T.analyzeMetric(me); if (!an) return '';
-      var cur = visCur(pl, me), items = me.rows.map(function (r, i) { return { r: r, i: i, v: Number(r.value) }; }).filter(function (x) { return isFinite(x.v); });
-      var total = an.total, shareOf = function (x) { return an.shares[0] != null && total > 0 ? x.v / total * 100 : null; };
+      var cur = visCur(pl, me), items = visItems(me), total = an.total, shareOf = function (x) { return an.shares[0] != null && total > 0 ? x.v / total * 100 : null; };
+      var prof = T.profileMetric ? T.profileMetric(me) : null;
+      if (type === 'table') return visTableHtml(mid, mi);
       if (type === 'line') {
-        var W = 560, H = 176, L = 14, R = 16, TP = 22, B = 28, n = items.length, vals = items.map(function (x) { return x.v; }), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), span = (mx - mn) || 1;
-        var pts = items.map(function (x, k) { return { x: L + k * (W - L - R) / (n - 1), y: TP + (1 - (x.v - mn) / span) * (H - TP - B) }; });
-        var d = pts.map(function (p, k) { return (k ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '), avgY = TP + (1 - ((total / n) - mn) / span) * (H - TP - B), step = Math.ceil(n / 7);
-        var iMax = vals.indexOf(mx), iLast = n - 1;
-        var dots = pts.map(function (p, k) { var x = items[k]; return '<circle class="aiw-vdot' + (k === iLast ? ' last' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (k === iLast ? 5 : 3.6) + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, null, cur)) + '><title>' + esc(visTip(me, x.r, null, cur)) + '</title></circle>'; }).join('');
-        var xl = items.map(function (x, k) { return k % step && k !== iLast ? '' : '<text x="' + pts[k].x.toFixed(1) + '" y="' + (H - 9) + '" text-anchor="' + (k === 0 ? 'start' : k === iLast ? 'end' : 'middle') + '">' + esc(String(x.r.label).slice(0, 14)) + '</text>'; }).join('');
-        var tags = [iMax].concat(iLast !== iMax ? [iLast] : []).map(function (k) { return '<text class="aiw-vpt" x="' + Math.min(Math.max(pts[k].x, 28), W - 28).toFixed(1) + '" y="' + Math.max(12, pts[k].y - 10).toFixed(1) + '" text-anchor="middle">' + esc(T.fmtCompact(items[k].v)) + '</text>'; }).join('');
-        return '<svg class="aiw-vline" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(me.title || 'Line chart') + '"><line class="aiw-vaxis" x1="' + L + '" y1="' + (H - B) + '" x2="' + (W - R) + '" y2="' + (H - B) + '"/>' +
-          (n >= 4 ? '<line class="aiw-vavg" x1="' + L + '" y1="' + avgY.toFixed(1) + '" x2="' + (W - R) + '" y2="' + avgY.toFixed(1) + '"><title>Average ' + esc(T.fmtCompact(total / n)) + '</title></line>' : '') +
-          '<path class="aiw-varea" d="' + d + ' L' + pts[n - 1].x.toFixed(1) + ' ' + (H - B) + ' L' + pts[0].x.toFixed(1) + ' ' + (H - B) + ' Z"/><path class="aiw-vpath" d="' + d + '"/>' + dots + xl + tags + '</svg>';
+        var W = 620, H = 214, L = 48, R = 20, TP = 28, B = 30, n = items.length, vals = items.map(function (x) { return x.v; }), nxt = prof && prof.trend && prof.trend.next != null ? prof.trend.next : null;
+        var all = nxt != null ? vals.concat([nxt]) : vals, mn0 = Math.min.apply(null, all), mx0 = Math.max.apply(null, all), padv = ((mx0 - mn0) || Math.abs(mx0) || 1) * 0.1, mn = mn0 - padv, mx = mx0 + padv, span = (mx - mn) || 1;
+        var slots = n + (nxt != null ? 1 : 0), sx = function (k) { return L + k * (W - L - R) / (slots - 1); }, sy = function (v) { return TP + (1 - (v - mn) / span) * (H - TP - B); };
+        var pts = items.map(function (x, k) { return { x: sx(k), y: sy(x.v) }; });
+        var d = pts.map(function (p, k) { return (k ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '), avg = total / n, step = Math.ceil(slots / 7);
+        var iMax = vals.indexOf(Math.max.apply(null, vals)), iMin = vals.indexOf(Math.min.apply(null, vals)), iLast = n - 1;
+        var grid = [0, 1, 2, 3].map(function (g) { var v = mn + span * g / 3, y = sy(v); return '<line class="aiw-vgrid" x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) + '"/><text class="aiw-vgl" x="' + (L - 6) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end">' + esc(T.fmtCompact(v)) + '</text>'; }).join('');
+        var dots = pts.map(function (p, k) { var x = items[k]; return '<circle class="aiw-vdot' + (k === iLast ? ' last' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (k === iLast ? 5 : 3.6) + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, null, cur) + (k ? ' · ' + visPct(visChg(items, k) == null ? 0 : visChg(items, k)) + ' vs ' + items[k - 1].r.label : '')) + '><title>' + esc(visTip(me, x.r, null, cur)) + '</title></circle>'; }).join('');
+        var xl = items.map(function (x, k) { return k % step && k !== iLast ? '' : '<text x="' + pts[k].x.toFixed(1) + '" y="' + (H - 9) + '" text-anchor="' + (k === 0 ? 'start' : k === iLast && nxt == null ? 'end' : 'middle') + '">' + esc(String(x.r.label).slice(0, 14)) + '</text>'; }).join('');
+        var tagIdx = [iMax].concat(iLast !== iMax ? [iLast] : []).concat(iMin !== iMax && iMin !== iLast && n >= 5 ? [iMin] : []);
+        var tags = tagIdx.map(function (k) { return '<text class="aiw-vpt" x="' + Math.min(Math.max(pts[k].x, L + 12), W - 28).toFixed(1) + '" y="' + (k === iMin && k !== iMax ? pts[k].y + 17 : Math.max(12, pts[k].y - 10)).toFixed(1) + '" text-anchor="middle">' + esc(T.fmtCompact(items[k].v)) + '</text>'; }).join('');
+        var ma = '';
+        if (prof && prof.ma && n >= 5) { var mdp = [], started = false; prof.ma.forEach(function (v, k) { if (v == null) return; mdp.push((started ? 'L' : 'M') + sx(k).toFixed(1) + ' ' + sy(v).toFixed(1)); started = true; }); ma = '<path class="aiw-vma" d="' + mdp.join(' ') + '"><title>3-period moving average</title></path>'; }
+        var proj = '';
+        if (nxt != null) { var px = sx(n), py = sy(nxt); proj = '<path class="aiw-vproj" d="M' + pts[iLast].x.toFixed(1) + ' ' + pts[iLast].y.toFixed(1) + ' L' + px.toFixed(1) + ' ' + py.toFixed(1) + '"/><path class="aiw-vprojdot" d="M' + px.toFixed(1) + ' ' + (py - 5.5).toFixed(1) + ' l5.5 5.5 l-5.5 5.5 l-5.5 -5.5 z"><title>Straight-line estimate for the next period: ' + esc(T.fmtCompact(nxt)) + ' (not a forecast)</title></path><text class="aiw-vpt aiw-vptp" x="' + Math.min(px, W - 24).toFixed(1) + '" y="' + Math.max(12, py - 12).toFixed(1) + '" text-anchor="middle">≈ ' + esc(T.fmtCompact(nxt)) + '</text><text x="' + Math.min(px, W - 4).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="end">next</text>'; }
+        return '<svg class="aiw-vline" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc((me.title || 'Line chart') + (nxt != null ? ', with a dashed straight-line estimate for the next period' : '')) + '">' + grid +
+          (n >= 4 ? '<line class="aiw-vavg" x1="' + L + '" y1="' + sy(avg).toFixed(1) + '" x2="' + (W - R) + '" y2="' + sy(avg).toFixed(1) + '"><title>Average ' + esc(T.fmtCompact(avg)) + '</title></line>' : '') +
+          '<path class="aiw-varea" d="' + d + ' L' + pts[n - 1].x.toFixed(1) + ' ' + (H - B) + ' L' + pts[0].x.toFixed(1) + ' ' + (H - B) + ' Z"/>' + ma + '<path class="aiw-vpath" d="' + d + '"/>' + proj + dots + xl + tags + '</svg>' +
+          '<div class="aiw-vkey"><span><i class="k-line"></i>' + esc(me.measure ? String(me.measure).split(':')[0].replace(/_/g, ' ') : 'Value') + '</span>' + (n >= 4 ? '<span><i class="k-avg"></i>Average ' + esc(T.fmtCompact(avg)) + '</span>' : '') + (ma ? '<span><i class="k-ma"></i>3-period average</span>' : '') + (proj ? '<span><i class="k-proj"></i>Trend estimate</span>' : '') + '</div>';
+      }
+      if (type === 'pareto' && prof && prof.sorted) {
+        var srt = prof.sorted.slice(0, 12), W2 = 620, H2 = 226, L2 = 44, R2 = 40, T2 = 22, B2 = 52, bw = (W2 - L2 - R2) / srt.length, bh = H2 - T2 - B2, mxv = srt[0].v || 1, n80 = prof.pareto ? prof.pareto.n80 : 0, cp = [];
+        var bars2 = srt.map(function (x, k) {
+          var h = Math.max(2, x.v / mxv * bh), bx = L2 + k * bw + bw * 0.14, by = T2 + bh - h, cy = T2 + (1 - prof.cum[k] / 100) * bh; cp.push({ x: bx + bw * 0.36, y: cy, k: k });
+          return '<rect class="aiw-pbar' + (k < n80 ? ' vital' : '') + '" x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + (bw * 0.72).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="3"' + visAttrs(mid, mi, x.i, me, visTip(me, me.rows[x.i], x.v / total * 100, cur) + ' · cumulative ' + (Math.round(prof.cum[k] * 10) / 10) + '%') + '><title>' + esc(visTip(me, me.rows[x.i], x.v / total * 100, cur) + ' · cumulative ' + (Math.round(prof.cum[k] * 10) / 10) + '%') + '</title></rect><text class="aiw-pxl" transform="translate(' + (bx + bw * 0.36).toFixed(1) + ' ' + (H2 - B2 + 14) + ') rotate(-28)" text-anchor="end">' + esc(String(x.label).slice(0, 11)) + '</text>';
+        }).join('');
+        var cl = cp.map(function (p, k) { return (k ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '), cdots = cp.map(function (p) { return '<circle class="aiw-pcdot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3"/>'; }).join('');
+        var y80 = T2 + 0.2 * bh, ax = [0, 50, 100].map(function (g) { var y = T2 + (1 - g / 100) * bh; return '<text class="aiw-vgl" x="' + (W2 - R2 + 6) + '" y="' + (y + 3.5).toFixed(1) + '">' + g + '%</text>'; }).join('');
+        return '<svg class="aiw-vline aiw-vpareto" viewBox="0 0 ' + W2 + ' ' + H2 + '" role="img" aria-label="' + esc((me.title || 'Pareto chart') + ': ' + n80 + ' of ' + items.length + ' groups make up 80% of the total') + '"><line class="aiw-vaxis" x1="' + L2 + '" y1="' + (T2 + bh) + '" x2="' + (W2 - R2) + '" y2="' + (T2 + bh) + '"/><line class="aiw-p80" x1="' + L2 + '" y1="' + y80.toFixed(1) + '" x2="' + (W2 - R2) + '" y2="' + y80.toFixed(1) + '"/><text class="aiw-vgl" x="' + (L2 - 6) + '" y="' + (T2 + 4) + '" text-anchor="end">' + esc(T.fmtCompact(mxv)) + '</text>' + bars2 + '<path class="aiw-pcum" d="' + cl + '"/>' + cdots + ax + '</svg>' +
+          '<div class="aiw-vkey"><span><i class="k-vital"></i>Groups that make up 80% (' + n80 + ' of ' + items.length + ')</span><span><i class="k-rest"></i>The rest</span><span><i class="k-proj"></i>Cumulative share</span></div>';
       }
       if (type === 'donut') {
         var sorted = items.slice().sort(function (a, b) { return b.v - a.v; }), top = sorted.slice(0, 6), rest = sorted.slice(6), other = rest.reduce(function (a, x) { return a + x.v; }, 0);
@@ -633,32 +665,141 @@
       if (!an.series) { list = items.slice().sort(function (a, b) { return b.v - a.v; }); if (list.length > 10) { var tail = list.slice(10); list = list.slice(0, 10); otherRow = { label: 'Other (' + tail.length + ' more)', v: tail.reduce(function (a, x) { return a + x.v; }, 0) }; } }
       var max = Math.max.apply(null, list.map(function (x) { return Math.abs(x.v); }).concat(otherRow ? [Math.abs(otherRow.v)] : [])) || 1;
       var bars = list.map(function (x, k) {
-        var sh = shareOf(x);
-        return '<div class="aiw-vbar' + (x.v < 0 ? ' neg' : '') + (Array.isArray(x.r.domain) && me.model ? ' is-drill' : '') + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, sh, cur)) + '><span class="aiw-vbar-l">' + esc(x.r.label) + '</span><span class="aiw-vbar-t"><span class="aiw-vbar-f" style="width:' + Math.max(2, Math.abs(x.v) / max * 100).toFixed(1) + '%' + (an.series ? '' : ';background:' + VIS_PAL[k % VIS_PAL.length]) + '"></span></span><span class="aiw-vbar-v">' + esc(T.fmtCompact(x.v)) + '</span><span class="aiw-vbar-s">' + (sh != null ? (Math.round(sh * 10) / 10) + '%' : '') + '</span></div>';
+        var sh = shareOf(x), ch = an.series ? visChg(items, items.indexOf(x)) : null, last = (sh != null ? (Math.round(sh * 10) / 10) + '%' : ch != null ? visPct(ch) : '');
+        return '<div class="aiw-vbar' + (x.v < 0 ? ' neg' : '') + (Array.isArray(x.r.domain) && me.model ? ' is-drill' : '') + '"' + visAttrs(mid, mi, x.i, me, visTip(me, x.r, sh, cur)) + '><span class="aiw-vbar-l">' + esc(x.r.label) + '</span><span class="aiw-vbar-t"><span class="aiw-vbar-f" style="width:' + Math.max(2, Math.abs(x.v) / max * 100).toFixed(1) + '%' + (an.series ? '' : ';background:' + VIS_PAL[k % VIS_PAL.length]) + '"></span></span><span class="aiw-vbar-v">' + esc(T.fmtCompact(x.v)) + '</span><span class="aiw-vbar-s' + (ch != null ? (ch > 0 ? ' up' : ch < 0 ? ' down' : '') : '') + '">' + last + '</span></div>';
       }).join('');
       if (otherRow) bars += '<div class="aiw-vbar other" title="' + esc(otherRow.label + ' · ' + T.fmtCompact(otherRow.v)) + '"><span class="aiw-vbar-l">' + esc(otherRow.label) + '</span><span class="aiw-vbar-t"><span class="aiw-vbar-f" style="width:' + Math.max(2, otherRow.v / max * 100).toFixed(1) + '%"></span></span><span class="aiw-vbar-v">' + esc(T.fmtCompact(otherRow.v)) + '</span><span class="aiw-vbar-s">' + (Math.round(otherRow.v / total * 1000) / 10) + '%</span></div>';
       return '<div class="aiw-vbars" role="img" aria-label="' + esc(me.title || 'Bar chart') + '">' + bars + '</div>';
     }
+
+    /* sortable, filterable table of the exact rows (drill on any row) */
+    function visTableData(mid, mi) {
+      var pl = visPayloads[mid], me = pl.metrics[mi], T = window.DVAITemplate, an = T.analyzeMetric(me), items = visItems(me), st = vst(mid, mi);
+      var ranked = items.slice().sort(function (a, b) { return b.v - a.v; }), acc = 0, cum = Object.create(null);
+      if (an.shares[0] != null && an.total > 0) ranked.forEach(function (x) { acc += x.v; cum[x.i] = acc / an.total * 100; });
+      var rows = items.map(function (x, k) { return { i: x.i, label: String(x.r.label), v: x.v, sh: an.shares[0] != null && an.total > 0 ? x.v / an.total * 100 : null, cum: cum[x.i] == null ? null : cum[x.i], chg: an.series ? visChg(items, k) : null, count: x.r.count == null ? null : Number(x.r.count), rank: ranked.indexOf(x) + 1 }; });
+      var key = st.k || (an.series ? 'i' : 'v'), dir = st.dir || (an.series ? 1 : -1), q = (st.q || '').toLowerCase();
+      if (q) rows = rows.filter(function (r) { return r.label.toLowerCase().indexOf(q) > -1; });
+      rows.sort(function (a, b) { var x = a[key], y = b[key]; if (key === 'label') return dir * String(x).localeCompare(String(y)); x = x == null ? -Infinity : x; y = y == null ? -Infinity : y; return dir * (x - y); });
+      return { rows: rows, series: an.series, me: me, key: key, dir: dir, total: an.total, ranked: an.shares[0] != null };
+    }
+    function visTableBody(mid, mi) {
+      var D = visTableData(mid, mi), T = window.DVAITemplate, pl = visPayloads[mid], cur = visCur(pl, D.me);
+      if (!D.rows.length) return '<tr><td colspan="7">No rows match.</td></tr>';
+      return D.rows.map(function (r) {
+        var can = visCanDrill(D.me, r.i);
+        return '<tr' + (can ? ' class="is-drill" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + r.i + '" role="button" tabindex="0" title="Open the records behind this row"' : '') + '>' +
+          (D.series ? '' : '<td class="num dim">' + r.rank + '</td>') + '<td title="' + esc(r.label) + '">' + esc(r.label) + '</td><td class="num">' + esc((cur ? cur + ' ' : '') + T.fmtCompact(r.v)) + '</td>' +
+          (D.series ? '<td class="num ' + (r.chg == null ? '' : r.chg > 0 ? 'up' : r.chg < 0 ? 'down' : '') + '">' + (r.chg == null ? '' : visPct(r.chg)) + '</td>' : D.ranked ? '<td class="num">' + (r.sh == null ? '' : '<span class="aiw-mbar"><i style="width:' + Math.min(100, r.sh).toFixed(1) + '%"></i></span>' + (Math.round(r.sh * 10) / 10) + '%') + '</td><td class="num dim">' + (r.cum == null ? '' : (Math.round(r.cum * 10) / 10) + '%') + '</td>' : '') +
+          '<td class="num dim">' + (r.count == null ? '' : r.count.toLocaleString()) + '</td><td class="go">' + (can ? '›' : '') + '</td></tr>';
+      }).join('');
+    }
+    function visTableHtml(mid, mi) {
+      var D = visTableData(mid, mi), st = vst(mid, mi);
+      function th(k, label, num) { var on = D.key === k; return '<th scope="col" class="' + (num ? 'num' : '') + '" aria-sort="' + (on ? (D.dir > 0 ? 'ascending' : 'descending') : 'none') + '"><button type="button" data-act="vis-sort" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-k="' + k + '">' + esc(label) + (on ? (D.dir > 0 ? ' ▲' : ' ▼') : '') + '</button></th>'; }
+      var head = (D.series ? '' : th('rank', '#', true)) + th('label', D.series ? 'Period' : 'Group') + th('v', 'Value', true) + (D.series ? th('chg', 'Change', true) : D.ranked ? th('sh', 'Share', true) + th('cum', 'Cum.', true) : '') + th('count', 'Records', true) + '<th aria-hidden="true"></th>';
+      return '<div class="aiw-vtools"><input type="search" class="aiw-vtq" data-mid="' + esc(mid) + '" data-mi="' + mi + '" placeholder="Filter rows" aria-label="Filter rows" value="' + esc(st.q || '') + '"/><span class="aiw-vtcount">' + D.rows.length + ' of ' + D.me.rows.length + ' rows</span></div>' +
+        '<div class="aiw-tbl-wrap aiw-vtbl-wrap"><table class="aiw-tbl aiw-vtbl"><thead><tr>' + head + '</tr></thead><tbody>' + visTableBody(mid, mi) + '</tbody></table></div>';
+    }
+
+    /* KPI tiles + prioritised findings */
+    function visKpisHtml(mid, mi, me, prof) {
+      if (!prof || !prof.kpis.length) return '';
+      return '<div class="aiw-vkpis" aria-label="Key figures">' + prof.kpis.slice(0, 6).map(function (x) {
+        var can = x.ri != null && visCanDrill(me, x.ri), inner = '<small>' + esc(x.k) + '</small><b>' + esc(x.v) + '</b><em>' + esc(x.sub) + '</em>';
+        return can ? '<button type="button" class="aiw-vk" data-tone="' + x.tone + '" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + x.ri + '" title="Open the records behind this">' + inner + '</button>' : '<div class="aiw-vk" data-tone="' + x.tone + '">' + inner + '</div>';
+      }).join('') + '</div>';
+    }
+    var SEV_LABEL = { high: 'High', med: 'Medium', low: 'Note' };
+    function visFindHtml(mid, mi, me, deep) {
+      if (!deep.length) return '';
+      var st = vst(mid, mi), shown = st.more ? deep : deep.slice(0, 3);
+      return '<div class="aiw-vfind" aria-label="Deeper analysis"><h5>Deeper analysis</h5><ul>' + shown.map(function (x) {
+        var can = x.ri != null && visCanDrill(me, x.ri), body = '<span class="aiw-sev" data-sev="' + x.sev + '">' + SEV_LABEL[x.sev] + '</span><span class="aiw-vf-t"><b>' + esc(x.title) + '</b><span>' + esc(x.text) + '</span>' + (x.why ? '<small>' + esc(x.why) + '</small>' : '') + '</span>' + (can ? '<i aria-hidden="true">›</i>' : '');
+        return '<li class="aiw-vf" data-tone="' + x.tone + '">' + (can ? '<button type="button" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + x.ri + '" title="Open the records behind this">' + body + '</button>' : '<div>' + body + '</div>') + '</li>';
+      }).join('') + '</ul>' + (deep.length > 3 ? '<button type="button" class="aiw-linkbtn aiw-vmore" data-act="vis-more" data-mid="' + esc(mid) + '" data-mi="' + mi + '">' + (st.more ? 'Show fewer' : 'Show all ' + deep.length + ' findings') + '</button>' : '') + '</div>';
+    }
+
+    /* AI insights panel */
+    function visRowIndex(me, label) { for (var i = 0; i < me.rows.length; i++) if (String(me.rows[i].label).trim().toLowerCase() === String(label).trim().toLowerCase()) return i; return -1; }
+    function visAiItem(mid, mi, me, it) {
+      var ri = it.row ? visRowIndex(me, it.row) : -1, chip = '';
+      if (ri > -1) chip = visCanDrill(me, ri) ? '<button type="button" class="aiw-rowchip" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + ri + '" title="Open the records for ' + esc(it.row) + '">' + esc(clip(it.row, 28)) + ' ›</button>' : '<span class="aiw-rowchip">' + esc(clip(it.row, 28)) + '</span>';
+      return '<li><span>' + esc(it.text) + '</span>' + chip + (it.check ? '<em class="aiw-verify" title="This figure is not in the rows or the calculated findings. Check it before you share it.">verify</em>' : '') + '</li>';
+    }
+    function visAiHtml(mid, mi) {
+      var f = findMsg(mid), pl = visPayloads[mid], me = pl && pl.metrics[mi], key = mid + ':' + mi, r = f && f.m.aiIns && f.m.aiIns[mi];
+      if (visAiBusy[key]) return '<section class="aiw-vai" data-s="busy" aria-live="polite"><header><b><span class="aiw-vai-ic">✦</span> AI insights</b><span class="aiw-vai-sub">Reading ' + me.rows.length + ' rows…</span></header><div class="aiw-skel-line"></div><div class="aiw-skel-line short"></div><div class="aiw-skel-line"></div></section>';
+      if (visAiErr[key]) return '<section class="aiw-vai" data-s="error"><header><b><span class="aiw-vai-ic">✦</span> AI insights</b></header><p class="aiw-vai-err">' + esc(visAiErr[key]) + '</p><div class="aiw-vai-act"><button type="button" class="aiw-tool" data-act="vis-ai" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Try again</button><button type="button" class="aiw-tool" data-act="vis-ai-x" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Dismiss</button></div></section>';
+      if (!r) return '';
+      var cols = [['Drivers', 'drivers'], ['Risks to watch', 'risks'], ['Do next', 'actions']].map(function (c) {
+        return r[c[1]] && r[c[1]].length ? '<div class="aiw-vai-col" data-k="' + c[1] + '"><h6>' + c[0] + '</h6><ul>' + r[c[1]].map(function (it) { return visAiItem(mid, mi, me, it); }).join('') + '</ul></div>' : '';
+      }).join('');
+      var qs = (r.questions || []).map(function (q) { return '<button type="button" class="aiw-q" data-act="vis-q" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('');
+      var src = r.engine === 'ai' ? 'AI · ' + esc(r.label || 'provider') : 'Calculated read-out';
+      return '<section class="aiw-vai" data-s="done" data-engine="' + esc(r.engine) + '"><header><b><span class="aiw-vai-ic">✦</span> AI insights</b><span class="aiw-vai-src">' + src + '</span>' + (r.confidence ? '<span class="aiw-conf" data-l="' + r.confidence.toLowerCase() + '"><i aria-hidden="true"></i>Confidence: ' + esc(r.confidence) + '</span>' : '') + '<div class="aiw-vai-act"><button type="button" class="aiw-tool" data-act="vis-ai" data-mid="' + esc(mid) + '" data-mi="' + mi + '" title="Write the insights again">Regenerate</button><button type="button" class="aiw-tool" data-act="vis-ai-copy" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Copy</button><button type="button" class="aiw-tool" data-act="vis-ai-x" data-mid="' + esc(mid) + '" data-mi="' + mi + '" aria-label="Hide AI insights">✕</button></div></header>' +
+        (r.headline ? '<p class="aiw-vai-head">' + esc(r.headline) + (r.headlineCheck ? ' <em class="aiw-verify" title="This figure is not in the rows or the calculated findings. Check it before you share it.">verify</em>' : '') + '</p>' : '') +
+        (cols ? '<div class="aiw-vai-cols">' + cols + '</div>' : '') + (qs ? '<div class="aiw-vai-q"><small>Ask next</small>' + qs + '</div>' : '') +
+        '<footer>' + (r.engine === 'ai' ? 'Written by the AI from the rows above; figures not found in the rows are marked verify.' : (r.note || 'Built from the calculated findings only. Connect an AI provider in Settings for written analysis.')) + '</footer></section>';
+    }
+    function visRepaint(mid, mi) {
+      var host = root.querySelector('.aiw-msg[data-mid="' + mid + '"] .aiw-vis-card[data-mi="' + mi + '"]'); if (!host) return;
+      var wrap = document.createElement('div'); wrap.innerHTML = visCardHtml(mid, mi); var nu = wrap.firstChild; if (nu) host.replaceWith(nu);
+    }
+    function visAiRun(mid, mi) {
+      var f = findMsg(mid), pl = visPayloads[mid], me = pl && pl.metrics[mi], T = window.DVAITemplate, key = mid + ':' + mi;
+      if (!f || !me || !T || !T.aiMessages || visAiBusy[key]) return Promise.resolve();
+      var p = providerInfo(), pack = T.aiMessages(me, { currency: visCur(pl, me), question: precedingQuestion(f.i, f.t) }); if (!pack) return Promise.resolve();
+      f.m.aiIns = f.m.aiIns || {}; delete visAiErr[key];
+      if (!p.configured || !window.DVAIConfig || !window.DVAIConfig.callAI) {
+        var c = T.calcReadout(me); if (!c) return Promise.resolve();
+        c.engine = 'calc'; c.at = Date.now(); f.m.aiIns[mi] = c; persist(); visRepaint(mid, mi); toast('No AI provider is set up, so this read-out comes from the calculated findings.'); return Promise.resolve();
+      }
+      visAiBusy[key] = true; visRepaint(mid, mi); var t0 = Date.now();
+      return window.DVAIConfig.callAI(pack.messages, pack.system).then(function (reply) {
+        var r = T.parseAiInsights(reply, pack.facts);
+        if (r) { r.engine = 'ai'; r.label = p.label; r.ms = Date.now() - t0; }
+        else { r = T.calcReadout(me) || { headline: '', drivers: [], risks: [], actions: [], questions: [] }; r.engine = 'calc'; r.note = 'The AI reply could not be read, so this is the calculated read-out. Try again.'; }
+        r.at = Date.now(); f.m.aiIns[mi] = r; persist();
+      }).catch(function (e) { visAiErr[key] = 'The AI could not write these insights (' + String(e && e.message || e || 'unknown error') + '). Check Settings → AI Assistant, then try again.'; })
+        .then(function () { delete visAiBusy[key]; visRepaint(mid, mi); });
+    }
+    function visAiText(mid, mi) {
+      var f = findMsg(mid), pl = visPayloads[mid], me = pl && pl.metrics[mi], r = f && f.m.aiIns && f.m.aiIns[mi]; if (!r || !me) return '';
+      function sec(t, a) { return a && a.length ? '\n' + t + '\n' + a.map(function (x) { return '- ' + x.text; }).join('\n') : ''; }
+      return (me.title || 'Insights') + '\n' + (r.headline || '') + sec('Drivers', r.drivers) + sec('Risks to watch', r.risks) + sec('Do next', r.actions);
+    }
+    function visSummaryText(mid, mi) {
+      var pl = visPayloads[mid], me = pl && pl.metrics[mi], T = window.DVAITemplate; if (!me || !T) return '';
+      var prof = T.profileMetric(me), deep = T.deepInsights(me, prof), cur = visCur(pl, me);
+      return (me.title || 'Chart') + (cur ? ' (' + cur + ')' : '') + '\n' + prof.kpis.map(function (x) { return x.k + ': ' + x.v + (x.sub ? ' (' + x.sub + ')' : ''); }).join('; ') + (deep.length ? '\n' + deep.map(function (x) { return '- [' + SEV_LABEL[x.sev] + '] ' + x.text; }).join('\n') : '') + (visAiText(mid, mi) ? '\n\n' + visAiText(mid, mi) : '');
+    }
+
     function visCardHtml(mid, mi) {
       var pl = visPayloads[mid], me = pl.metrics[mi], T = window.DVAITemplate, an = T.analyzeMetric(me); if (!an) return '';
+      var prof = T.profileMetric ? T.profileMetric(me) : null, deep = prof && T.deepInsights ? T.deepInsights(me, prof) : [];
       var types = visTypesFor(me, an), type = visTypes[mid + ':' + mi]; if (types.indexOf(type) < 0) type = types[0];
       var cur = visCur(pl, me), drillable = me.model && me.rows.some(function (r) { return Array.isArray(r.domain); });
-      var seg = types.length > 1 ? '<div class="aiw-seg" role="group" aria-label="Chart type">' + types.map(function (t) { return '<button type="button" data-act="vis-type" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-t="' + t + '" aria-pressed="' + (t === type) + '">' + ({ bar: 'Bars', line: 'Line', donut: 'Share' }[t]) + '</button>'; }).join('') + '</div>' : '';
+      var seg = types.length > 1 ? '<div class="aiw-seg" role="group" aria-label="Chart type">' + types.map(function (t) { return '<button type="button" data-act="vis-type" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-t="' + t + '" aria-pressed="' + (t === type) + '">' + VIS_TYPE_LABEL[t] + '</button>'; }).join('') + '</div>' : '';
       var ins = an.insights.map(function (x) {
         var can = x.ri != null && me.model && Array.isArray(me.rows[x.ri] && me.rows[x.ri].domain);
         return can ? '<button type="button" class="aiw-vin" data-tone="' + x.tone + '" data-act="vis-drill" data-mid="' + esc(mid) + '" data-mi="' + mi + '" data-ri="' + x.ri + '" title="Open the records behind this">' + esc(x.text) + '</button>' : '<span class="aiw-vin" data-tone="' + x.tone + '">' + esc(x.text) + '</span>';
       }).join('');
-      return '<article class="aiw-vis-card" data-mi="' + mi + '"><header class="aiw-vis-top"><div><h4>' + esc(me.title || me.model || 'Metric') + '</h4><small>' + esc(me.rows.length + ' rows' + (me.measure ? ' · ' + me.measure : '') + (cur ? ' · ' + cur : '')) + '</small></div>' + seg + '</header>' +
+      var attn = deep.filter(function (x) { return x.sev === 'high' || (x.sev === 'med' && x.tone === 'warn'); }).length;
+      return '<article class="aiw-vis-card" data-mi="' + mi + '"><header class="aiw-vis-top"><div><h4>' + esc(me.title || me.model || 'Metric') + (attn ? '<span class="aiw-attn" title="Findings that need a look">' + attn + ' to review</span>' : '') + '</h4><small>' + esc(me.rows.length + ' rows' + (me.measure ? ' · ' + me.measure : '') + (cur ? ' · ' + cur : '')) + '</small></div>' + seg + '</header>' +
+        visKpisHtml(mid, mi, me, prof) +
         (ins ? '<div class="aiw-vins" aria-label="Calculated insights">' + ins + '</div>' : '') +
         '<div class="aiw-vis-chart">' + visChartHtml(mid, mi, type) + '</div>' +
-        '<footer class="aiw-vis-foot"><span>' + (drillable ? 'Click a bar, slice or point to open the records behind it' : 'Exact values from the returned rows') + '</span><div><button type="button" class="aiw-tool" data-act="vis-csv" data-mid="' + esc(mid) + '" data-mi="' + mi + '">CSV</button><button type="button" class="aiw-tool" data-act="vis-ask" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Ask why</button></div></footer></article>';
+        visFindHtml(mid, mi, me, deep) + visAiHtml(mid, mi) +
+        '<footer class="aiw-vis-foot"><span>' + (drillable ? 'Click a bar, slice, point, tile or finding to open the records behind it' : 'Exact values from the returned rows') + '</span><div><button type="button" class="aiw-tool aiw-tool-ai" data-act="vis-ai" data-mid="' + esc(mid) + '" data-mi="' + mi + '">✦ AI insights</button><button type="button" class="aiw-tool" data-act="vis-copy" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Copy summary</button><button type="button" class="aiw-tool" data-act="vis-csv" data-mid="' + esc(mid) + '" data-mi="' + mi + '">CSV</button><button type="button" class="aiw-tool" data-act="vis-ask" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Ask why</button></div></footer></article>';
     }
     function visBoardHtml(m) {
       var T = window.DVAITemplate; if (!T || !T.analyzeMetric) return '';
       var ms = visMetrics(m.visuals); if (!ms.length) return '';
       visPayloads[m.id] = Object.assign({}, m.visuals, { metrics: ms });
       var cards = ms.map(function (x, mi) { return visCardHtml(m.id, mi); }).join('');
-      return cards ? '<section class="aiw-vis" aria-label="Insight board"><header class="aiw-vis-head"><b>Insight board</b><span>Charts and insights are calculated from the rows Odoo returned</span></header>' + cards + '</section>' : '';
+      var rowsN = ms.reduce(function (a, x) { return a + x.rows.length; }, 0), attn = ms.reduce(function (a, x) { var d = T.deepInsights ? T.deepInsights(x) : []; return a + d.filter(function (y) { return y.sev === 'high' || (y.sev === 'med' && y.tone === 'warn'); }).length; }, 0);
+      return cards ? '<section class="aiw-vis" aria-label="Insight board"><header class="aiw-vis-head"><div class="aiw-vis-title"><b>Insight board</b><span>' + ms.length + ' chart' + (ms.length === 1 ? '' : 's') + ' · ' + rowsN + ' rows' + (attn ? ' · <em>' + attn + ' finding' + (attn === 1 ? '' : 's') + ' to review</em>' : '') + ' · all figures calculated from the rows Odoo returned</span></div><button type="button" class="aiw-tool aiw-tool-ai" data-act="vis-ai-all" data-mid="' + esc(m.id) + '">✦ AI insights for all</button></header>' + cards + '</section>' : '';
     }
     function visRowsCsv(pl, me) {
       var T = window.DVAITemplate, an = T.analyzeMetric(me), rows = me.rows.filter(function (r) { return isFinite(Number(r.value)); });
@@ -841,13 +982,14 @@
     }
     function paintPop() {
       var f = S.stack[S.stack.length - 1]; if (!f) return;
-      var my = ++pop.seq, kindLabel = { records: 'Records', record: 'Record', table: 'Rows', message: 'Details' }[f.kind] || 'Drill';
+      var my = ++pop.seq, kindLabel = { records: 'Records', record: 'Record', table: 'Rows', message: 'Details', groups: 'Breakdown' }[f.kind] || 'Drill';
       $('aiwPopKind').textContent = kindLabel + (f.model ? ' · ' + f.model : '');
       $('aiwPopTitle').textContent = f.title || f.label || 'Details';
       $('aiwPopCrumbs').innerHTML = S.stack.map(function (x, i) { return (i ? '<i>›</i>' : '') + (i === S.stack.length - 1 ? '<b>' + esc(x.label || x.title) + '</b>' : '<button type="button" data-act="pop-to" data-i="' + i + '">' + esc(x.label || x.title) + '</button>'); }).join('');
       var body = $('aiwPopBody'), foot = $('aiwPopFoot');
       if (f.kind === 'message') { body.innerHTML = '<div class="aiw-empty"><b>' + esc(f.title) + '</b>' + esc(f.text) + '</div>'; foot.innerHTML = '<button type="button" class="aiw-btn" data-act="pop-close">Close</button>'; return; }
       if (f.kind === 'table') { paintTable(f, body, foot); return; }
+      if (f.kind === 'groups') { paintGroups(f, body, foot, my); return; }
       body.innerHTML = '<div class="aiw-skel"></div><div class="aiw-skel" style="margin-top:8px;height:200px"></div>'; foot.innerHTML = '';
       if (f.kind === 'records') {
         recordsFor(f).then(function (r) { if (my !== pop.seq) return; paintRecords(f, r, body, foot); })
@@ -866,12 +1008,14 @@
       var rows = r.rows.map(function (row) { return r.cols.map(function (c, i) { return cellText(row[c], colsMeta[i]); }); });
       var domainLines = humanDomain(f.domain);
       body.innerHTML = (domainLines.length ? '<div class="aiw-popfilter"><small>Filter</small><ul class="aiw-filter">' + domainLines.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' : '') +
-        '<div class="aiw-pop-kpi"><b>' + r.total.toLocaleString() + '</b><span>matching record' + (r.total === 1 ? '' : 's') + '</span></div>' +
+        '<div class="aiw-pop-kpi"><b>' + r.total.toLocaleString() + '</b><span>matching record' + (r.total === 1 ? '' : 's') + '</span><span class="aiw-pop-meas" id="aiwPopMeas"></span></div>' +
+        '<div class="aiw-gby" id="aiwGby" aria-label="Break these records down by"></div>' +
         tableHtml(r.cols.map(function (c, i) { return colsMeta[i].label || c; }), rows, { rowAttr: function (i) { return 'data-act="pop-rec" data-model="' + esc(f.model) + '" data-id="' + esc(r.rows[i].id) + '" title="Open this record"'; } });
       foot.innerHTML = '<span class="aiw-pager-info">' + (r.total ? from + '–' + to + ' of ' + r.total.toLocaleString() : 'No records') + '</span><div class="aiw-btns">' +
         '<button type="button" class="aiw-btn" data-act="pop-page" data-d="-1"' + (off ? '' : ' disabled') + '>‹ Prev</button><button type="button" class="aiw-btn" data-act="pop-page" data-d="1"' + (to < r.total ? '' : ' disabled') + '>Next ›</button>' +
         (window.DVDrill ? '<button type="button" class="aiw-btn" data-act="pop-explorer">Open in Drill explorer</button>' : '') + '<button type="button" class="aiw-btn" data-act="pop-csv">CSV (this page)</button></div>';
       pop.last = { cols: r.cols.map(function (c, i) { return colsMeta[i].label || c; }), rows: rows, name: f.model };
+      fillGby(f, r.fields, null); fillMeasure(f);
     }
     function paintRecord(f, r, body, foot) {
       var row = r.row;
@@ -899,12 +1043,72 @@
       if (inp) inp.addEventListener('input', function () { f.q = inp.value; f.page = 0; var pos = inp.selectionStart; paintTable(f, body, foot); var n = $('aiwPopSearch'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } });
     }
 
+
+    /* ── drill v2: break any set of records down by another field (read-only read-group), then keep drilling ── */
+    function measureOf(m) { m = String(m || ''); if (!m || /^(count|record count|__count)$/i.test(m)) return ''; return m.indexOf(':') < 0 ? m + ':sum' : m; }
+    function measureLabel(m) { return String(m || '').split(':')[0].replace(/_/g, ' '); }
+    var BY_PREF = ['partner_id', 'user_id', 'state', 'stage_id', 'product_id', 'team_id', 'categ_id', 'department_id', 'payment_state', 'company_id', 'warehouse_id', 'journal_id', 'invoice_date:month', 'date_order:month', 'date:month', 'create_date:month'];
+    function groupChoices(fields) {
+      var out = [], seen = Object.create(null);
+      function add(by, label) { if (out.length < 10 && !seen[by]) { seen[by] = 1; out.push({ by: by, label: label }); } }
+      BY_PREF.forEach(function (b) { var base = b.split(':')[0], f = fields[base]; if (!f) return; var mt = fieldMeta(f); if (b.indexOf(':') > 0 ? /date/.test(mt.type) : /many2one|selection|boolean/.test(mt.type)) add(b, (mt.label || base) + (b.indexOf(':') > 0 ? ' · month' : '')); });
+      Object.keys(fields).forEach(function (n) { var mt = fieldMeta(fields[n]); if (/many2one|selection/.test(mt.type) && !/^(write_uid|create_uid|currency_id|message_|activity_|access_|website_)/.test(n) && !/(password|token|secret|api_key)/i.test(n)) add(n, mt.label || n); });
+      return out;
+    }
+    function fillGby(f, fields, current) {
+      var host = $('aiwGby'); if (!host) return;
+      var go = function (flds) {
+        var cs = groupChoices(flds); if (!cs.length) { host.hidden = true; return; }
+        host.innerHTML = '<small>Break down by</small><div class="aiw-gby-chips">' + cs.map(function (c) { return '<button type="button" class="aiw-gchip' + (c.by === current ? ' on' : '') + '" data-act="pop-by" data-by="' + esc(c.by) + '" data-bl="' + esc(c.label) + '">' + esc(c.label) + '</button>'; }).join('') + '</div>';
+      };
+      if (fields) go(fields); else getFields(f.model).then(function (flds) { if (S.stack[S.stack.length - 1] === f) go(flds); }).catch(function () { host.hidden = true; });
+    }
+    function fillMeasure(f) {
+      var meas = f.measure; if (!meas) return;
+      var key = f.model + '|' + meas;
+      rpc('read-group', { model: f.model, domain: f.domain || [], fields: [meas], groupby: [] }).then(function (r) {
+        var g = (r.groups || [])[0], v = g && (g[meas] != null ? g[meas] : g[meas.split(':')[0]]), n = $('aiwPopMeas');
+        if (n && S.stack[S.stack.length - 1] === f && typeof v === 'number') n.textContent = '· ' + measureLabel(meas) + ' ' + window.DVAITemplate.fmtCompact(v) + (/:sum$/.test(meas) ? '' : ' (' + meas.split(':')[1] + ')');
+      }).catch(function () { void key; });
+    }
+    function groupLabel(v) { if (v === false || v == null) return '(none)'; if (Array.isArray(v)) return v.length === 2 && typeof v[1] === 'string' ? v[1] : String(v[0]); return String(v); }
+    function groupsFor(f) {
+      var meas = f.useMeasure !== false ? f.measure : '';
+      return rpc('read-group', { model: f.model, domain: f.domain || [], fields: meas ? [meas] : [], groupby: [f.by], limit: 80 }).then(function (r) {
+        var isDate = f.by.indexOf(':') > 0, base = f.by.split(':')[0];
+        var rows = (r.groups || []).map(function (g) {
+          var val = meas ? (g[meas] != null ? g[meas] : g[meas.split(':')[0]]) : (g.__count != null ? g.__count : g.count);
+          return { label: groupLabel(g[f.by] != null ? g[f.by] : g[base]), value: typeof val === 'number' ? val : 0, count: g.__count != null ? g.__count : g.count, domain: Array.isArray(g.__domain) ? g.__domain : null };
+        });
+        if (!isDate) rows.sort(function (a, b) { return b.value - a.value; });
+        return rows;
+      });
+    }
+    function paintGroups(f, body, foot, my) {
+      var T = window.DVAITemplate;
+      body.innerHTML = '<div class="aiw-skel"></div><div class="aiw-skel" style="margin-top:8px;height:160px"></div>'; foot.innerHTML = '';
+      Promise.all([getFields(f.model), groupsFor(f)]).then(function (res) {
+        if (my !== pop.seq) return;
+        var fields = res[0], rows = res[1], meas = f.useMeasure !== false ? f.measure : '', total = rows.reduce(function (a, x) { return a + x.value; }, 0), max = rows.reduce(function (a, x) { return Math.max(a, Math.abs(x.value)); }, 0) || 1, recs = rows.reduce(function (a, x) { return a + (x.count || 0); }, 0);
+        var lines = humanDomain(f.domain), isAdd = !meas || /:sum$/.test(meas);
+        f.groups = rows;
+        body.innerHTML = (lines.length ? '<div class="aiw-popfilter"><small>Filter</small><ul class="aiw-filter">' + lines.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' : '') +
+          '<div class="aiw-pop-kpi"><b>' + esc(T.fmtCompact(total)) + '</b><span>' + (meas ? esc(measureLabel(meas)) : 'records') + ' across ' + rows.length + ' group' + (rows.length === 1 ? '' : 's') + (meas ? ' · ' + recs.toLocaleString() + ' records' : '') + '</span></div>' +
+          '<div class="aiw-gby" id="aiwGby"></div>' +
+          (f.measure ? '<div class="aiw-gby aiw-gm"><small>Measure</small><div class="aiw-gby-chips"><button type="button" class="aiw-gchip' + (meas ? '' : ' on') + '" data-act="pop-gm" data-m="count">Records</button><button type="button" class="aiw-gchip' + (meas ? ' on' : '') + '" data-act="pop-gm" data-m="measure">' + esc(measureLabel(f.measure)) + '</button></div></div>' : '') +
+          (rows.length ? '<div class="aiw-groups aiw-groups-pro">' + rows.map(function (x, gi) { var sh = isAdd && total > 0 && x.value >= 0 ? Math.round(x.value / total * 1000) / 10 + '%' : ''; return '<button type="button" class="aiw-grow" ' + (x.domain ? 'data-act="pop-grow" data-gi="' + gi + '"' : 'disabled') + ' style="--w:' + Math.max(2, Math.abs(x.value) / max * 100).toFixed(1) + '%"><span>' + esc(x.label) + '</span><b>' + esc(T.fmtCompact(x.value)) + '</b><em>' + (sh ? sh + ' · ' : '') + (x.count != null ? x.count.toLocaleString() + ' rec' : '') + (x.domain ? ' ›' : '') + '</em></button>'; }).join('') + '</div>' : '<div class="aiw-empty"><b>No groups</b>Nothing matched, or this field cannot be grouped.</div>');
+        fillGby(f, fields, f.by);
+        foot.innerHTML = '<span class="aiw-pager-info">' + rows.length + ' group' + (rows.length === 1 ? '' : 's') + (rows.length >= 80 ? ' (first 80)' : '') + '</span><div class="aiw-btns"><button type="button" class="aiw-btn" data-act="pop-back">‹ Back</button>' + (window.DVDrill ? '<button type="button" class="aiw-btn" data-act="pop-explorer">Open in Drill explorer</button>' : '') + '<button type="button" class="aiw-btn" data-act="pop-csv">CSV</button></div>';
+        pop.last = { cols: ['Group', meas ? measureLabel(meas) : 'Records', 'Records'], rows: rows.map(function (x) { return [x.label, x.value, x.count == null ? '' : x.count]; }), name: f.model + '-by-' + f.by.split(':')[0] };
+      }).catch(function (e) { if (my !== pop.seq) return; body.innerHTML = '<div class="aiw-box bad"><h5>Could not break these records down</h5><p>' + esc(e.message || e) + '</p></div>'; foot.innerHTML = '<button type="button" class="aiw-btn" data-act="pop-back">‹ Back</button>'; });
+    }
+
     /* Resolve “what would opening this open?” from a button's data attributes (used by click and by hover prefetch). */
     function frameFromEl(t) {
       var act = t.getAttribute('data-act');
       if (act === 'vis-drill') {
         var vp = visPayloads[t.getAttribute('data-mid')], vm = vp && vp.metrics[+t.getAttribute('data-mi')], vr = vm && vm.rows[+t.getAttribute('data-ri')];
-        if (vm && vr && Array.isArray(vr.domain)) return { kind: 'records', model: vm.model, domain: vr.domain, title: vm.title + ' · ' + vr.label, label: vr.label, offset: 0 };
+        if (vm && vr && Array.isArray(vr.domain)) return { kind: 'records', model: vm.model, domain: vr.domain, title: vm.title + ' · ' + vr.label, label: vr.label, offset: 0, measure: measureOf(vm.measure) };
       }
       if (act === 'dash-drill') {
         var pl = dashboardPayloads[t.getAttribute('data-dash')], me = pl && pl.metrics[+t.getAttribute('data-mi')], row = me && me.rows[+t.getAttribute('data-ri')];
@@ -1399,6 +1603,7 @@
             var vm = visMetrics(f.m.visuals), found = T.findingsText({ metrics: vm });
             payload.metrics = vm.concat(payload.metrics).slice(0, 6);
             if (found) payload.insightsText = (payload.insightsText ? payload.insightsText + '\n\n' : '') + 'Calculated findings\n' + found;
+            var aiTxt = vm.map(function (x, mi) { return visAiText(f.m.id, mi); }).filter(Boolean).join('\n\n'); if (aiTxt) payload.insightsText = (payload.insightsText ? payload.insightsText + '\n\n' : '') + 'AI insights\n' + aiTxt;
             if (f.m.visuals.source) payload.source = f.m.visuals.source; if (f.m.visuals.currency) payload.currency = f.m.visuals.currency;
           }
         } catch (e) { return toast('This answer could not be turned into a report.'); }
@@ -1428,6 +1633,31 @@
       'q-records': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
       'dash-drill': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
       'vis-drill': function (t) { var fr = frameFromEl(t); if (fr) openPopup(fr); },
+      'vis-sort': function (t) {
+        var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), st = vst(mid, mi), k = t.getAttribute('data-k'), card = t.closest('.aiw-vis-card'); if (!card) return;
+        if (st.k === k) st.dir = -st.dir || -1; else { st.k = k; st.dir = k === 'label' ? 1 : (k === 'rank' || k === 'i' ? 1 : -1); }
+        card.querySelector('.aiw-vis-chart').innerHTML = visTableHtml(mid, mi);
+      },
+      'vis-more': function (t) { var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), st = vst(mid, mi); st.more = !st.more; visRepaint(mid, mi); },
+      'vis-ai': function (t) { visAiRun(t.getAttribute('data-mid'), +t.getAttribute('data-mi')); },
+      'vis-ai-all': function (t) {
+        var mid = t.getAttribute('data-mid'), pl = visPayloads[mid]; if (!pl) return;
+        pl.metrics.reduce(function (p, x, mi) { return p.then(function () { return visAiRun(mid, mi); }); }, Promise.resolve());
+      },
+      'vis-ai-x': function (t) { var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), f = findMsg(mid); if (f && f.m.aiIns) { delete f.m.aiIns[mi]; persist(); } delete visAiErr[mid + ':' + mi]; visRepaint(mid, mi); },
+      'vis-ai-copy': function (t) { var txt = visAiText(t.getAttribute('data-mid'), +t.getAttribute('data-mi')); if (txt) copyText(txt); },
+      'vis-copy': function (t) { var txt = visSummaryText(t.getAttribute('data-mid'), +t.getAttribute('data-mi')); if (txt) copyText(txt); },
+      'vis-q': function (t) { if (S.busy) return; var q = t.getAttribute('data-q'); if (q) send(q); },
+      'pop-by': function (t) {
+        var f = S.stack[S.stack.length - 1]; if (!f || !f.model) return;
+        var by = t.getAttribute('data-by'), bl = t.getAttribute('data-bl') || by;
+        openPopup({ kind: 'groups', model: f.model, domain: f.domain || [], by: by, measure: f.measure || '', useMeasure: !!f.measure, title: (f.label && f.kind === 'records' ? f.label + ' · ' : '') + 'by ' + bl, label: 'By ' + bl });
+      },
+      'pop-gm': function (t) { var f = S.stack[S.stack.length - 1]; if (!f || f.kind !== 'groups') return; f.useMeasure = t.getAttribute('data-m') === 'measure'; paintPop(); },
+      'pop-grow': function (t) {
+        var f = S.stack[S.stack.length - 1], g = f && f.groups && f.groups[+t.getAttribute('data-gi')]; if (!g || !g.domain) return;
+        openPopup({ kind: 'records', model: f.model, domain: g.domain, title: f.title + ' › ' + g.label, label: g.label, offset: 0, measure: f.measure || '' });
+      },
       'vis-type': function (t) {
         var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), card = t.closest('.aiw-vis-card'); if (!card) return;
         visTypes[mid + ':' + mi] = t.getAttribute('data-t');
@@ -1496,7 +1726,13 @@
       if (fn) { e.preventDefault(); e.stopPropagation(); fn(t, e); }
     });
     root.addEventListener('keydown', function (e) {
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.ai-dashboard-bar-row[role="button"], tr[data-act], .aiw-vbar[role="button"], .aiw-vleg[role="button"], circle[role="button"], .ai-chart-row[role="button"], .ai-donut-item[role="button"]')) { e.preventDefault(); e.target.click(); }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.ai-dashboard-bar-row[role="button"], tr[data-act], .aiw-vbar[role="button"], .aiw-vleg[role="button"], circle[role="button"], rect[role="button"], .ai-chart-row[role="button"], .ai-donut-item[role="button"]')) { e.preventDefault(); e.target.click(); }
+    });
+    root.addEventListener('input', function (e) {
+      var t = e.target; if (!t || !t.classList || !t.classList.contains('aiw-vtq')) return;
+      var mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), st = vst(mid, mi), card = t.closest('.aiw-vis-card'); if (!card) return;
+      st.q = t.value; var tb = card.querySelector('.aiw-vtbl tbody'), ct = card.querySelector('.aiw-vtcount'); if (tb) tb.innerHTML = visTableBody(mid, mi);
+      if (ct) ct.textContent = visTableData(mid, mi).rows.length + ' of ' + visPayloads[mid].metrics[mi].rows.length + ' rows';
     });
     root.addEventListener('change', function (e) {
       var k = e.target.getAttribute && e.target.getAttribute('data-rf'); if (!k || !S.rf) return;

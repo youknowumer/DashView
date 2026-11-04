@@ -795,3 +795,121 @@ button.aiw-vin:active { transform: scale(.98); }
 @media (max-width: 560px) { .aiw-vbar { grid-template-columns: minmax(60px, 30%) 1fr 48px; } .aiw-vbar-s { display: none; } }
 @media (prefers-reduced-motion: reduce) { .aiw-vbar-f { animation: none; } }
 @media print { .aiw-vis-foot, .aiw-seg { display: none !important; } .aiw-vis-card { break-inside: avoid; } }
+
+/* ══════════ Insight board v2 (2.32.0): KPI tiles, prioritised findings, pareto / table views, AI insights, drill breakdown ══════════ */
+.aiw-vis-head { justify-content: space-between; align-items: center; }
+.aiw-vis-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aiw-vis-title em { font-style: normal; font-weight: 700; color: var(--aiw-bad); }
+.aiw-tool-ai { color: var(--signal); border-color: var(--line-strong); background: var(--signal-10); font-weight: 700; }
+.aiw-tool-ai:hover { background: var(--signal); color: var(--paper); border-color: var(--signal); }
+.aiw-attn { display: inline-flex; margin-left: 8px; padding: 1px 8px; border-radius: var(--r-full); background: rgba(216,90,69,.12); color: var(--aiw-bad); font: 700 10px var(--f-body); letter-spacing: .02em; text-transform: none; vertical-align: 2px; }
+.aiw-vkpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin: 2px 0 12px; }
+.aiw-vk { --kc: var(--ink); display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper-soft); text-align: left; font-family: inherit; }
+button.aiw-vk { cursor: pointer; transition: border-color var(--t-base), transform .1s, background var(--t-base); }
+button.aiw-vk:hover { border-color: var(--signal); background: var(--signal-10); }
+button.aiw-vk:active { transform: scale(.985); }
+.aiw-vk small { font: 600 9.5px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.aiw-vk b { font: 700 17px/1.15 var(--f-display); letter-spacing: -.01em; color: var(--kc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.aiw-vk em { font: 500 10.5px var(--f-mono); font-style: normal; color: var(--ink-50); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiw-vk[data-tone="good"] { --kc: var(--aiw-good); }
+.aiw-vk[data-tone="warn"] { --kc: var(--aiw-bad); }
+.aiw-vfind { margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.aiw-vfind h5, .aiw-vai-col h6 { margin: 0 0 6px; font: 700 10.5px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.aiw-vfind ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.aiw-vf > button, .aiw-vf > div { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px; width: 100%; padding: 7px 9px; border: 1px solid transparent; border-radius: var(--r-sm); background: none; text-align: left; color: var(--ink); font-family: inherit; }
+.aiw-vf > button { cursor: pointer; transition: background var(--t-base), border-color var(--t-base); }
+.aiw-vf > button:hover { background: var(--signal-10); border-color: var(--line-strong); }
+.aiw-vf > button > i { align-self: center; font-style: normal; color: var(--ink-30); }
+.aiw-sev { --sc: var(--ink-50); min-width: 54px; padding: 2px 8px; border-radius: var(--r-full); background: rgba(128,128,128,.12); color: var(--sc); font: 700 10px var(--f-body); letter-spacing: .03em; text-align: center; }
+.aiw-sev[data-sev="high"] { --sc: var(--aiw-bad); background: rgba(216,90,69,.13); }
+.aiw-sev[data-sev="med"] { --sc: #b9770e; background: rgba(255,159,10,.14); }
+.aiw-vf[data-tone="good"] .aiw-sev { --sc: var(--aiw-good); background: rgba(63,155,95,.13); }
+.aiw-vf-t { display: grid; gap: 1px; min-width: 0; font-size: 12.5px; line-height: 1.4; }
+.aiw-vf-t b { font: 700 12px var(--f-display); color: var(--ink); }
+.aiw-vf-t span { color: var(--ink-70); }
+.aiw-vf-t small { font-size: 11px; color: var(--ink-50); }
+.aiw-vmore { margin-top: 6px; font-size: 11.5px; }
+.aiw-vgrid { stroke: rgba(128,128,128,.16); stroke-width: 1; }
+.aiw-vline text.aiw-vgl, text.aiw-vgl { font-size: 10px; fill: currentColor; opacity: .5; }
+.aiw-vma { fill: none; stroke: #0a84ff; stroke-width: 1.8; stroke-dasharray: 2 4; stroke-linecap: round; opacity: .9; }
+.aiw-vproj { fill: none; stroke: var(--signal); stroke-width: 2; stroke-dasharray: 5 5; opacity: .8; }
+.aiw-vprojdot { fill: var(--paper); stroke: var(--signal); stroke-width: 2; }
+.aiw-vline text.aiw-vptp { fill: var(--signal); }
+.aiw-vkey { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 11px; color: var(--ink-50); }
+.aiw-vkey span { display: inline-flex; align-items: center; gap: 6px; }
+.aiw-vkey i { display: inline-block; width: 16px; height: 0; border-top: 2.6px solid var(--signal); border-radius: 2px; }
+.aiw-vkey i.k-avg { border-top: 1.5px dashed var(--ink-50); }
+.aiw-vkey i.k-ma { border-top: 2px dotted #0a84ff; }
+.aiw-vkey i.k-proj { border-top: 2px dashed var(--signal); }
+.aiw-vkey i.k-vital { width: 10px; height: 10px; border: 0; border-radius: 3px; background: var(--signal); }
+.aiw-vkey i.k-rest { width: 10px; height: 10px; border: 0; border-radius: 3px; background: rgba(128,128,128,.4); }
+.aiw-pbar { fill: rgba(128,128,128,.42); transition: fill .15s, opacity .15s; }
+.aiw-pbar.vital { fill: var(--signal); }
+.aiw-pbar[role="button"] { cursor: pointer; }
+.aiw-pbar[role="button"]:hover, .aiw-pbar:focus-visible { opacity: .8; outline: none; stroke: var(--ink); stroke-width: 1.5; }
+.aiw-pcum { fill: none; stroke: var(--ink-70); stroke-width: 2; stroke-linejoin: round; }
+.aiw-pcdot { fill: var(--paper); stroke: var(--ink-70); stroke-width: 1.6; }
+.aiw-p80 { stroke: var(--aiw-bad); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.aiw-pxl { font-size: 10px; fill: currentColor; opacity: .62; }
+.aiw-vbars:hover .aiw-vbar.is-drill:not(:hover) { opacity: .6; }
+.aiw-vbar-s.up { color: var(--aiw-good); }
+.aiw-vbar-s.down { color: var(--aiw-bad); }
+.aiw-vtools { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.aiw-vtq { flex: 1; min-width: 120px; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper-soft); color: var(--ink); font: 500 12px var(--f-body); }
+.aiw-vtq:focus { outline: none; border-color: var(--signal); }
+.aiw-vtcount { font: 500 11px var(--f-mono); color: var(--ink-50); white-space: nowrap; }
+.aiw-vtbl-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.aiw-vtbl th { position: sticky; top: 0; z-index: 1; background: var(--paper-soft); }
+.aiw-vtbl th button { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.aiw-vtbl th button:hover { color: var(--signal); }
+.aiw-vtbl td.dim { color: var(--ink-50); }
+.aiw-vtbl td.up { color: var(--aiw-good); }
+.aiw-vtbl td.down { color: var(--aiw-bad); }
+.aiw-vtbl td.go { width: 18px; color: var(--ink-30); text-align: right; }
+.aiw-vtbl tr.is-drill { cursor: pointer; }
+.aiw-vtbl tr.is-drill:hover td { background: var(--signal-10); }
+.aiw-vtbl tr:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+.aiw-mbar { display: inline-block; width: 38px; height: 5px; margin-right: 7px; border-radius: 3px; background: rgba(128,128,128,.18); vertical-align: middle; overflow: hidden; }
+.aiw-mbar i { display: block; height: 100%; background: var(--signal); }
+/* AI insights panel */
+.aiw-vai { margin: 12px 0 2px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: linear-gradient(180deg, var(--signal-10), transparent 70%), var(--paper); animation: aiwRise .28s ease-out; }
+@keyframes aiwRise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.aiw-vai > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.aiw-vai > header b { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px var(--f-display); color: var(--ink); }
+.aiw-vai-ic { color: var(--signal); }
+.aiw-vai-src, .aiw-vai-sub { font: 600 10.5px var(--f-mono); color: var(--ink-50); }
+.aiw-vai-act { display: flex; gap: 4px; margin-left: auto; }
+.aiw-vai-head { margin: 0 0 10px; font: 600 14px/1.45 var(--f-display); color: var(--ink); }
+.aiw-vai-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.aiw-vai-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.aiw-vai-col li { position: relative; padding-left: 14px; font-size: 12.5px; line-height: 1.45; color: var(--ink-70); }
+.aiw-vai-col li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: var(--signal); }
+.aiw-vai-col[data-k="risks"] li::before { background: var(--aiw-bad); }
+.aiw-vai-col[data-k="actions"] li::before { background: var(--aiw-good); }
+.aiw-rowchip { display: inline-flex; margin-left: 6px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-full); background: var(--paper); color: var(--ink-70); font: 600 10.5px/1.7 var(--f-body); white-space: nowrap; vertical-align: 1px; }
+button.aiw-rowchip { cursor: pointer; }
+button.aiw-rowchip:hover { color: var(--signal); border-color: var(--signal); background: var(--signal-10); }
+.aiw-verify { margin-left: 6px; padding: 0 7px; border-radius: var(--r-full); background: rgba(255,159,10,.16); color: #b9770e; font: 700 9.5px/1.7 var(--f-body); font-style: normal; letter-spacing: .04em; text-transform: uppercase; cursor: help; }
+.aiw-vai-q { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.aiw-vai-q small { font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-30); }
+.aiw-q { padding: 4px 11px; border: 1px solid var(--line); border-radius: var(--r-full); background: var(--paper); color: var(--ink-70); font: 500 11.5px var(--f-body); text-align: left; cursor: pointer; transition: border-color var(--t-base), color var(--t-base), background var(--t-base); }
+.aiw-q:hover { color: var(--signal); border-color: var(--signal); background: var(--signal-10); }
+.aiw-vai > footer { margin-top: 10px; font-size: 10.5px; color: var(--ink-50); }
+.aiw-vai-err { margin: 0 0 8px; font-size: 12.5px; color: var(--aiw-bad); }
+.aiw-skel-line { height: 11px; margin: 8px 0; border-radius: 6px; background: linear-gradient(90deg, rgba(128,128,128,.12), rgba(128,128,128,.24), rgba(128,128,128,.12)); background-size: 200% 100%; animation: aiwShimmer 1.2s linear infinite; }
+.aiw-skel-line.short { width: 60%; }
+@keyframes aiwShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+/* drill popup: break down by */
+.aiw-gby { display: flex; flex-direction: column; gap: 6px; }
+.aiw-gby[hidden] { display: none; }
+.aiw-gby small { font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-30); }
+.aiw-gby-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.aiw-gchip { padding: 4px 12px; border: 1px solid var(--line); border-radius: var(--r-full); background: var(--paper-soft); color: var(--ink-70); font: 600 11.5px var(--f-body); cursor: pointer; transition: border-color var(--t-base), color var(--t-base), background var(--t-base); }
+.aiw-gchip:hover { color: var(--signal); border-color: var(--signal); }
+.aiw-gchip.on { background: var(--signal); border-color: var(--signal); color: var(--paper); }
+.aiw-pop-meas { font: 600 12px var(--f-mono); color: var(--signal); }
+.aiw-groups-pro .aiw-grow { padding: 8px 10px; }
+.aiw-groups-pro .aiw-grow em { min-width: 90px; }
+@media (max-width: 560px) { .aiw-vkpis { grid-template-columns: repeat(2, 1fr); } .aiw-vf > button, .aiw-vf > div { grid-template-columns: 1fr auto; } .aiw-sev { grid-column: 1 / -1; justify-self: start; } .aiw-vai-act { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .aiw-vai, .aiw-skel-line { animation: none; } }
+@media print { .aiw-vai-act, .aiw-vai-q, .aiw-vmore, .aiw-vtools { display: none !important; } .aiw-vai, .aiw-vkpis, .aiw-vfind { break-inside: avoid; } }

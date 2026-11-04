@@ -653,9 +653,10 @@
         var fileBlock = opts.fileContext ? 'ATTACHED FILE DATA (uploaded by the user in this chat; treat as user-supplied, unverified, and never mix it with Odoo numbers without saying which is which):\n' + clip(opts.fileContext, 9000) : '';
         var visPre = dataQueries.length ? dashboardArtifact(question, dataQueries, results, s) : null, T0 = tplLib();
         var findings = visPre && T0 && T0.findingsText ? T0.findingsText(visPre) : '';
+        var deepFindings = visPre && T0 && T0.deepFindingsText ? T0.deepFindingsText(visPre) : '';
         var system = [opts.systemPrompt, ANSWER_RULES, templateBlock(question),
           'TODAY: ' + iso(new Date()) + (s.currency ? ' · company currency: ' + s.currency : '') + (s.company ? ' · company: ' + s.company : '') + '\n' + areasLine(s),
-          'LIVE QUERY RESULTS (' + trace.queries + ' queries, ' + trace.ms + ' ms):\n' + block, findings ? 'COMPUTED FINDINGS (calculated by code from the rows above and also shown as charts - exact; quote them in Key insights, never recompute them):\n' + findings : '', fileBlock].filter(Boolean).join('\n\n');
+          'LIVE QUERY RESULTS (' + trace.queries + ' queries, ' + trace.ms + ' ms):\n' + block, findings ? 'COMPUTED FINDINGS (calculated by code from the rows above and also shown as charts - exact; quote them in Key insights, never recompute them):\n' + findings : '', deepFindings ? 'DEEPER FINDINGS (also calculated by code and shown in the Insight board with a High / Medium / Note priority - use them for Risks and Recommended actions, quote the numbers exactly, never recompute or extend them):\n' + deepFindings : '', fileBlock].filter(Boolean).join('\n\n');
         return callLLM(history, system).then(function (text) {
           var foot = dataQueries.length
             ? '\n\n*Live Odoo · ' + dataQueries.length + ' quer' + (dataQueries.length === 1 ? 'y' : 'ies') + ' (' + uniq(dataQueries.map(function (q) { return q.model; })).join(', ') + ') · ' + (trace.ms / 1000).toFixed(1) + 's' + (trace.failed ? ' · ' + trace.failed + ' failed' : '') + '*'

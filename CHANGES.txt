@@ -1,15 +1,11 @@
-DashView 2.29.1 - changed files (same paths as the project; replace / add them as they are)
+DashView 2.32.0 - changed files (same paths as the project; replace them as they are)
 
-dashboard.html            zoom control + tab row, Hierarchy toolbar (search / sort / Top N / expand all), new stylesheet + script tags
-people.html               loads the new stylesheet too (People must use the same stylesheet stack as the dashboard)
-css/studio-zoom.css       NEW  zoom-proof Overview grid, drill path, Hierarchy table, Reconcile layout, no per-card blur (lag)
-js/studio-zoom.js         NEW  workspace zoom 60-175%, Fit, Alt + / - / 0
-js/studio-ui.js           drill navigation (chart click, path, Up / Reset / View rows / Break down by), Hierarchy rewrite (cached tree), grid balancing, Date-range KPI crash fix
-js/studio-core.js         buildHierarchyTree: sort, Other roll-up, share (old calls behave exactly as before)
-js/studio-reconcile-ui.js setup folds after a run, result scrolls into view
-css/8k-quality.css        ultra-HD text boost no longer fights browser zoom-out
-js/8k-quality.js          zoom-out detection, chart canvases capped at 3x
-test/studio-core.test.js, test/studio-ui.smoke.test.js   new checks
-version.json, package.json, sw.js, CHANGELOG.md          release 2.29.1
+js/ai-response-template.js   profile (KPI tiles, Pareto, concentration, trend, next-period estimate), prioritised findings, AI-insight prompt + safe JSON parsing + "verify" check, calculated read-out
+js/ai-embed.js               Insight board v2 (KPI tiles, Deeper analysis, Bars / Pareto / Share / Line / Table views, AI insights panel) and drill v2 (Break down by, measure switch, group -> records)
+js/ai-odoo-agent.js          the answer prompt also gets the deeper findings with their priority
+css/ai-embed.css             styles for all of the above (light / dark, phone, reduced motion, print)
+test/ai-visuals.smoke.test.js   35 new checks (analytics, AI insights, table / pareto, drill breakdown)
+version.json, package.json, sw.js, CHANGELOG.md   release 2.32.0 (Software Update prompt)
+CHANGES.txt                  this list
 
 Then: commit + push, hard-refresh (Ctrl+Shift+R) so the new service worker cache loads.

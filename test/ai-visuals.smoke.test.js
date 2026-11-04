@@ -26,6 +26,26 @@ ok('fmtCompact: K / M / B, no stripped zeros', [500000, 1234567, 950, -45000, 12
   ok('findingsText lists each metric with its insights', /^- amount total by partner \(5 rows, total 1\.14M\): Acme is 43\.9%/.test(T.findingsText({ metrics: [ranked, series] })) && /amount total by month \(4 rows\): Oct is \+20%/.test(T.findingsText({ metrics: [ranked, series] })));
 }
 
+/* ── deeper analytics (v2.32): profile, prioritised findings, AI-insight prompt and safe parsing ── */
+{
+  const p = T.profileMetric(ranked), d = T.deepInsights(ranked);
+  ok('profile: ranked metric gets total, largest, top 3, concentration and 80% tiles', ['Total', 'Largest', 'Top 3', 'Concentration', '80% comes from'].every((k) => p.kpis.some((x) => x.k === k)) && p.kpis.find((x) => x.k === 'Largest').v === 'Acme' && p.pareto.n80 >= 1 && p.hhi.value > 0);
+  ok('findings: prioritised high -> note, each with a why line, numbers from the rows', d.length >= 2 && d[0].sev === 'high' && d.every((x) => x.why) && d.some((x) => /^Acme alone is 43\.9% of the total \(500K\)/.test(x.text)));
+  const sp = T.profileMetric(series), sd = T.deepInsights(series);
+  ok('profile: series gets latest, trend and a labelled next-period estimate', sp.kpis[0].k === 'Latest' && /^\+20% vs Sep$/.test(sp.kpis[0].sub) && sp.trend.next > 180 && sd.some((x) => /straight line/i.test(x.text) && /not a forecast/.test(x.why)));
+  ok('findings: overdue-style series flag a rise as unfavourable', T.deepInsights(overdue).some((x) => x.tone === 'warn'));
+  ok('profile: fewer than 2 rows -> null / no findings', T.profileMetric({ rows: [{ label: 'a', value: 1 }] }) === null && T.deepInsights({}).length === 0);
+  ok('deepFindingsText prefixes the priority and stays exact', /^- amount total by partner: \[HIGH\]/.test(T.deepFindingsText({ metrics: [ranked] })));
+  const pack = T.aiMessages(ranked, { currency: 'PKR', question: 'top customers' });
+  ok('AI prompt: exact rows, shares, calculated findings and a strict JSON contract', /1\. Acme \| 500000 \| 2 records \| 43\.9%/.test(pack.messages[0].content) && /CALCULATED FINDINGS/.test(pack.messages[0].content) && /ONLY one JSON object/.test(pack.system) && /top customers/.test(pack.messages[0].content));
+  const good = T.parseAiInsights('```json\n{"headline":"Acme is 43.9% of the total (500K of 1.14M)","confidence":"high","drivers":[{"text":"Acme at 500K leads","row":"acme"}],"risks":[{"text":"Revenue of 9.9M is at risk","row":"nobody"}],"actions":["Call Acme"],"questions":["Why is Acme so large?"]}\n```', pack.facts);
+  ok('AI parse: fences stripped, confidence normalised, row matched to a real label, unknown row dropped', good && good.confidence === 'High' && good.drivers[0].row === 'Acme' && good.risks[0].row === '' && good.actions[0].text === 'Call Acme');
+  ok('AI parse: figures not in the rows are marked verify, grounded ones are not', good.risks[0].check === true && good.drivers[0].check === false && good.headlineCheck === false);
+  ok('AI parse: garbage -> null', T.parseAiInsights('sorry, no', pack.facts) === null && T.parseAiInsights('{"headline":"","drivers":[]}', pack.facts) === null);
+  const ro = T.calcReadout(ranked);
+  ok('calculated read-out works with no AI: headline, risks and actions come only from findings', ro && ro.headline && ro.risks.length >= 1 && ro.actions.length >= 1 && ro.questions.length === 0);
+}
+
 /* ── agent: visuals + computed findings in the answer prompt ── */
 const agentSrc = fs.readFileSync(path.join(root, 'js/ai-odoo-agent.js'), 'utf8');
 async function runAgent(withTemplate) {
@@ -79,6 +99,68 @@ async function runAgent(withTemplate) {
   ok('view: Export PDF is offered for a message with a board', !!d.querySelector('.aiw-msg[data-mid="m2"] [data-act="rexport"]'));
   ok('view: board escapes labels (no injected markup)', !/<img src=x/.test(d.getElementById('aiwMessages').innerHTML));
   ok('view: model-authored chart rows are click-to-ask', d.querySelectorAll('.ai-chart-row[data-act="chart-ask"]').length === 2 && d.querySelector('.ai-chart-row').getAttribute('data-label') === 'Acme' && d.querySelector('.ai-chart-row').getAttribute('data-title') === 'Sales');
+
+  /* ── v2.32 board: KPI tiles, findings, pareto, table, AI insights, drill breakdown ── */
+  {
+    const q = (sel) => d.querySelector('.aiw-msg[data-mid="m2"] ' + sel), qa = (sel) => Array.from(d.querySelectorAll('.aiw-msg[data-mid="m2"] ' + sel));
+    const c0 = () => qa('.aiw-vis-card')[0], c1 = () => qa('.aiw-vis-card')[1];
+    ok('v2: KPI tiles above each chart, tiles with a record are drill buttons', c0().querySelectorAll('.aiw-vk').length >= 4 && /Concentration/.test(c0().textContent) && c0().querySelector('button.aiw-vk[data-act="vis-drill"]') !== null);
+    ok('v2: deeper analysis lists prioritised findings (priority chip + why)', c0().querySelectorAll('.aiw-vf').length >= 1 && c0().querySelector('.aiw-sev') !== null && c0().querySelector('.aiw-vf-t small') !== null);
+    c1().querySelector('[data-t="line"]').click();
+    ok('v2: series line shows the dashed trend estimate, average key and drillable points', !!c1().querySelector('.aiw-vproj') && /Trend estimate/.test(c1().textContent) && c1().querySelectorAll('circle.aiw-vdot[data-act="vis-drill"]').length === 4);
+    c0().querySelector('[data-t="pareto"]').click();
+    ok('v2: Pareto view - bars + cumulative line, bars drill into records', c0().querySelectorAll('rect.aiw-pbar').length === 5 && !!c0().querySelector('.aiw-pcum') && c0().querySelector('rect.aiw-pbar').getAttribute('data-act') === 'vis-drill' && /make up 80%|80%/.test(c0().querySelector('.aiw-vkey').textContent));
+    c0().querySelector('[data-t="table"]').click();
+    ok('v2: Table view - rank, group, value, share, cumulative, records', c0().querySelectorAll('.aiw-vtbl tbody tr').length === 5 && /Share/.test(c0().querySelector('.aiw-vtbl thead').textContent) && /Cum\./.test(c0().querySelector('.aiw-vtbl thead').textContent));
+    c0().querySelector('button[data-act="vis-sort"][data-k="label"]').click();
+    ok('v2: Table sorts by a column header', c0().querySelector('.aiw-vtbl tbody tr td:nth-child(2)').textContent === 'Acme' && c0().querySelector('th[aria-sort="ascending"]') !== null);
+    { const inp = c0().querySelector('.aiw-vtq'); inp.value = 'glob'; inp.dispatchEvent(new w.Event('input', { bubbles: true })); }
+    ok('v2: Table filter narrows rows and updates the count', c0().querySelectorAll('.aiw-vtbl tbody tr').length === 1 && /1 of 5 rows/.test(c0().querySelector('.aiw-vtcount').textContent));
+    c0().querySelector('[data-t="bar"]').click();
+    ok('v2: back to bars', c0().querySelectorAll('.aiw-vbar').length === 5);
+    c1().querySelector('[data-t="bar"]').click();
+    ok('v2: series bars show the change vs the previous period', /\+20%/.test(c1().querySelector('.aiw-vbars').textContent));
+
+    /* AI insights: provider path, strict JSON, row chips, verify marks, persistence */
+    const prompts = [];
+    w.DVAIConfig = { isConfigured: () => true, get: () => ({ provider: 'openai' }), PROVIDERS: { openai: { label: 'OpenAI' } }, activeModel: () => 'gpt', callAI: (m, sys) => { prompts.push({ m, sys }); return Promise.resolve('{"headline":"Acme is 43.9% of the total (500K of 1.14M)","confidence":"Medium","drivers":[{"text":"Acme at 500K leads","row":"Acme"}],"risks":[{"text":"Top 3 hold 87.7% of the total","row":""},{"text":"Revenue of 9.9M could slip","row":"Globex"}],"actions":[{"text":"Review the Acme contract","row":"Acme"}],"questions":["Why is Acme so large?"]}'); } };
+    c0().querySelector('[data-act="vis-ai"]').click();
+    ok('v2: AI insights shows a loading state first', !!c0().querySelector('.aiw-vai[data-s="busy"]'));
+    await new Promise((r) => setTimeout(r, 120));
+    const ai = c0().querySelector('.aiw-vai[data-s="done"]');
+    ok('v2: AI insights panel - headline, confidence, drivers / risks / do next', !!ai && /Acme is 43\.9%/.test(ai.textContent) && /Confidence: Medium/.test(ai.textContent) && ai.querySelectorAll('.aiw-vai-col').length === 3 && ai.getAttribute('data-engine') === 'ai');
+    ok('v2: AI was given the exact rows and calculated findings (not the whole chat)', prompts.length === 1 && /Acme \| 500000/.test(prompts[0].m[0].content) && /CALCULATED FINDINGS/.test(prompts[0].m[0].content) && /ONLY one JSON/.test(prompts[0].sys));
+    ok('v2: row chips drill into the records; a made-up figure is marked verify, grounded ones are not', ai.querySelector('button.aiw-rowchip[data-act="vis-drill"]') !== null && ai.querySelectorAll('.aiw-verify').length === 1 && /9\.9M/.test(ai.querySelector('.aiw-verify').parentNode.textContent));
+    ok('v2: follow-up questions are clickable', ai.querySelector('button.aiw-q[data-act="vis-q"]').getAttribute('data-q') === 'Why is Acme so large?');
+    ok('v2: AI insights are saved with the chat', /"aiIns"/.test(w.localStorage.getItem('dv-ai-workspace-v2')));
+    c0().querySelector('[data-act="vis-ai-x"]').click();
+    ok('v2: AI insights can be dismissed', !c0().querySelector('.aiw-vai'));
+    w.DVAIConfig = undefined;
+    c0().querySelector('[data-act="vis-ai"]').click();
+    await new Promise((r) => setTimeout(r, 40));
+    ok('v2: no AI provider -> calculated read-out, clearly labelled', !!c0().querySelector('.aiw-vai[data-engine="calc"]') && /Calculated read-out/.test(c0().querySelector('.aiw-vai').textContent));
+    { let n = 0; w.DVAIConfig = { isConfigured: () => true, get: () => ({ provider: 'openai' }), PROVIDERS: { openai: { label: 'OpenAI' } }, callAI: () => { n++; return Promise.reject(new Error('rate limit')); } }; c0().querySelector('[data-act="vis-ai"]').click(); await new Promise((r) => setTimeout(r, 60)); ok('v2: AI failure shows a clear error with Try again (nothing invented)', n === 1 && !!c0().querySelector('.aiw-vai[data-s="error"]') && /rate limit/.test(c0().textContent) && !!c0().querySelector('.aiw-vai [data-act="vis-ai"]')); }
+    w.DVAIConfig = undefined;
+    { let blob; w.navigator.clipboard = { writeText: (t) => { blob = t; return Promise.resolve(); } }; c0().querySelector('[data-act="vis-copy"]').click(); await new Promise((r) => setTimeout(r, 20)); ok('v2: Copy summary carries key figures and findings', /Total: 1\.14M/.test(blob || '') && /\[High\]/.test(blob || '')); }
+
+    /* drill v2: records -> break down by another field -> group -> records */
+    const rcalls = [];
+    w.DVOdoo = { rpc: (ep, body) => { rcalls.push([ep, body]); if (ep === 'fields') return Promise.resolve({ fields: { name: ['char', 'Number'], partner_id: ['many2one', 'Customer', 'res.partner'], state: ['selection', 'Status'], amount_total: ['float', 'Total'] } }); if (ep === 'records') return Promise.resolve({ rows: [{ id: 7, name: 'SO007', partner_id: [1, 'Acme'], amount_total: 500 }], total: 2 }); if (ep === 'read-group') return Promise.resolve({ ok: true, groups: body.groupby && body.groupby.length ? [{ state: 'sale', __count: 2, 'amount_total:sum': 800, __domain: [['partner_id', '=', 1], ['state', '=', 'sale']] }, { state: 'draft', __count: 1, 'amount_total:sum': 100, __domain: [['partner_id', '=', 1], ['state', '=', 'draft']] }] : [{ __count: 3, 'amount_total:sum': 900 }] }); return Promise.reject(new Error('unexpected ' + ep)); } };
+    d.querySelector('.aiw-pop [data-act="pop-close"]') && d.querySelector('.aiw-pop [data-act="pop-close"]').click();
+    await new Promise((r) => setTimeout(r, 260));
+    c0().querySelector('.aiw-vbar[data-act="vis-drill"]').click();
+    await new Promise((r) => setTimeout(r, 120));
+    ok('drill v2: records open with the metric total next to the count', !d.querySelector('.aiw-pop').hidden && /amount total/.test(d.getElementById('aiwPopBody').textContent) && rcalls.some((c) => c[0] === 'read-group' && c[1].groupby.length === 0 && c[1].fields[0] === 'amount_total:sum'));
+    const chips = Array.from(d.querySelectorAll('#aiwGby [data-act="pop-by"]'));
+    ok('drill v2: "Break down by" offers the model\'s groupable fields', chips.length >= 2 && chips.some((c) => /Customer/.test(c.textContent)) && chips.some((c) => /Status/.test(c.textContent)));
+    chips.find((c) => /Status/.test(c.textContent)).click();
+    await new Promise((r) => setTimeout(r, 120));
+    ok('drill v2: breakdown lists groups with value, share and records (read-only read-group)', d.querySelectorAll('.aiw-groups-pro .aiw-grow').length === 2 && /800/.test(d.getElementById('aiwPopBody').textContent) && /88\.9%/.test(d.getElementById('aiwPopBody').textContent) && rcalls.some((c) => c[0] === 'read-group' && c[1].groupby[0] === 'state' && c[1].domain.length === 1));
+    ok('drill v2: Records / measure switch is offered and the trail shows the path', !!d.querySelector('[data-act="pop-gm"]') && /By Status/.test(d.getElementById('aiwPopCrumbs').textContent));
+    d.querySelector('.aiw-grow[data-act="pop-grow"]').click();
+    await new Promise((r) => setTimeout(r, 120));
+    ok('drill v2: a group opens its records and the drill continues (title keeps the path)', /›/.test(d.getElementById('aiwPopTitle').textContent) && d.querySelectorAll('#aiwGby [data-act="pop-by"]').length >= 2 && rcalls.filter((c) => c[0] === 'records').some((c) => JSON.stringify(c[1].domain).indexOf('"sale"') > -1));
+  }
   console.log(pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.32.0 - 2026-11-04
+- New: Insight board at a higher scale - every chart opens with key-figure tiles (largest, top-3, concentration, 80% rule, or latest, trend, volatility, next-period estimate) and a prioritised Deeper analysis list (High / Medium / Note, each with a why-it-matters line) calculated only from the rows Odoo returned
+- New: AI insights on every chart (and AI insights for all) - the AI gets the exact rows plus the calculated findings and answers with a headline, confidence, drivers, risks to watch, do-next steps and follow-up questions; row chips drill into the records, any figure not found in the rows is marked verify, results are saved with the chat and included in Export PDF; with no AI provider a calculated read-out is shown and labelled
+- New: chart views - Pareto (bars + cumulative line + 80% marker), sortable and filterable Table with share, cumulative share and records, line with average, 3-period average and a dashed straight-line next-period estimate, bars with change vs previous period; Copy summary on every chart
+- New: drill v2 - from any bar, slice, point, tile or finding open the records with the metric total, then Break down by any other field (customer, status, product, month ...) using a read-only read-group, switch between records and the measure, open a group to see its records, and keep drilling with a breadcrumb trail
+- Improved: the answer prompt also receives the deeper findings with their priority so Risks and Recommended actions quote exact numbers (js/ai-response-template.js, js/ai-embed.js, js/ai-odoo-agent.js, css/ai-embed.css, test/ai-visuals.smoke.test.js)
+
 ## 2.31.0 - 2026-11-03
 - New: Insight board under every Odoo data answer - interactive charts (bars with share %, donut share view, line with average / peak / latest) built only from the rows Odoo returned; switch chart type in place, hover for value, share and record count
 - New: code-calculated insights above each chart (top share, top-3 concentration, outlier vs median, latest vs previous period, peak / lowest, rising or falling streak; overdue-style metrics flip good / bad) - the same findings are given to the AI so its written insights quote exact numbers
