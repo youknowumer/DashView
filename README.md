@@ -178,6 +178,36 @@ company to filter its metrics; consolidated financial totals and charts are
 shown only when the selected companies share a known currency, with no
 implicit foreign-exchange conversion.
 
+#### Executive scorecard (Overview) and Module scorecard (Odoo Live)
+Both pages read every installed Odoo app through one shared engine
+(`js/exec-scorecard.js`), so the numbers always agree.
+
+- **Overview → Executive scorecard** (`js/overview-modules.js`): a business-health
+  ring, a *Going well / Watch closely / Do next* brief and one card per installed
+  app (Sales, CRM, Point of Sale, Finance, Expenses, Purchase, Inventory,
+  Manufacturing, Projects, Helpdesk, Fleet, People, Time Off): headline KPI against
+  the previous equal period, 12-month trend, three secondary KPIs, open alerts with
+  amounts and a Healthy / Watch / Action needed status. Every figure opens the
+  records behind it. *Copy brief* gives plain text for WhatsApp or e-mail; the
+  scorecard is also included in the Overview CSV, the PDF report and the AI
+  narrative data.
+- **Odoo Live → Executive → Module scorecard** (`js/exec-modules.js`): one row per
+  app of the chosen lens with status, headline, trend, open alerts, records, new
+  records this period vs previous and last activity, plus freshness notes (quiet
+  apps, apps this Odoo user cannot read). Selecting one app shows *Module facts*.
+- **How a status is decided** (printed under the board, nothing hidden): the score
+  starts at 100; a headline KPI moving the wrong way takes up to 30 points, other
+  KPIs 5, open high-priority alerts 12 each, watch alerts 5 each. A module cannot be
+  *Healthy* while its headline is down 10% or more or a high-priority alert is open,
+  and is *Action needed* at 25% or more. 75-100 Healthy, 50-74 Watch, below 50
+  Action needed. Business health is the plain average. Cost-type KPIs (spend,
+  bills, expenses, tickets) are coloured inversely.
+- **What it never does:** write to Odoo, estimate or forecast, or add amounts
+  across different currencies (then money KPIs show record counts).
+- **Adding or changing an app:** edit its entry in `js/odoo-profiles.js` (`X`):
+  `kpis`, `sc` (which KPI is the headline and which three are secondary), `trend`,
+  `alerts` (with an optional `hint`) and `cov` (the model used for record counts).
+
 ### Landing page (`index.html`)
 The marketing homepage — hero, capability cards, product tour, and nav
 links into the Dashboard, Data Studio, and AI Assistant.
@@ -274,6 +304,12 @@ Runs every suite headless via `jsdom` — no browser, no network:
   unassigning tasks on delete, hire-to-directory rules, persistence and
   corrupted / hostile storage, audit cap, backup round-trip, CSV formula
   safety, blocked-storage reporting and HTML escaping.
+- `exec-scorecard.test.js`, `overview-modules.smoke.test.js`,
+  `exec-modules.smoke.test.js` - the executive scorecard: catalog integrity,
+  month and score rules (caps, inverse KPIs, mixed currencies, unreadable apps),
+  Overview cards / brief / drills / exports / refresh policy, and the Odoo Live
+  module table / lens filter / module facts (npm run test:scorecard,
+  test:overview-modules, test:live-modules).
 
   ```bash
   npm run test:people      # the workspace suite

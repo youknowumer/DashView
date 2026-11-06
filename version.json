@@ -1,15 +1,27 @@
 {
-  "version": "2.32.0",
-  "build": "2026.11.04",
-  "released": "2026-11-04",
+  "version": "2.33.0",
+  "build": "2026.11.06",
+  "released": "2026-11-06",
   "notes": [
-    "New: Insight board at a higher scale - every chart opens with key-figure tiles (largest, top-3, concentration, 80% rule, or latest, trend, volatility, next-period estimate) and a prioritised Deeper analysis list (High / Medium / Note, each with a why-it-matters line) calculated only from the rows Odoo returned",
-    "New: AI insights on every chart (and AI insights for all) - the AI gets the exact rows plus the calculated findings and answers with a headline, confidence, drivers, risks to watch, do-next steps and follow-up questions; row chips drill into the records, any figure not found in the rows is marked verify, results are saved with the chat and included in Export PDF; with no AI provider a calculated read-out is shown and labelled",
-    "New: chart views - Pareto (bars + cumulative line + 80% marker), sortable and filterable Table with share, cumulative share and records, line with average, 3-period average and a dashed straight-line next-period estimate, bars with change vs previous period; Copy summary on every chart",
-    "New: drill v2 - from any bar, slice, point, tile or finding open the records with the metric total, then Break down by any other field (customer, status, product, month ...) using a read-only read-group, switch between records and the measure, open a group to see its records, and keep drilling with a breadcrumb trail",
-    "Improved: the answer prompt also receives the deeper findings with their priority so Risks and Recommended actions quote exact numbers (js/ai-response-template.js, js/ai-embed.js, js/ai-odoo-agent.js, css/ai-embed.css, test/ai-visuals.smoke.test.js)"
+    "New: Executive scorecard on the Overview - one card for every installed module (Sales, CRM, Point of Sale, Finance, Expenses, Purchase, Inventory, Manufacturing, Projects, Helpdesk, Fleet, People, Time Off): headline KPI vs the previous period, 12-month trend, three secondary KPIs, open alerts with amounts, a Healthy / Watch / Action status and a 0-100 score, plus a business-health ring and a Going well / Watch closely / Do next brief; every figure drills into the records, Copy brief and Export CSV included",
+    "New: Module scorecard in Odoo Live - Executive - a table of every app in the chosen lens with status, headline, trend, open alerts, records, new records this period vs previous and last activity, with plain-language freshness notes (quiet or unused apps, apps this Odoo user cannot read); selecting one app shows Module facts tiles",
+    "Improved: executive catalog - 5 more apps (Point of Sale, Time Off, Expenses, Helpdesk, Fleet) and 30+ new KPIs and alerts across Sales, CRM, Finance (payables, overdue bills, cash in / out / net), Purchase, Inventory (negative stock), Manufacturing (late orders), People and Projects, each alert with a suggested next step; Overview CSV, PDF and AI narrative now include the scorecard",
+    "Fixed: the Overview's Today at a glance section (overview-pulse) was cached by the service worker but never linked from dashboard.html, so it never appeared - it is now loaded",
+    "Fixed: Projects Open tasks counted tasks in closed stages - it now counts open stages only"
   ],
   "history": [
+    {
+      "version": "2.33.0",
+      "date": "2026-11-06",
+      "notes": [
+        "New: Executive scorecard on the Overview - one card for every installed module (Sales, CRM, Point of Sale, Finance, Expenses, Purchase, Inventory, Manufacturing, Projects, Helpdesk, Fleet, People, Time Off): headline KPI vs the previous period, 12-month trend, three secondary KPIs, open alerts with amounts, a Healthy / Watch / Action status and a 0-100 score, plus a business-health ring and a Going well / Watch closely / Do next brief; every figure drills into the records, Copy brief and Export CSV included",
+        "New: Module scorecard in Odoo Live - Executive - a table of every app in the chosen lens with status, headline, trend, open alerts, records, new records this period vs previous and last activity, with plain-language freshness notes (quiet or unused apps, apps this Odoo user cannot read); selecting one app shows Module facts tiles",
+        "Improved: executive catalog - 5 more apps (Point of Sale, Time Off, Expenses, Helpdesk, Fleet) and 30+ new KPIs and alerts across Sales, CRM, Finance (payables, overdue bills, cash in / out / net), Purchase, Inventory (negative stock), Manufacturing (late orders), People and Projects, each alert with a suggested next step; Overview CSV, PDF and AI narrative now include the scorecard",
+        "Fixed: the Overview's Today at a glance section (overview-pulse) was cached by the service worker but never linked from dashboard.html, so it never appeared - it is now loaded",
+        "Fixed: Projects Open tasks counted tasks in closed stages - it now counts open stages only"
+      ],
+      "critical": false
+    },
     {
       "version": "2.32.0",
       "date": "2026-11-04",
