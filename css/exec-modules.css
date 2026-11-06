@@ -1,0 +1,61 @@
+/* ==========================================================================
+   DashView — Odoo Live → Executive: Module scorecard & module facts  (pairs with js/exec-modules.js)
+   Shared tokens, so it follows dark / light, the accent and the Liquid Glass surface.
+   ========================================================================== */
+.olm { margin: 0 0 16px; }
+.olm[hidden] { display: none; }
+.olm-panel { margin: 0; min-width: 0; }
+.olm-head2 { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.olm-head2 h3 { margin: 0; font-size: .95rem; font-weight: 700; color: var(--ink); }
+.olm-head2 h3 small { margin-left: 6px; font-size: .75rem; font-weight: 400; color: var(--ink-50); }
+.olm-head2 p { margin: 4px 0 0; font-size: .78rem; color: var(--ink-50); }
+.olm-head2 p b { color: var(--t, var(--ink)); }
+.olm-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.olm-cnt { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: .6875rem; color: var(--ink-50); border: 1px solid var(--line); border-left: 3px solid var(--c, var(--st-flat)); }
+.olm-cnt b { font-size: .9rem; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.olm-cnt.is-good { --c: var(--st-good); } .olm-cnt.is-watch { --c: var(--st-warn); } .olm-cnt.is-bad { --c: var(--st-bad); }
+
+.olm-wrap { margin: 0 -2px; }
+.olm-table { min-width: 900px; }
+.olm-table th, .olm-table td { vertical-align: middle; }
+.olm-table tbody tr { border-left: 3px solid var(--t, transparent); }
+.olm-r { text-align: right; }
+.olm-table thead th.olm-r { text-align: right; }
+.olm-r small, .olm-mod small, .olm-rec small { display: block; font-size: .625rem; color: var(--ink-50); white-space: nowrap; }
+.olm-r.is-stale small { white-space: normal; }
+.olm-r.is-stale { color: var(--st-warn); } .olm-r.is-stale small { color: var(--st-warn); }
+.olm-mod { display: flex; align-items: center; gap: 9px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; font-family: inherit; flex-wrap: wrap; }
+.olm-mod b { font-size: .84rem; font-weight: 700; color: var(--ink); }
+.olm-mod small { flex-basis: 100%; margin-left: 41px; margin-top: -8px; }
+.olm-mod:hover b { color: var(--signal); }
+.olm-table .ovm-ic { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; flex: none; color: var(--t, var(--st-flat)); background: rgba(152, 152, 157, .14); background: color-mix(in srgb, var(--t, var(--st-flat)) 14%, transparent); }
+.olm-table .ovm-ic svg { width: 18px; height: 18px; }
+.olm-head, .olm-rec { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 3px 6px; margin: -3px -6px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; color: inherit; font-family: inherit; }
+.olm-rec { align-items: flex-end; text-align: right; }
+.olm-head:hover, .olm-rec:hover { background: var(--signal-10); }
+.olm-head span { font-size: .6875rem; color: var(--ink-50); }
+.olm-head b, .olm-rec b { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+.olm-sp { width: 130px; min-width: 110px; }
+.olm-sp .dvsc-spark { height: 30px; }
+.olm-pill { display: inline-flex; align-items: baseline; gap: 4px; margin: 2px 4px 2px 0; padding: 3px 9px; border: 1px solid transparent; border-radius: 99px; font: 600 .6875rem var(--f-body); cursor: pointer; color: var(--t);
+  background: rgba(152, 152, 157, .14); background: color-mix(in srgb, var(--t) 13%, transparent); }
+.olm-pill:hover { border-color: var(--t); }
+.olm-ok { font-size: .72rem; font-weight: 600; color: var(--st-good); }
+.olm-mute { font-size: .72rem; color: var(--ink-50); }
+.olm-skel { height: 22px; }
+.olm-notes { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; font-size: .78rem; line-height: 1.5; color: var(--ink-50); }
+.olm-notes b { color: var(--ink); }
+
+/* one module: facts */
+.olm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.olm-tile { --c: var(--t, var(--st-flat)); position: relative; display: flex; flex-direction: column; gap: 4px; padding: 13px 15px; text-align: left; font-family: inherit; color: inherit; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); }
+button.olm-tile { cursor: pointer; }
+button.olm-tile:hover { border-color: var(--line-strong); background: var(--signal-10); }
+.olm-tile::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--c), transparent 85%); border-radius: var(--r-md) var(--r-md) 0 0; }
+.olm-tile span { font-family: var(--f-mono); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.olm-tile b { font-size: 1.45rem; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.olm-tile em { font-style: normal; font-size: .72rem; line-height: 1.4; color: var(--ink-50); }
+.olm-tile.is-stale { --t: var(--st-warn); }
+.olm-load { margin: 10px 0 0; font-size: .75rem; color: var(--ink-50); }
+.olm button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media print { .olm-tools .btn, .olm-pill { display: none; } }

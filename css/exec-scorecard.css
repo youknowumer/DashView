@@ -1,0 +1,21 @@
+/* ==========================================================================
+   DashView — Executive scorecard: shared pieces  (js/exec-scorecard.js)
+   Used by the Overview scorecard (overview-modules.css) and the Odoo Live module table
+   (exec-modules.css). Only shared tokens, so it follows dark / light and the Liquid Glass surface.
+   Verdict colours (--st-good / --st-warn / --st-bad / --st-flat) come from exec-unify.css.
+   ========================================================================== */
+.tone-good { --t: var(--st-good); } .tone-watch, .tone-warn { --t: var(--st-warn); }
+.tone-bad { --t: var(--st-bad); } .tone-na, .tone-flat { --t: var(--st-flat); }
+
+.dvsc-spark { display: block; width: 100%; height: 38px; overflow: visible; color: var(--t, var(--signal)); }
+.dvsc-spark .a { fill: currentColor; fill-opacity: .14; stroke: none; }
+.dvsc-spark .l { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.dvsc-spark circle { fill: currentColor; stroke: var(--paper); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+
+.dvsc-chip { --c: var(--t, var(--st-flat)); display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font: 700 .6875rem var(--f-body); letter-spacing: .01em; white-space: nowrap;
+  color: var(--c); background: rgba(152, 152, 157, .16); background: color-mix(in srgb, var(--c) 15%, transparent); }
+.dvsc-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dvsc-d { font-style: normal; display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: .6875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dvsc-d.good { color: var(--st-good); background: rgba(48, 209, 88, .14); background: color-mix(in srgb, var(--st-good) 15%, transparent); }
+.dvsc-d.bad { color: var(--st-bad); background: rgba(255, 69, 58, .14); background: color-mix(in srgb, var(--st-bad) 15%, transparent); }
+.dvsc-d.flat { color: var(--st-flat); background: rgba(152, 152, 157, .16); background: color-mix(in srgb, var(--st-flat) 16%, transparent); }
