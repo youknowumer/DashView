@@ -628,6 +628,7 @@
       var co = Array.isArray(o.company_id) ? S.companies.filter(function (c) { return c.id === o.company_id[0]; })[0] : null;
       rows.push([o.name, label(o.partner_id), co && co.currency ? moneyFor(o.amount_total, co.currency) : money(o.amount_total), STATE_LBL[o.state] || o.state]);
     });
+    var ex = window.DVOverviewExtras; if (ex && ex.csvRows) { var more = ex.csvRows(); if (more && more.length) rows = rows.concat(more); }   /* module scorecard (js/overview-modules.js) */
     F.download('odoo-overview-' + new Date().toISOString().slice(0, 10) + '.csv', F.csv(rows));
     if (window.DVSec) window.DVSec.log('Exported overview', 'CSV summary');
     return true;
@@ -650,11 +651,13 @@
     return libState.html2canvas.loading;
   }
   function reportKpis() {
-    return KPIS.map(function (k) {
+    var base = KPIS.map(function (k) {
       var el = $('ovk-' + k[0]); if (!el) return null;
       var v = el.querySelector('.kpi-value').textContent, sub = el.querySelector('.kpi-delta').textContent;
       return { label: k[1], value: v + (sub && sub.trim() ? '  (' + sub.trim() + ')' : '') };
     }).filter(Boolean);
+    var ex = window.DVOverviewExtras;   /* business health + one headline per module (js/overview-modules.js) */
+    return ex && ex.kpis ? base.concat(ex.kpis() || []) : base;
   }
   var REPORT_CHARTS = [['ovTrendCv', 'Revenue trend'], ['ovCatCv', 'Sales by category'], ['ovPipeCv', 'CRM pipeline'], ['ovInvCv', 'Invoices by payment status'], ['ovShopsCv', 'Sales by shop / location']];
   function reportCharts() {
@@ -679,7 +682,8 @@
       invoices_by_payment_status: S.currency ? S.inv || [] : [],
       sales_by_shop: S.currency ? S.shops || [] : [],
       best_selling_products: S.currency ? S.shopProd || [] : [],
-      customers_total: S.customers
+      customers_total: S.customers,
+      module_scorecard: window.DVOverviewExtras && window.DVOverviewExtras.summary ? window.DVOverviewExtras.summary() : null
     };
     return 'Here is live business data pulled from our Odoo instance (JSON): ' + JSON.stringify(data) +
       '\n\nWrite a short, plain-English business report narrative (3-4 short paragraphs, no headings, no markdown, no bullet lists) that: ' +

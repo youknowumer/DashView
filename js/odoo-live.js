@@ -441,11 +441,12 @@
   var PERIODS = [[30, '30 days'], [90, '90 days'], [365, '12 months'], [-1, 'Year to date']];
   var LENSES = [
     ['company', 'Company \u00B7 CEO', null],
-    ['commercial', 'Commercial', ['sale', 'crm']],
-    ['finance', 'Finance \u00B7 CFO', ['account']],
-    ['operations', 'Operations \u00B7 COO', ['purchase', 'stock', 'mrp', 'project']],
-    ['people', 'People \u00B7 HR', ['hr']]
+    ['commercial', 'Commercial', ['sale', 'crm', 'point_of_sale']],
+    ['finance', 'Finance \u00B7 CFO', ['account', 'hr_expense']],
+    ['operations', 'Operations \u00B7 COO', ['purchase', 'stock', 'mrp', 'project', 'helpdesk', 'fleet']],
+    ['people', 'People \u00B7 HR', ['hr', 'hr_holidays', 'hr_expense']]
   ];
+  window.DVExecLenses = LENSES;   /* read by js/exec-modules.js so the module scorecard follows the chosen lens */
   var LENS_KEY = 'dashview_odoo_lens', PERIOD_KEY = 'dashview_odoo_period';
   var DERIVED = { ratio: 1, diff: 1, pct: 1 };
   state.lens = loadJSON(LENS_KEY, 'company'); state.period = loadJSON(PERIOD_KEY, 30); state.xseq = 0; state.reg = []; state.areg = [];

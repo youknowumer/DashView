@@ -190,6 +190,8 @@
   /* Executive (top-management) specs: headline KPIs with period-over-period change,
      a wide trend, mix/concentration charts and "needs attention" alerts. */
   var UNPAID = [['move_type', '=', 'out_invoice'], ['state', '=', 'posted'], ['payment_state', 'in', ['not_paid', 'partial']]];
+  var UNPAID_BILLS = [['move_type', '=', 'in_invoice'], ['state', '=', 'posted'], ['payment_state', 'in', ['not_paid', 'partial']]];
+  var POSDONE = [['state', 'in', ['paid', 'done', 'invoiced']]];
   var X = {
     sale: { title: 'Sales',
       kpis: [
@@ -197,63 +199,150 @@
         { label: 'Confirmed orders', model: 'sale.order', domain: CONF, date: 'date_order', kind: 'count' },
         { label: 'Average order value', kind: 'ratio', of: [0, 1], money: true },
         { label: 'New quotations', model: 'sale.order', domain: [['state', 'in', ['draft', 'sent']]], date: 'create_date', kind: 'count' },
-        { label: 'Products', model: 'product.template', domain: [], kind: 'count', sub: 'Open for Data checks: names and references' }],
+        { label: 'Products', model: 'product.template', domain: [], kind: 'count', sub: 'Open for Data checks: names and references' },
+        { label: 'To invoice', model: 'sale.order', domain: [['state', 'in', ['sale', 'done']], ['invoice_status', '=', 'to invoice']], measure: 'amount_total', kind: 'money', sub: 'Confirmed, not yet billed' },
+        { label: 'Open quotation value', model: 'sale.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', kind: 'money', sub: 'Waiting to be confirmed' }],
+      sc: { head: 0, subs: [1, 5, 6] }, cov: 'sale.order',
       trend: { title: 'Revenue — last 12 months', model: 'sale.order', domain: CONF, groupby: 'date_order:month', measure: 'amount_total', type: 'bar', last: 12 },
       charts: [P.sale.charts[2], P.sale.charts[3]],
-      alerts: [{ label: 'Open quotations', model: 'sale.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', tone: 'warn' }] },
+      alerts: [
+        { label: 'Open quotations', model: 'sale.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', tone: 'warn', hint: 'Follow up or close them' },
+        { label: 'Quotations older than 7 days', model: 'sale.order', domain: [['state', 'in', ['draft', 'sent']], ['date_order', '<', '$d7']], measure: 'amount_total', tone: 'warn', hint: 'Stale quotes rarely convert - call the customer' },
+        { label: 'Confirmed, not invoiced', model: 'sale.order', domain: [['state', 'in', ['sale', 'done']], ['invoice_status', '=', 'to invoice']], measure: 'amount_total', tone: 'warn', hint: 'Revenue waiting to be billed' }] },
     crm: { title: 'CRM',
       kpis: [
         { label: 'Won revenue', model: 'crm.lead', domain: [['probability', '=', 100]], date: 'date_closed', measure: 'expected_revenue', kind: 'money' },
         { label: 'New leads', model: 'crm.lead', date: 'create_date', kind: 'count' },
-        { label: 'Open pipeline', model: 'crm.lead', domain: [['type', '=', 'opportunity'], ['probability', '<', 100]], measure: 'expected_revenue', kind: 'money', sub: 'Expected revenue right now' }],
+        { label: 'Open pipeline', model: 'crm.lead', domain: [['type', '=', 'opportunity'], ['probability', '<', 100]], measure: 'expected_revenue', kind: 'money', sub: 'Expected revenue right now' },
+        { label: 'Deals won', model: 'crm.lead', domain: [['probability', '=', 100]], date: 'date_closed', kind: 'count' },
+        { label: 'Weighted pipeline', model: 'crm.lead', domain: [['type', '=', 'opportunity'], ['probability', '<', 100]], measure: 'prorated_revenue', kind: 'money', sub: 'Expected revenue x probability' }],
+      sc: { head: 0, subs: [2, 1, 3] }, cov: 'crm.lead',
       trend: { title: 'Won revenue — last 12 months', model: 'crm.lead', domain: [['probability', '=', 100]], groupby: 'date_closed:month', measure: 'expected_revenue', type: 'bar', last: 12 },
-      charts: [P.crm.charts[0], P.crm.charts[2]], alerts: [] },
+      charts: [P.crm.charts[0], P.crm.charts[2]],
+      alerts: [{ label: 'Opportunities past expected close', model: 'crm.lead', domain: [['type', '=', 'opportunity'], ['probability', '<', 100], ['date_deadline', '<', '$now']], measure: 'expected_revenue', tone: 'warn', hint: 'Re-date or close them out' }] },
     account: { title: 'Finance',
       kpis: [
         { label: 'Invoiced', model: 'account.move', domain: [['move_type', '=', 'out_invoice'], ['state', '=', 'posted']], date: 'invoice_date', measure: 'amount_total', kind: 'money' },
         { label: 'Vendor bills', model: 'account.move', domain: [['move_type', '=', 'in_invoice'], ['state', '=', 'posted']], date: 'invoice_date', measure: 'amount_total', kind: 'money', inverse: true },
-        { label: 'Receivable outstanding', model: 'account.move', domain: UNPAID, measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Unpaid customer invoices' }],
+        { label: 'Receivable outstanding', model: 'account.move', domain: UNPAID, measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Unpaid customer invoices' },
+        { label: 'Payable outstanding', model: 'account.move', domain: UNPAID_BILLS, measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Unpaid vendor bills' },
+        { label: 'Overdue payable', model: 'account.move', domain: UNPAID_BILLS.concat([['invoice_date_due', '<', '$now']]), measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Past due date' },
+        { label: 'Cash received', model: 'account.payment', domain: [['payment_type', '=', 'inbound'], ['state', 'in', ['posted', 'paid', 'in_process']]], date: 'date', measure: 'amount', kind: 'money', sub: 'Customer payments' },
+        { label: 'Cash paid out', model: 'account.payment', domain: [['payment_type', '=', 'outbound'], ['state', 'in', ['posted', 'paid', 'in_process']]], date: 'date', measure: 'amount', kind: 'money', inverse: true, sub: 'Vendor payments' },
+        { label: 'Net cash movement', kind: 'diff', of: [5, 6], money: true, sub: 'Received minus paid out' }],
+      sc: { head: 0, subs: [2, 3, 7] }, cov: 'account.move',
       trend: { title: 'Invoiced — last 12 months', model: 'account.move', domain: [['move_type', '=', 'out_invoice'], ['state', '=', 'posted']], groupby: 'invoice_date:month', measure: 'amount_total', type: 'bar', last: 12 },
       charts: [P.account.charts[1], P.account.charts[2]],
-      alerts: [{ label: 'Overdue invoices', model: 'account.move', domain: UNPAID.concat([['invoice_date_due', '<', '$now']]), measure: 'amount_residual', tone: 'bad' }] },
+      alerts: [
+        { label: 'Overdue invoices', model: 'account.move', domain: UNPAID.concat([['invoice_date_due', '<', '$now']]), measure: 'amount_residual', tone: 'bad', hint: 'Start the collections run' },
+        { label: 'Overdue vendor bills', model: 'account.move', domain: UNPAID_BILLS.concat([['invoice_date_due', '<', '$now']]), measure: 'amount_residual', tone: 'warn', hint: 'Pay or agree new terms with the vendor' }] },
     purchase: { title: 'Purchase',
       kpis: [
         { label: 'Spend', model: 'purchase.order', domain: [['state', 'in', ['purchase', 'done']]], date: 'date_order', measure: 'amount_total', kind: 'money', inverse: true },
         { label: 'Purchase orders', model: 'purchase.order', domain: [['state', 'in', ['purchase', 'done']]], date: 'date_order', kind: 'count' },
-        { label: 'Average order value', kind: 'ratio', of: [0, 1], money: true }],
+        { label: 'Average order value', kind: 'ratio', of: [0, 1], money: true },
+        { label: 'Open RFQs', model: 'purchase.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', kind: 'money', sub: 'Awaiting confirmation' },
+        { label: 'Received, to bill', model: 'purchase.order', domain: [['state', 'in', ['purchase', 'done']], ['invoice_status', '=', 'to invoice']], measure: 'amount_total', kind: 'money', inverse: true, sub: 'Vendor bills still to record' }],
+      sc: { head: 0, subs: [1, 3, 4] }, cov: 'purchase.order',
       trend: { title: 'Spend — last 12 months', model: 'purchase.order', domain: [['state', 'in', ['purchase', 'done']]], groupby: 'date_order:month', measure: 'amount_total', type: 'bar', last: 12 },
       charts: [P.purchase.charts[2], P.purchase.charts[3]],
-      alerts: [{ label: 'Open RFQs', model: 'purchase.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', tone: 'warn' }] },
+      alerts: [
+        { label: 'Open RFQs', model: 'purchase.order', domain: [['state', 'in', ['draft', 'sent']]], measure: 'amount_total', tone: 'warn', hint: 'Confirm or cancel them' },
+        { label: 'Late receipts', model: 'stock.picking', domain: [['picking_type_code', '=', 'incoming'], ['state', 'in', ['assigned', 'confirmed', 'waiting']], ['scheduled_date', '<', '$now']], tone: 'bad', hint: 'Chase the vendor for delivery' }] },
     stock: { title: 'Inventory',
       kpis: [
         { label: 'Units on hand', model: 'stock.quant', measure: 'quantity', kind: 'num', sub: 'Across all locations' },
         { label: 'Transfers completed', model: 'stock.picking', domain: [['state', '=', 'done']], date: 'date_done', kind: 'count' },
-        { label: 'Products', model: 'product.template', domain: [], kind: 'count', sub: 'Open for Data checks: names and references' }],
+        { label: 'Products', model: 'product.template', domain: [], kind: 'count', sub: 'Open for Data checks: names and references' },
+        { label: 'Receipts completed', model: 'stock.picking', domain: [['picking_type_code', '=', 'incoming'], ['state', '=', 'done']], date: 'date_done', kind: 'count' },
+        { label: 'Deliveries completed', model: 'stock.picking', domain: [['picking_type_code', '=', 'outgoing'], ['state', '=', 'done']], date: 'date_done', kind: 'count' },
+        { label: 'Ready to process', model: 'stock.picking', domain: [['state', '=', 'assigned']], kind: 'count', sub: 'Transfers ready now' }],
+      sc: { head: 1, subs: [4, 3, 5] }, cov: 'stock.picking',
       trend: { title: 'Transfers — last 12 months', model: 'stock.picking', groupby: 'scheduled_date:month', type: 'line', last: 12 },
       charts: [P.stock.charts[3], P.stock.charts[0]],
       alerts: [
-        { label: 'Late transfers', model: 'stock.picking', domain: [['state', 'not in', ['done', 'cancel']], ['scheduled_date', '<', '$now']], tone: 'bad' },
-        { label: 'Waiting on stock', model: 'stock.picking', domain: [['state', 'in', ['confirmed', 'waiting']]], tone: 'warn' }] },
+        { label: 'Late transfers', model: 'stock.picking', domain: [['state', 'not in', ['done', 'cancel']], ['scheduled_date', '<', '$now']], tone: 'bad', hint: 'Past the scheduled date' },
+        { label: 'Waiting on stock', model: 'stock.picking', domain: [['state', 'in', ['confirmed', 'waiting']]], tone: 'warn', hint: 'Reorder or reallocate stock' },
+        { label: 'Negative stock lines', model: 'stock.quant', domain: [['quantity', '<', 0], ['location_id.usage', '=', 'internal']], tone: 'bad', hint: 'Fix with an inventory adjustment' }] },
     hr: { title: 'People',
       kpis: [
         { label: 'Headcount', model: 'hr.employee', kind: 'count', sub: 'Active employees' },
-        { label: 'New hires', model: 'hr.employee', date: 'create_date', kind: 'count' }],
+        { label: 'New hires', model: 'hr.employee', date: 'create_date', kind: 'count' },
+        { label: 'Departments', model: 'hr.department', kind: 'count', sub: 'Active departments' },
+        { label: 'Job positions', model: 'hr.job', kind: 'count', sub: 'Defined roles' }],
+      sc: { head: 0, subs: [1, 2, 3] }, cov: 'hr.employee',
       trend: { title: 'New hires — last 12 months', model: 'hr.employee', groupby: 'create_date:month', type: 'bar', last: 12 },
       charts: [P.hr.charts[0], P.hr.charts[1]], alerts: [] },
     project: { title: 'Projects',
       kpis: [
-        { label: 'Open tasks', model: 'project.task', kind: 'count', sub: 'Tasks in progress' },
-        { label: 'Tasks created', model: 'project.task', date: 'create_date', kind: 'count' }],
+        { label: 'Open tasks', model: 'project.task', domain: [['stage_id.fold', '=', false]], kind: 'count', sub: 'Not in a closed stage' },
+        { label: 'Tasks created', model: 'project.task', date: 'create_date', kind: 'count' },
+        { label: 'Active projects', model: 'project.project', kind: 'count', sub: 'Projects in progress' },
+        { label: 'High priority open', model: 'project.task', domain: [['priority', '=', '1'], ['stage_id.fold', '=', false]], kind: 'count', sub: 'Starred tasks still open' }],
+      sc: { head: 0, subs: [1, 2, 3] }, cov: 'project.task',
       trend: { title: 'Tasks created — last 12 months', model: 'project.task', groupby: 'create_date:month', type: 'line', last: 12 },
-      charts: [P.project.charts[0], P.project.charts[1]], alerts: [] },
+      charts: [P.project.charts[0], P.project.charts[1]],
+      alerts: [{ label: 'Overdue open tasks', model: 'project.task', domain: [['stage_id.fold', '=', false], ['date_deadline', '<', '$now']], tone: 'warn', hint: 'Reassign or move the deadline' }] },
     mrp: { title: 'Manufacturing',
       kpis: [
         { label: 'In progress', model: 'mrp.production', domain: [['state', '=', 'progress']], kind: 'count', sub: 'Manufacturing orders' },
-        { label: 'Orders started', model: 'mrp.production', date: 'date_start', kind: 'count' }],
+        { label: 'Orders started', model: 'mrp.production', date: 'date_start', kind: 'count' },
+        { label: 'Orders completed', model: 'mrp.production', domain: [['state', '=', 'done']], date: 'date_finished', kind: 'count' },
+        { label: 'Units produced', model: 'mrp.production', domain: [['state', '=', 'done']], date: 'date_finished', measure: 'product_qty', kind: 'num' }],
+      sc: { head: 2, subs: [3, 0, 1] }, cov: 'mrp.production',
       trend: { title: 'Orders started — last 12 months', model: 'mrp.production', groupby: 'date_start:month', type: 'line', last: 12 },
       charts: [P.mrp.charts[0], P.mrp.charts[1]],
-      alerts: [{ label: 'Confirmed, not started', model: 'mrp.production', domain: [['state', '=', 'confirmed']], tone: 'warn' }] }
+      alerts: [
+        { label: 'Confirmed, not started', model: 'mrp.production', domain: [['state', '=', 'confirmed']], tone: 'warn', hint: 'Release them to the shop floor' },
+        { label: 'Late manufacturing orders', model: 'mrp.production', domain: [['state', 'in', ['confirmed', 'progress', 'to_close']], ['date_deadline', '<', '$now']], tone: 'bad', hint: 'Past the planned deadline' }] },
+
+    /* ---- apps added to the executive board (each hides itself when not installed) ---- */
+    point_of_sale: { title: 'Point of Sale',
+      kpis: [
+        { label: 'POS revenue', model: 'pos.order', domain: POSDONE, date: 'date_order', measure: 'amount_total', kind: 'money' },
+        { label: 'POS orders', model: 'pos.order', domain: POSDONE, date: 'date_order', kind: 'count' },
+        { label: 'Average basket', kind: 'ratio', of: [0, 1], money: true }],
+      sc: { head: 0, subs: [1, 2] }, cov: 'pos.order',
+      trend: { title: 'POS revenue — last 12 months', model: 'pos.order', domain: POSDONE, groupby: 'date_order:month', measure: 'amount_total', type: 'bar', last: 12 },
+      charts: [{ title: 'POS revenue by shop', model: 'pos.order', domain: POSDONE, groupby: 'config_id', measure: 'amount_total', type: 'hbar', limit: 8 }, P.point_of_sale.charts[2]],
+      alerts: [{ label: 'Sessions still open', model: 'pos.session', domain: [['state', 'in', ['opened', 'closing_control']]], tone: 'warn', hint: 'Close and reconcile the cash register' }] },
+    hr_holidays: { title: 'Time Off',
+      kpis: [
+        { label: 'Leave requests', model: 'hr.leave', date: 'create_date', kind: 'count' },
+        { label: 'Approved days', model: 'hr.leave', domain: [['state', '=', 'validate']], date: 'date_from', measure: 'number_of_days', kind: 'num' },
+        { label: 'Awaiting approval', model: 'hr.leave', domain: [['state', 'in', ['confirm', 'validate1']]], kind: 'count', sub: 'Waiting for a decision' }],
+      sc: { head: 1, subs: [0, 2] }, cov: 'hr.leave',
+      trend: { title: 'Approved days — last 12 months', model: 'hr.leave', domain: [['state', '=', 'validate']], groupby: 'date_from:month', measure: 'number_of_days', type: 'bar', last: 12 },
+      charts: [P.hr_holidays.charts[1], P.hr_holidays.charts[2]],
+      alerts: [{ label: 'Requests awaiting approval', model: 'hr.leave', domain: [['state', 'in', ['confirm', 'validate1']]], tone: 'warn', hint: 'Employees are waiting for an answer' }] },
+    hr_expense: { title: 'Expenses',
+      kpis: [
+        { label: 'Expenses', model: 'hr.expense', date: 'date', measure: 'total_amount', kind: 'money', inverse: true },
+        { label: 'Expense lines', model: 'hr.expense', date: 'date', kind: 'count' },
+        { label: 'Average expense', kind: 'ratio', of: [0, 1], money: true, inverse: true }],
+      sc: { head: 0, subs: [1, 2] }, cov: 'hr.expense',
+      trend: { title: 'Expenses — last 12 months', model: 'hr.expense', groupby: 'date:month', measure: 'total_amount', type: 'bar', last: 12 },
+      charts: [P.hr_expense.charts[1], P.hr_expense.charts[0]],
+      alerts: [{ label: 'Expenses awaiting approval', model: 'hr.expense', domain: [['state', 'in', ['reported', 'submitted']]], measure: 'total_amount', tone: 'warn', hint: 'Approve or refuse the claims' }] },
+    helpdesk: { title: 'Helpdesk',
+      kpis: [
+        { label: 'New tickets', model: 'helpdesk.ticket', date: 'create_date', kind: 'count', inverse: true },
+        { label: 'Open tickets', model: 'helpdesk.ticket', domain: [['stage_id.fold', '=', false]], kind: 'count', inverse: true, sub: 'Not yet resolved' },
+        { label: 'Tickets closed', model: 'helpdesk.ticket', domain: [['close_date', '!=', false]], date: 'close_date', kind: 'count' }],
+      sc: { head: 0, subs: [1, 2] }, cov: 'helpdesk.ticket',
+      trend: { title: 'Tickets created — last 12 months', model: 'helpdesk.ticket', groupby: 'create_date:month', type: 'line', last: 12 },
+      charts: [P.helpdesk.charts[0], P.helpdesk.charts[2]],
+      alerts: [{ label: 'High priority open tickets', model: 'helpdesk.ticket', domain: [['stage_id.fold', '=', false], ['priority', 'in', ['2', '3']]], tone: 'bad', hint: 'Customers are waiting' }] },
+    fleet: { title: 'Fleet',
+      kpis: [
+        { label: 'Vehicles', model: 'fleet.vehicle', kind: 'count', sub: 'In the fleet' },
+        { label: 'Service entries', model: 'fleet.vehicle.log.services', date: 'date', kind: 'count' },
+        { label: 'Service cost', model: 'fleet.vehicle.log.services', date: 'date', measure: 'amount', kind: 'money', inverse: true }],
+      sc: { head: 0, subs: [1, 2] }, cov: 'fleet.vehicle',
+      trend: { title: 'Service cost — last 12 months', model: 'fleet.vehicle.log.services', groupby: 'date:month', measure: 'amount', type: 'bar', last: 12 },
+      charts: [P.fleet.charts[0], P.fleet.charts[1]], alerts: [] }
   };
+  Object.keys(X).forEach(function (k) { X[k].key = k; });   /* every spec knows its own key (icons, colours, drill titles) */
 
   /* Cross-module financial position for CFO / CEO (needs the Accounting app). */
   var INV = [['move_type', '=', 'out_invoice'], ['state', '=', 'posted']];
@@ -264,15 +353,26 @@
     { label: 'Receivable outstanding', model: 'account.move', domain: UNPAID, measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Unpaid customer invoices' },
     { label: 'Overdue receivable', model: 'account.move', domain: UNPAID.concat([['invoice_date_due', '<', '$now']]), measure: 'amount_residual', kind: 'money', inverse: true, sub: 'Past due date' },
     { label: 'Overdue share', kind: 'pct', of: [4, 3], inverse: true, sub: 'Overdue as % of receivable' }] };
-  var XORDER = ['sale', 'crm', 'account', 'purchase', 'stock', 'mrp', 'hr', 'project'];
+  var XORDER = ['sale', 'crm', 'point_of_sale', 'account', 'hr_expense', 'purchase', 'stock', 'mrp', 'project', 'helpdesk', 'fleet', 'hr', 'hr_holidays'];
   function exec(mod) { return X[mod] || X[ALIAS[mod]] || null; }
   function ago(d) { return new Date(Date.now() - d * 864e5).toISOString().slice(0, 19).replace('T', ' '); }
 
   function get(mod) { return P[mod] || P[ALIAS[mod]] || null; }
 
+  /* Installed apps that have an executive spec, in board order: [{ key, spec, tech }] (one entry per spec). */
+  function installed(mods) {
+    var names = (mods || []).map(function (m) { return m && m.technicalName; }).filter(Boolean), out = [];
+    XORDER.forEach(function (key) {
+      var spec = X[key], tech = null;
+      names.forEach(function (n) { if (!tech && exec(n) === spec) tech = n; });
+      if (spec && tech) out.push({ key: key, spec: spec, tech: tech });
+    });
+    return out;
+  }
+
   function tokens(domain) {
     var now = Date.now(), f = function (d) { return new Date(now - d * 864e5).toISOString().slice(0, 19).replace('T', ' '); };
-    var map = { $now: f(0), $d30: f(30), $d365: f(365) };
+    var map = { $now: f(0), $d7: f(7), $d30: f(30), $d90: f(90), $d365: f(365) };
     return (domain || []).map(function (t) { return Array.isArray(t) ? [t[0], t[1], typeof t[2] === 'string' && map[t[2]] ? map[t[2]] : t[2]] : t; });
   }
 
@@ -293,5 +393,5 @@
     return { title: model, generic: true, models: [model], kpis: kpis, charts: charts };
   }
 
-  window.DVOdooProfiles = { fin: FIN, exec: exec, order: XORDER, ago: ago, get: get, build: build, tokens: tokens, has: function (m) { return !!get(m); } };
+  window.DVOdooProfiles = { fin: FIN, exec: exec, order: XORDER, installed: installed, ago: ago, get: get, build: build, tokens: tokens, has: function (m) { return !!get(m); } };
 })();
