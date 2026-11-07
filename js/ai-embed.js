@@ -455,14 +455,14 @@
 
     /* ── topic classification (chats + prompts are grouped by business area) ── */
     var CAT = {
-      Sales:     { c: '#007AFF', re: /sale|quotation|quote|customer|revenue|salesperson|order/i, ic: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
-      Finance:   { c: '#34C759', re: /invoice|receivable|payable|bill|cash|payment|overdue|aging|vendor|expense|profit|budget/i, ic: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>' },
-      Inventory: { c: '#FF9500', re: /stock|inventory|product|warehouse|delivery|deliveries|purchase|reorder|location/i, ic: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
-      CRM:       { c: '#AF52DE', re: /pipeline|lead|opportunit|crm|won|lost|stage/i, ic: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>' },
-      People:    { c: '#FF2D55', re: /employee|headcount|leave|time off|applicant|position|hr\b|department|payroll|attendance/i, ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .6 3 2.3 3 5.2"/>' },
-      Files:     { c: '#30B0C7', re: null, ic: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>' },
-      Reports:   { c: '#5E5CE6', re: null, ic: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>' },
-      General:   { c: '#8E8E93', re: null, ic: '<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>' }
+      Sales:     { c: 'var(--ios-blue, #007AFF)', re: /sale|quotation|quote|customer|revenue|salesperson|order/i, ic: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
+      Finance:   { c: 'var(--ios-green, #34C759)', re: /invoice|receivable|payable|bill|cash|payment|overdue|aging|vendor|expense|profit|budget/i, ic: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>' },
+      Inventory: { c: 'var(--ios-orange, #FF9500)', re: /stock|inventory|product|warehouse|delivery|deliveries|purchase|reorder|location/i, ic: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
+      CRM:       { c: 'var(--ios-purple, #AF52DE)', re: /pipeline|lead|opportunit|crm|won|lost|stage/i, ic: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>' },
+      People:    { c: 'var(--ios-pink, #FF2D55)', re: /employee|headcount|leave|time off|applicant|position|hr\b|department|payroll|attendance/i, ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .6 3 2.3 3 5.2"/>' },
+      Files:     { c: 'var(--ios-teal, #30B0C7)', re: null, ic: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>' },
+      Reports:   { c: 'var(--ios-indigo, #5E5CE6)', re: null, ic: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>' },
+      General:   { c: 'var(--ios-gray, #8E8E93)', re: null, ic: '<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>' }
     };
     function catIcon(k, sz) { return '<svg width="' + (sz || 14) + '" height="' + (sz || 14) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + CAT[k].ic + '</svg>'; }
     function topicOf(t) {
@@ -867,25 +867,86 @@
     function scrollDown() { requestAnimationFrame(function () { el.messages.scrollTop = el.messages.scrollHeight; }); }
     function renderAll() { renderThreads(); renderRoute(); renderMessages(); renderTray(); if (isInspOpen()) renderInsp(); updateSend(); }
 
-    /* live thinking bubble */
-    function thinkingStart() {
-      S.thinking = { rows: [], html: '' }; thinkingDraw();
+    /* live thinking panel - reasoning stages, step timeline and a running clock (css/ai-redesign.css) */
+    var THINK_STAGES = [
+      { k: 'connect', t: 'Connect', h: 'Connecting to your workspace' },
+      { k: 'plan',    t: 'Plan',    h: 'Planning read-only queries' },
+      { k: 'fetch',   t: 'Read',    h: 'Reading live data' },
+      { k: 'answer',  t: 'Write',   h: 'Writing the answer' }
+    ];
+    function thinkStageOf(key, label) {
+      var i, l = String(label || '').toLowerCase();
+      if (key) for (i = 0; i < THINK_STAGES.length; i++) if (THINK_STAGES[i].k === key) return i;
+      if (/connect|status/.test(l)) return 0;
+      if (/plan|repair|understand|think/.test(l)) return 1;
+      if (/read|fetch|quer|file/.test(l)) return 2;
+      return 3;
     }
-    function thinkingStep(label) {
-      if (!S.thinking) return;
-      S.thinking.rows.forEach(function (r) { r.done = true; });
-      S.thinking.rows.push({ label: label, done: false }); thinkingDraw();
+    function thinkSecs(ms) { return ms < 1000 ? '<1s' : (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + 's'; }
+    function thinkingStart() {
+      thinkingStop();
+      S.thinking = { rows: [], html: '', t0: Date.now(), stage: 0, odoo: false, timer: 0 };
+      thinkingDraw();
+      S.thinking.timer = setInterval(thinkingTick, 250);
+    }
+    function thinkingStep(label, key) {
+      var th = S.thinking; if (!th) return;
+      var now = Date.now(), lastRow = th.rows[th.rows.length - 1];
+      if (lastRow && !lastRow.done && lastRow.label === label) return;   /* the agent repeats the first step */
+      th.rows.forEach(function (r) { if (!r.done) { r.done = true; r.ms = now - r.at; } });
+      var st = thinkStageOf(key, label);
+      if (key === 'connect' || key === 'plan' || key === 'fetch') th.odoo = true;
+      th.stage = Math.max(th.stage, st);
+      th.rows.push({ label: label, done: false, at: now, stage: st });
+      thinkingDraw();
+    }
+    function thinkingTick() {
+      var th = S.thinking, n = $('aiwThinkClock'); if (!th) return;
+      if (n) n.textContent = thinkSecs(Date.now() - th.t0);
+      var cur = th.rows[th.rows.length - 1], c = $('aiwThinkNow');
+      if (cur && !cur.done && c) c.textContent = thinkSecs(Date.now() - cur.at);
+    }
+    function thinkingTitle(th) { return th.rows.length ? THINK_STAGES[th.stage].h : 'Understanding your question'; }
+    function thinkingBody(th) {
+      var rows = th.rows.length ? th.rows : [{ label: 'Understanding your question', done: false, at: th.t0 }];
+      return rows.map(function (r, i) {
+        var last = i === rows.length - 1;
+        return '<li class="aiw-tp-row ' + (r.done ? 'done' : 'now') + '"><span class="aiw-tp-dot" aria-hidden="true"></span><span class="aiw-tp-lbl">' + esc(r.label) + '</span>' +
+          '<span class="aiw-tp-ms"' + (!r.done && last ? ' id="aiwThinkNow"' : '') + '>' + (r.done ? thinkSecs(r.ms || 0) : thinkSecs(Date.now() - r.at)) + '</span></li>';
+      }).join('');
+    }
+    function thinkingRail(th) {
+      return THINK_STAGES.map(function (s, i) {
+        return '<li class="aiw-tp-seg ' + (i < th.stage ? 'done' : i === th.stage ? 'now' : '') + '"><i></i><span>' + s.t + '</span></li>';
+      }).join('');
+    }
+    function thinkingHtml(th) {
+      var n = th.rows.length;
+      return '<div class="aiw-msg ai" id="aiwThinking"><div class="aiw-av">' + ICON.spark + '</div><div class="aiw-bubble"><div class="aiw-tp" role="status" aria-live="polite" aria-label="The assistant is working">' +
+        '<div class="aiw-tp-head"><span class="aiw-tp-orb" aria-hidden="true"><i></i><b></b></span>' +
+        '<div class="aiw-tp-ttl"><strong id="aiwThinkTitle">' + esc(thinkingTitle(th)) + '</strong><small>Reasoning on your question</small></div>' +
+        '<span class="aiw-tp-clock" id="aiwThinkClock">' + thinkSecs(Date.now() - th.t0) + '</span></div>' +
+        '<ol class="aiw-tp-rail" id="aiwThinkRail" aria-hidden="true"' + (th.odoo ? '' : ' hidden') + '>' + thinkingRail(th) + '</ol>' +
+        '<details class="aiw-tp-steps" open><summary><span>Steps</span><em id="aiwThinkCount">' + Math.max(n, 1) + '</em></summary><ol id="aiwThinkSteps">' + thinkingBody(th) + '</ol></details>' +
+        (th.odoo ? '<div class="aiw-tp-foot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Read-only. The answer uses only the rows Odoo returns.</div>' : '') +
+        '</div></div></div>';
     }
     function thinkingDraw() {
       var th = S.thinking; if (!th) return;
-      var rows = th.rows.length ? th.rows : [{ label: 'Thinking…', done: false }];
-      th.html = '<div class="aiw-msg ai" id="aiwThinking"><div class="aiw-av">' + ICON.spark + '</div><div class="aiw-bubble"><div class="aiw-card"><div class="aiw-think">' +
-        rows.map(function (r) { return '<div class="aiw-think-row ' + (r.done ? 'done' : 'now') + '">' + esc(r.label) + '</div>'; }).join('') + '</div></div></div></div>';
+      th.html = thinkingHtml(th);
       var old = $('aiwThinking'), col = el.messages.querySelector('.aiw-col');
-      if (old) old.outerHTML = th.html; else if (col) col.insertAdjacentHTML('beforeend', th.html); else renderMessages();
+      if (old) {
+        /* patch in place so the orb and the open / closed state of the steps never restart */
+        var t = $('aiwThinkTitle'), rl = $('aiwThinkRail'), ls = $('aiwThinkSteps'), ct = $('aiwThinkCount'), ft = old.querySelector('.aiw-tp-foot');
+        if (t) t.textContent = thinkingTitle(th);
+        if (rl) { rl.innerHTML = thinkingRail(th); rl.hidden = !th.odoo; }
+        if (ls) ls.innerHTML = thinkingBody(th);
+        if (ct) ct.textContent = Math.max(th.rows.length, 1);
+        if (th.odoo && !ft) { var tmp = document.createElement('div'); tmp.innerHTML = th.html; var nf = tmp.querySelector('.aiw-tp-foot'); if (nf) old.querySelector('.aiw-tp').appendChild(nf); }
+      } else if (col) col.insertAdjacentHTML('beforeend', th.html); else renderMessages();
       scrollDown();
     }
-    function thinkingStop() { S.thinking = null; var n = $('aiwThinking'); if (n) n.remove(); }
+    function thinkingStop() { if (S.thinking && S.thinking.timer) clearInterval(S.thinking.timer); S.thinking = null; var n = $('aiwThinking'); if (n) n.remove(); }
 
     /* ── fast Odoo reads: shared cache, in-flight de-duplication, hover prefetch ── */
     var rpcCache = Object.create(null), RPC_TTL = 30000;
@@ -1458,8 +1519,8 @@
       var hist = historyFor(t);
 
       if (STATUS_RE.test(text) || /\b(odoo|connection|connectivity)\b.*\b(kaisa|kaisi|check|status|working|connected|theek|sahi)\b/i.test(text)) {
-        thinkingStep('Checking the Odoo connection');
-        return loadOdooAgent().then(function (a) { return a.askDetailed(text, hist, { onStep: function (k, l) { thinkingStep(l); } }); })
+        thinkingStep('Checking the Odoo connection', 'connect');
+        return loadOdooAgent().then(function (a) { return a.askDetailed(text, hist, { onStep: function (k, l) { thinkingStep(l, k); } }); })
           .then(function (r) { checkHealth(true); finishAnswer(r.content, { tag: 'Odoo status', trace: r.trace, engine: 'odoo' }); }).catch(function (e) { fail(e); });
       }
       if (fileIds.length && /reconcil|\bmatch\b|compare with|verify|exist(s)? in odoo|missing in odoo|vs\.? odoo|against odoo|cross.?check|odoo (mein|me) (hai|hain)/i.test(text)) {
@@ -1473,8 +1534,8 @@
           var why = !o.connected ? 'Odoo is not connected in this workspace.' : !p.configured ? 'No hosted AI provider is configured for the live Odoo query path.' : !p.hosted ? 'The selected provider cannot run the guarded read-only Odoo query workflow.' : 'Odoo company context is turned off in AI settings.';
           return finishAnswer('**Live company data is unavailable.** ' + why + ' I will not invent business metrics. Open the connection details to fix it, then ask again.', { tag: 'Live Odoo unavailable', setup: true, retry: false, engine: 'local' });
         }
-        thinkingStep('Checking the Odoo connection');
-        return loadOdooAgent().then(function (a) { return a.askDetailed(text, hist, { systemPrompt: p.systemPrompt, fileContext: fileCtx, onStep: function (k, l) { thinkingStep(l); } }); })
+        thinkingStep('Checking the Odoo connection', 'connect');
+        return loadOdooAgent().then(function (a) { return a.askDetailed(text, hist, { systemPrompt: p.systemPrompt, fileContext: fileCtx, onStep: function (k, l) { thinkingStep(l, k); } }); })
           .then(function (r) {
             S.provider.outcome = r.liveOdoo || (r.trace && r.trace.kind !== 'fallback') ? 'ok' : S.provider.outcome; updateChips();
             if (r.trace && r.trace.status) { S.health = Object.assign({}, S.health || {}, { ok: true, latencyMs: r.trace.status.latencyMs, version: r.trace.status.version, company: r.trace.status.company, currency: r.trace.status.currency, areas: (S.health && S.health.areas) || [], readable: S.health ? S.health.readable : 0, checkedAt: Date.now() }); updateChips(); }
@@ -1483,7 +1544,7 @@
           }).catch(function (e) { fail(e, /provider|api key|rate limit|model/i.test(String(e && e.message)) ? 'provider' : null); });
       }
       if (p.configured) {
-        thinkingStep('Asking ' + p.label);
+        thinkingStep('Asking ' + p.label, 'answer');
         var sys = [p.systemPrompt, hasFiles ? 'ATTACHED FILE DATA (user-supplied, unverified; answer only from it and say so):\n' + fileCtx : '', !o.connected ? 'Odoo is NOT connected in this workspace. If the user asks for company data, say plainly that it is not connected and to open Settings → Odoo.' : ''].filter(Boolean).join('\n\n');
         var t0 = Date.now();
         return window.DVAIConfig.callAI(hist, sys).then(function (reply) {
@@ -1491,7 +1552,7 @@
           finishAnswer(String(reply || ''), { engine: 'provider', providerLabel: p.label, followups: hasFiles ? [{ label: 'Reconcile with Odoo', act: 'file-recon', id: fileIds[fileIds.length - 1] }] : [] });
         }).catch(function (e) { fail(e, 'provider'); });
       }
-      if (hasFiles) { thinkingStep('Reading the file report'); return setTimeout(function () { finishAnswer(localFileAnswer(text, fileIds), { engine: 'local', tag: 'File report' }); }, 200); }
+      if (hasFiles) { thinkingStep('Reading the file report', 'file'); return setTimeout(function () { finishAnswer(localFileAnswer(text, fileIds), { engine: 'local', tag: 'File report' }); }, 200); }
       setTimeout(function () {
         var res;
         try { res = window.DashViewAI.respond(text, { seed: t.id }); } catch (e) { res = { content: 'Something went wrong reading that — try rephrasing?', tag: null }; }

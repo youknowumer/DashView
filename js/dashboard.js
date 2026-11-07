@@ -154,10 +154,10 @@
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, font: { family: 'Inter', size: 11 }, color: '#5b6472' } } },
+        plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, font: { family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif', size: 11 }, color: '#5b6472' } } },
         scales: {
-          x: { grid: { display: false }, ticks: { font: { family: 'IBM Plex Mono', size: 10 }, color: 'rgba(18,20,28,0.4)' } },
-          y: { grid: { color: '#e2e4ea' }, ticks: { font: { family: 'IBM Plex Mono', size: 10 }, color: 'rgba(18,20,28,0.4)', precision: 0 }, beginAtZero: true },
+          x: { grid: { display: false }, ticks: { font: { family: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', size: 10 }, color: 'rgba(18,20,28,0.4)' } },
+          y: { grid: { color: '#e2e4ea' }, ticks: { font: { family: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', size: 10 }, color: 'rgba(18,20,28,0.4)', precision: 0 }, beginAtZero: true },
         },
       },
     });

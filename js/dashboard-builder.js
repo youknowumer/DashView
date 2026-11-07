@@ -333,24 +333,24 @@
       '<title>' + esc(dash.name) + ' — ArtivoraLabs Dashboard</title>\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1" />\n' +
       '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
-      '<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n' +
+      '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n' +
       '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" integrity="sha384-G436+Z2nlA8+PNoeRvWdxKbvOf8E/y+lYxqht2iBwNHTQDV5CJr3+AGVj8fGZi5t" crossorigin="anonymous"><\/script>\n' +
       '<style>\n' +
       ':root{--ink:#12141c;--ink-50:rgba(18,20,28,.55);--ink-30:rgba(18,20,28,.32);--paper-soft:#f4f5f7;--line:#e2e4ea;--signal:#0e7c66;}\n' +
       '*{box-sizing:border-box;}\n' +
       'html{overflow-x:hidden;-webkit-text-size-adjust:100%;}\n' +
-      'body{margin:0;width:100%;overflow-x:hidden;font-family:Inter,-apple-system,sans-serif;background:var(--paper-soft);color:var(--ink);}\n' +
+      'body{margin:0;width:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemFont,\"SF Pro Text\",Inter,system-ui,sans-serif;background:var(--paper-soft);color:var(--ink);}\n' +
       'header{background:var(--ink);color:#fff;padding:clamp(16px,4vw,28px) clamp(16px,5vw,40px);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}\n' +
-      'header h1{font-family:"Manrope",sans-serif;font-size:clamp(17px,2.4vw,22px);margin:0;word-break:break-word;}\n' +
+      'header h1{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;font-size:clamp(17px,2.4vw,22px);margin:0;word-break:break-word;}\n' +
       'header .meta{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:4px;}\n' +
       '.tag{background:rgba(255,255,255,.12);padding:5px 12px;border-radius:20px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}\n' +
       'main{width:100%;max-width:1100px;margin:0 auto;padding:clamp(16px,3vw,32px) clamp(14px,4vw,24px) 64px;}\n' +
       '.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:16px;margin-bottom:28px;}\n' +
       '.kpi-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;border-top:3px solid var(--signal);min-width:0;}\n' +
       '.kpi-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-50);}\n' +
-      '.kpi-val{font-family:"Manrope",sans-serif;font-size:clamp(20px,3vw,28px);font-weight:700;margin:6px 0 0;word-break:break-word;}\n' +
+      '.kpi-val{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;font-size:clamp(20px,3vw,28px);font-weight:700;margin:6px 0 0;word-break:break-word;}\n' +
       '.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px clamp(14px,3vw,24px);margin-bottom:20px;min-width:0;}\n' +
-      '.card h2{font-family:"Manrope",sans-serif;font-size:15px;margin:0 0 16px;}\n' +
+      '.card h2{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;font-size:15px;margin:0 0 16px;}\n' +
       '.chart-wrap{position:relative;width:100%;height:min(340px,55vh);min-height:220px;}\n' +
       '.chart-wrap canvas{max-width:100%!important;}\n' +
       '.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}\n' +

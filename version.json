@@ -1,11 +1,23 @@
 {
-  "version": "2.38.0",
+  "version": "2.39.0",
   "build": "2026.11.07",
   "released": "2026-11-07",
   "notes": [
-    "Changed: AI chat redesigned in a Claude-style layout - new composer (text on top, attach and send toolbar below, keyboard hints), cleaner hint line, flat assistant answers with neutral user bubbles in one 760px reading column; welcome screen fits laptop screens without scrolling (dashboard.html, css/ai-redesign.css)"
+    "Changed: the whole theme now uses the iOS / Apple type system - SF Pro Text / Display and SF Mono on Apple devices, with Inter as the closest fallback elsewhere (Manrope, IBM Plex Mono, Sora, Fira Code and Bricolage Grotesque removed); only fonts changed (css/base.css, css/globals.css, css/landing-pro.css, css/login.css, css/pro-detail.css, index.html, login.html, ai.html, overview.html, data-studio.html, js/dashboard.js, js/dashboard-builder.js, js/updater.js)",
+    "New: AI thinking panel - animated orb with a live clock, Connect / Plan / Read / Write stage rail, a step timeline with per-step timings and a read-only trust note; steps update in place without restarting the animation, light / dark and reduced-motion aware (js/ai-embed.js, css/ai-redesign.css)",
+    "Improved: AI chat colours follow the theme - status, report-section, category and quick-action colours now use the iOS / chart palette tokens, so they change with light / dark and the chosen accent; shadows use a theme-tinted shade (css/ai-embed.css, css/ai-redesign.css, js/ai-embed.js)"
   ],
   "history": [
+    {
+      "version": "2.39.0",
+      "date": "2026-11-07",
+      "notes": [
+        "Changed: the whole theme now uses the iOS / Apple type system - SF Pro Text / Display and SF Mono on Apple devices, with Inter as the closest fallback elsewhere (Manrope, IBM Plex Mono, Sora, Fira Code and Bricolage Grotesque removed); only fonts changed (css/base.css, css/globals.css, css/landing-pro.css, css/login.css, css/pro-detail.css, index.html, login.html, ai.html, overview.html, data-studio.html, js/dashboard.js, js/dashboard-builder.js, js/updater.js)",
+        "New: AI thinking panel - animated orb with a live clock, Connect / Plan / Read / Write stage rail, a step timeline with per-step timings and a read-only trust note; steps update in place without restarting the animation, light / dark and reduced-motion aware (js/ai-embed.js, css/ai-redesign.css)",
+        "Improved: AI chat colours follow the theme - status, report-section, category and quick-action colours now use the iOS / chart palette tokens, so they change with light / dark and the chosen accent; shadows use a theme-tinted shade (css/ai-embed.css, css/ai-redesign.css, js/ai-embed.js)"
+      ],
+      "critical": false
+    },
     {
       "version": "2.38.0",
       "date": "2026-11-07",
@@ -670,5 +682,5 @@
     }
   ],
   "critical": false,
-  "size": 5135571
+  "size": 5192063
 }

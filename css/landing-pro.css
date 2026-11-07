@@ -212,7 +212,7 @@ html[data-theme="light"] .step-num{color:#fff}
   --grad:linear-gradient(120deg,#ff8a3d,#ffb23d 55%,#ffd27a);
   --text:#fbf1e6;--text2:rgba(251,241,230,.72);--text3:rgba(251,241,230,.5);
   --red:#ff5a4a;--nav-bg:rgba(15,11,9,.82);
-  --f-display:'Bricolage Grotesque','Manrope',sans-serif;
+  --f-display:-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
 }
 html[data-theme="light"]{
   --bg:#fbf6ef;--surface:#ffffff;--elevated:#fffdf9;--card:#f4ebdf;

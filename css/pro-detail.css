@@ -60,7 +60,7 @@ svg text{font-variant-numeric:tabular-nums}
 
 /* Links inside copy, code and kbd */
 p a,li a{text-underline-offset:3px;text-decoration-thickness:1px}
-code,kbd{font-family:ui-monospace,"JetBrains Mono","IBM Plex Mono",Menlo,monospace;font-size:.88em}
+code,kbd{font-family:ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;font-size:.88em}
 kbd{padding:1px 6px;border-radius:6px;border:1px solid var(--dv-line);border-bottom-width:2px;background:rgba(148,155,190,.08)}
 
 /* Images and media */
