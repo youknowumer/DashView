@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AI Assistant — iOS-style redesign  ·  v2.36.0
+   AI Assistant — iOS-style redesign  ·  v2.37.0
    Apple-like type (SF Pro on Apple devices, Inter elsewhere), translucent bars,
    inset-grouped lists, segmented controls, iMessage-style bubbles, squircle icons,
    hairline separators, spring-like motion and press states.
@@ -265,4 +265,111 @@
 @media (prefers-reduced-motion: reduce) {
   .aiw .aiw-msg { animation: none; }
   .aiw button:not(:disabled):active, .aiw .aiw-cap:active, .aiw .aiw-thread:active, .aiw .aiw-welcome .aiw-cap:hover { transform: none; }
+}
+
+/* ==========================================================================
+   v2.37 — professional refinement
+   · no page scrollbar: the page is exactly one screen tall while the AI view is open
+   · scrollbars inside the chat only appear while you hover / scroll (like macOS)
+   · calmer, enterprise palette: tinted (not candy) icons, tighter radii, softer glow & shadows
+   ========================================================================== */
+
+/* 1 ── page never scrolls behind the AI workspace (the 106px dock padding + 48px bottom gap caused the extra scrollbar) */
+.dash-main:has(#view-ai.active) { padding-bottom: 0 !important; }
+.dash-content:has(#view-ai.active) { padding-bottom: 0 !important; }
+html:has(#view-ai.active) { overflow-y: hidden; }
+@media (min-width: 901px) {
+  /* 80px top bar + 32px gap above, ~86px dock zone below */
+  .aiw { height: calc(100vh - 198px); height: calc(100dvh - 198px); min-height: 440px; }
+}
+
+/* 2 ── scrollbars show only on hover / while scrolling */
+.aiw .aiw-messages, .aiw .aiw-threads, .aiw .aiw-insp-body, .aiw .aiw-tbl-wrap { scrollbar-color: transparent transparent; scrollbar-gutter: auto; }
+.aiw .aiw-messages:hover, .aiw .aiw-threads:hover, .aiw .aiw-insp-body:hover, .aiw .aiw-tbl-wrap:hover { scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent; }
+.aiw .aiw-messages::-webkit-scrollbar-thumb, .aiw .aiw-threads::-webkit-scrollbar-thumb, .aiw .aiw-insp-body::-webkit-scrollbar-thumb { background-color: transparent; }
+.aiw .aiw-messages:hover::-webkit-scrollbar-thumb, .aiw .aiw-threads:hover::-webkit-scrollbar-thumb, .aiw .aiw-insp-body:hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--ink) 22%, transparent); }
+.aiw .aiw-messages::-webkit-scrollbar { width: 10px; }
+
+/* 3 ── short laptop screens: the welcome fits without scrolling */
+@media (max-height: 820px) and (min-width: 901px) {
+  .aiw .aiw-welcome .aiw-prompts button:nth-child(n+3) { display: none; }
+  .aiw .aiw-welcome { gap: 12px; }
+  .aiw .aiw-welcome .aiw-hero-mark { width: 40px; height: 40px; border-radius: 12px; margin-bottom: 6px; }
+  .aiw .aiw-welcome .aiw-hero h2 { font-size: 24px; }
+  .aiw .aiw-messages { padding-top: 14px; }
+}
+
+/* 4 ── enterprise palette & proportions */
+.aiw {
+  --ar-r: 14px;
+  background:
+    radial-gradient(1000px 300px at 50% -14%, color-mix(in srgb, var(--signal) 7%, transparent), transparent 70%),
+    var(--paper);
+  box-shadow: 0 24px 60px -44px rgba(0, 0, 0, .55), inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  border-radius: 24px;
+}
+.aiw .aiw-head { min-height: 56px; padding: 8px 16px 8px 20px; }
+.aiw .aiw-title { font-size: 15px; font-weight: 650; }
+.aiw .aiw-title::before { width: 24px; height: 24px; border-radius: 7px; background-size: 13px; }
+.aiw .aiw-welcome .aiw-hero-mark { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 10px 22px -12px var(--signal); }
+.aiw .aiw-welcome .aiw-hero h2 { font-weight: 700; letter-spacing: -.03em; }
+.aiw .aiw-welcome .aiw-hero p { color: var(--ink-50); }
+
+/* tiles: quiet surface, tinted glyph, accent only on hover */
+.aiw .aiw-welcome .aiw-cap { border-radius: 14px; background: var(--ar-card); box-shadow: inset 0 0 0 1px var(--ar-sep); }
+.aiw .aiw-welcome .aiw-cap:hover { transform: none; background: color-mix(in srgb, var(--c) 5%, var(--ar-card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+.aiw .aiw-welcome .aiw-cap-ic { width: 36px; height: 36px; border-radius: 10px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, transparent); }
+.aiw .aiw-welcome .aiw-cap { grid-template-columns: 36px minmax(0, 1fr); }
+.aiw .aiw-welcome .aiw-cap b { font-size: 14px; font-weight: 600; }
+.aiw .aiw-welcome .aiw-cap > span:last-child { font-size: 12.5px; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(1) { --c: #E8A33D; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(2) { --c: #7C83FD; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(3) { --c: #3FB27F; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(4) { --c: #B07CE8; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(5) { --c: #4A9EE8; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(6) { --c: #E8648A; }
+
+/* section titles: restrained */
+.aiw .aiw-sec-head h3 { font: 650 13px/1.2 var(--f-body); letter-spacing: -.005em; color: var(--ink-70); }
+.aiw .aiw-sec-head span { font-size: 12px; color: var(--ink-30); }
+
+/* area switcher + prompts */
+.aiw .aiw-welcome .aiw-areas-tabs { border-radius: 10px; }
+.aiw .aiw-welcome .aiw-areas-tabs button { border-radius: 8px; }
+.aiw .aiw-welcome .aiw-area-ic { background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); box-shadow: none; }
+.aiw .aiw-welcome .aiw-areas-tabs button.active { box-shadow: 0 1px 3px rgba(0, 0, 0, .25), 0 0 0 .5px var(--ar-sep); }
+.aiw .aiw-welcome .aiw-prompts button { border-radius: 12px; font-size: 13.5px; }
+.aiw .aiw-welcome .aiw-prompts button:hover { background: color-mix(in srgb, var(--c) 6%, var(--ar-card)); }
+
+/* messages: sharper, document-like */
+.aiw .aiw-msg.user .aiw-card { border-radius: 16px 16px 4px 16px; padding: 9px 15px; background: var(--signal); box-shadow: none; }
+.aiw .aiw-msg.ai .aiw-card { border-radius: 4px 16px 16px 16px; padding: 14px 18px 8px; background: var(--ar-card); box-shadow: inset 0 0 0 1px var(--ar-sep); }
+.aiw .aiw-msg.ai .aiw-av { width: 28px; height: 28px; border-radius: 8px; }
+.aiw .aiw-who { font-size: 13px; }
+.aiw .aiw-msg-tools { display: flex; gap: 2px; }
+.aiw .aiw-btn, .aiw .aiw-followups button, .aiw .aiw-tool { border-radius: 8px; }
+.aiw .aiw-followups button { background: transparent; box-shadow: inset 0 0 0 1px var(--ar-sep); font-size: 13px; }
+.aiw .aiw-followups button:hover { background: color-mix(in srgb, var(--signal) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 40%, transparent); }
+.aiw .aiw-path, .aiw .aiw-chart, .aiw .aiw-kpi, .aiw .aiw-box, .aiw .aiw-stat, .aiw .aiw-file-card, .aiw .aiw-q { border-radius: 12px; }
+
+/* header controls & composer: squarer pills */
+.aiw .aiw-actions .btn { border-radius: 9px; min-height: 32px; padding: 6px 13px; font-size: 13px; }
+.aiw .aiw-iconbtn { border-radius: 9px; }
+.aiw .aiw-composer .aiw-iconbtn { border-radius: 10px; }
+.aiw .aiw-chip { border-radius: 8px; padding: 5px 10px 5px 9px; font-size: 12px; }
+.aiw .aiw-composer { border-radius: 18px; padding: 6px 6px 6px 8px; box-shadow: inset 0 0 0 1px var(--ar-sep), 0 12px 28px -22px rgba(0, 0, 0, .6); }
+.aiw .aiw-composer:focus-within { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--signal) 70%, transparent), 0 0 0 4px color-mix(in srgb, var(--signal) 13%, transparent); }
+.aiw .aiw-send { border-radius: 11px; width: 34px; height: 34px; min-height: 34px; }
+.aiw .aiw-composer textarea { font-size: 15px; }
+.aiw .aiw-search { border-radius: 9px; }
+.aiw .aiw-thread { border-radius: 10px; }
+.aiw .aiw-thread-ic { border-radius: 8px; }
+.aiw .aiw-tabs, .aiw .aiw-tabs button { border-radius: 8px; }
+.aiw .aiw-tabs button { border-radius: 6px; }
+.aiw .aiw-drop { border-radius: 18px; }
+
+@media (max-width: 900px) {
+  html:has(#view-ai.active) { overflow-y: auto; }
+  .aiw { border-radius: 18px; }
+  .aiw .aiw-composer { border-radius: 16px; }
 }

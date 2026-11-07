@@ -1,7 +1,7 @@
-DashView 2.36.0 - AI Assistant, iOS / Apple-style redesign
+DashView 2.37.0 - AI Assistant: scrollbar fix + professional refinement
 Copy this "update" folder over the project (same paths) and replace the files.
 
-css/ai-redesign.css   NEW / replaces 2.35.0 version. The full iOS-style look of the AI Assistant (SF Pro type, nav bar, sidebar, welcome, bubbles, composer, details sheet).
-dashboard.html        loads css/ai-redesign.css (one <link> line, before ios-smooth.css)
-sw.js                 cache version dv-2.36.0 + ai-redesign.css in the offline list
-version.json / package.json / CHANGELOG.md   2.36.0
+css/ai-redesign.css   replaces the previous version. Page scrollbar removed, chat scrollbar only on hover, welcome fits laptops, calmer professional styling.
+dashboard.html        loads css/ai-redesign.css (before ios-smooth.css)
+sw.js                 cache version dv-2.37.0 + ai-redesign.css in the offline list
+version.json / package.json / CHANGELOG.md   2.37.0

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.37.0 - 2026-11-07
+- Fixed: the AI Assistant no longer shows a page scrollbar (the dock padding made the page 70px taller than the screen) and the chat area scrollbar now appears only on hover; the welcome fits laptop screens without scrolling. Changed: calmer, professional look - tinted icons, tighter corners, softer glow and shadows (css/ai-redesign.css)
+
 ## 2.36.0 - 2026-11-07
 - Changed: the AI Assistant is redesigned in an iOS / Apple style - SF Pro type (Inter fallback), translucent nav bar and composer, app-icon tiles, segmented area switcher, inset prompt rows, iMessage-style bubbles, hairline separators, press and spring motion; fits laptop screens, light / dark / mobile (css/ai-redesign.css, no logic changes)
 
