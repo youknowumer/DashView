@@ -1,7 +1,7 @@
-DashView 2.37.0 - AI Assistant: scrollbar fix + professional refinement
+DashView 2.38.0 - AI chat in a Claude-style layout
 Copy this "update" folder over the project (same paths) and replace the files.
 
-css/ai-redesign.css   replaces the previous version. Page scrollbar removed, chat scrollbar only on hover, welcome fits laptops, calmer professional styling.
-dashboard.html        loads css/ai-redesign.css (before ios-smooth.css)
-sw.js                 cache version dv-2.37.0 + ai-redesign.css in the offline list
-version.json / package.json / CHANGELOG.md   2.37.0
+dashboard.html        new composer markup (text box on top, attach / send toolbar below, keyboard-hint line); same element ids, no JS change needed
+css/ai-redesign.css   replaces the previous version: Claude-style composer, hint line, flat answers, one reading column, laptop-fit welcome
+sw.js                 cache version dv-2.38.0
+version.json / package.json / CHANGELOG.md   2.38.0

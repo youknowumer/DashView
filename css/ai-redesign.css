@@ -234,7 +234,7 @@
 .aiw .aiw-scrim { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 
 /* ── laptops & phones ───────────────────────────────────────────────────── */
-@media (max-height: 820px) and (min-width: 901px) {
+@media (max-height: 960px) and (min-width: 901px) {
   .aiw .aiw-welcome .aiw-hero p, .aiw .aiw-sec-head span { display: none; }
   .aiw .aiw-welcome .aiw-cap { padding: 7px 11px; }
   .aiw .aiw-welcome .aiw-cap-ic { width: 34px; height: 34px; border-radius: 10px; }
@@ -291,7 +291,7 @@ html:has(#view-ai.active) { overflow-y: hidden; }
 .aiw .aiw-messages::-webkit-scrollbar { width: 10px; }
 
 /* 3 ── short laptop screens: the welcome fits without scrolling */
-@media (max-height: 820px) and (min-width: 901px) {
+@media (max-height: 960px) and (min-width: 901px) {
   .aiw .aiw-welcome .aiw-prompts button:nth-child(n+3) { display: none; }
   .aiw .aiw-welcome { gap: 12px; }
   .aiw .aiw-welcome .aiw-hero-mark { width: 40px; height: 40px; border-radius: 12px; margin-bottom: 6px; }
@@ -372,4 +372,93 @@ html:has(#view-ai.active) { overflow-y: hidden; }
   html:has(#view-ai.active) { overflow-y: auto; }
   .aiw { border-radius: 18px; }
   .aiw .aiw-composer { border-radius: 16px; }
+}
+
+/* ==========================================================================
+   v2.38 — Claude-style chat: composer (text on top, toolbar below), hint line,
+   flat assistant answers, neutral user bubbles, one shared 760px reading column
+   ========================================================================== */
+.aiw { --ar-col: 760px; }
+
+/* ── composer ───────────────────────────────────────────────────────────── */
+.aiw .aiw-composer-wrap { padding: 4px 24px 12px; }
+.aiw .aiw-composer-wrap > * { max-width: var(--ar-col); }
+.aiw .aiw-composer {
+  display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; border-radius: 22px;
+  background: var(--ar-card); -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px var(--ar-sep), 0 1px 2px rgba(0, 0, 0, .12), 0 18px 40px -28px rgba(0, 0, 0, .65);
+  transition: box-shadow .2s;
+}
+.aiw .aiw-composer:hover { box-shadow: inset 0 0 0 1px var(--ar-hair-2, var(--ar-sep)), 0 1px 2px rgba(0, 0, 0, .12), 0 18px 40px -28px rgba(0, 0, 0, .65); }
+.aiw .aiw-composer:focus-within {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 60%, transparent), 0 0 0 4px color-mix(in srgb, var(--signal) 12%, transparent), 0 18px 40px -28px rgba(0, 0, 0, .65);
+}
+.aiw .aiw-composer textarea {
+  display: block; width: 100%; min-height: 56px; max-height: 220px; padding: 18px 20px 6px; margin: 0; border: 0; background: transparent;
+  font: 400 16px/1.55 var(--f-body); letter-spacing: -.012em; color: var(--ink); resize: none; overflow-y: auto;
+}
+.aiw .aiw-cbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px 10px 12px; }
+.aiw .aiw-cbar-l, .aiw .aiw-cbar-r { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.aiw .aiw-cbar .aiw-iconbtn { width: 34px; height: 34px; border-radius: 10px; background: transparent; box-shadow: inset 0 0 0 1px var(--ar-sep); color: var(--ink-70); }
+.aiw .aiw-cbar .aiw-iconbtn:hover { background: var(--ar-fill); color: var(--ink); }
+.aiw .aiw-cbar-note { font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-30); white-space: nowrap; }
+.aiw .aiw-cbar-keys { font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-30); white-space: nowrap; opacity: 0; transition: opacity .2s; }
+.aiw .aiw-composer:focus-within .aiw-cbar-keys { opacity: 1; }
+.aiw .aiw-cbar-keys kbd, .aiw .aiw-hint kbd {
+  display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 6px; text-align: center; font: 500 11px/1.5 var(--f-body); letter-spacing: 0;
+  color: var(--ink-70); background: var(--ar-fill); box-shadow: inset 0 0 0 1px var(--ar-sep), 0 1px 0 var(--ar-sep);
+}
+.aiw .aiw-send { width: auto; min-width: 34px; height: 34px; min-height: 34px; padding: 0; border-radius: 10px; }
+.aiw .aiw-hint { max-width: var(--ar-col); justify-content: center; align-items: center; gap: 4px 14px; margin: 10px auto 0; font: 400 12px/1.4 var(--f-body); color: var(--ink-30); }
+.aiw .aiw-hint i { font-style: normal; opacity: .5; margin: 0 2px; }
+.aiw .aiw-hint .aiw-link { color: var(--ink-50); text-decoration: none; border-bottom: 1px solid var(--ar-sep); padding: 0 0 1px; }
+.aiw .aiw-hint .aiw-link:hover { color: var(--signal); border-color: var(--signal); }
+.aiw .aiw-tray { padding: 0 0 10px; }
+
+/* ── conversation: one column, Claude-like rhythm ───────────────────────── */
+.aiw .aiw-messages { padding: 28px 28px 16px; }
+.aiw .aiw-col { max-width: var(--ar-col); gap: 30px; }
+.aiw .aiw-msg { gap: 14px; }
+
+/* you: neutral rounded bubble, right-aligned */
+.aiw .aiw-msg.user .aiw-bubble { max-width: min(82%, 600px); }
+.aiw .aiw-msg.user .aiw-card {
+  padding: 11px 18px; border-radius: 20px 20px 6px 20px; background: var(--ar-fill-2); color: var(--ink); box-shadow: none;
+  font: 400 15.5px/1.55 var(--f-body); letter-spacing: -.012em;
+}
+.aiw .aiw-msg.user .aiw-card * { color: inherit; }
+
+/* assistant: flat answer on the page, no card */
+.aiw .aiw-msg.ai .aiw-av { width: 30px; height: 30px; border-radius: 50%; margin-top: 0; background: linear-gradient(155deg, var(--signal-bright), var(--signal)); box-shadow: none; }
+.aiw .aiw-msg.ai .aiw-bubble { max-width: calc(100% - 44px); flex: 1; }
+.aiw .aiw-msg.ai .aiw-card { padding: 2px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.aiw .aiw-msg.ai .aiw-card.selected { box-shadow: none; outline: 0; background: color-mix(in srgb, var(--signal) 5%, transparent); border-radius: 12px; margin: -6px -10px; padding: 8px 10px 0; }
+.aiw .aiw-meta { margin: 4px 0 8px; }
+.aiw .aiw-who { font: 650 14px var(--f-display); }
+.aiw .ai-embed-content { font-size: 15.5px; line-height: 1.7; color: var(--ink); }
+.aiw .ai-embed-content > p, .aiw .ai-embed-content p { margin: 0 0 12px; }
+.aiw .ai-embed-content > :last-child { margin-bottom: 0; }
+.aiw .aiw-msg-tools { margin-top: 12px; padding-top: 0; border-top: 0; gap: 2px; opacity: .55; transition: opacity .2s; }
+.aiw .aiw-msg.ai:hover .aiw-msg-tools, .aiw .aiw-msg-tools:focus-within { opacity: 1; }
+.aiw .aiw-tool { padding: 5px 10px; border-radius: 8px; font: 500 12.5px var(--f-body); color: var(--ink-70); }
+.aiw .aiw-btns { margin-top: 12px !important; }
+
+/* thinking row reads like Claude's status line */
+.aiw .aiw-think { font: 400 13.5px var(--f-body); color: var(--ink-50); gap: 8px; padding-top: 4px; }
+
+@media (max-width: 900px) {
+  .aiw .aiw-composer-wrap { padding: 4px 12px 10px; }
+  .aiw .aiw-composer { border-radius: 18px; }
+  .aiw .aiw-composer textarea { padding: 14px 16px 4px; font-size: 16px; }
+  .aiw .aiw-cbar-note, .aiw .aiw-cbar-keys { display: none; }
+  .aiw .aiw-messages { padding: 18px 14px 8px; }
+  .aiw .aiw-col { gap: 22px; }
+  .aiw .aiw-msg.ai .aiw-bubble { max-width: 100%; }
+}
+@media (max-height: 960px) and (min-width: 901px) { .aiw .aiw-composer textarea { min-height: 46px; padding-top: 14px; } .aiw .aiw-cbar { padding-top: 2px; } .aiw .aiw-hint { margin-top: 8px; } }
+@media (max-height: 820px) and (min-width: 901px) {
+  .aiw .aiw-welcome .aiw-hero-mark { display: none; }
+  .aiw .aiw-welcome { gap: 10px; }
+  .aiw .aiw-welcome .aiw-cap { padding: 6px 10px; }
+  .aiw .aiw-welcome .aiw-prompts button { min-height: 38px; }
 }
