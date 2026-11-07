@@ -22,13 +22,14 @@ Your Browser  →  Cloudflare Worker (free proxy)  →  Your Odoo
 3. Click **New API Key** → give it a name (e.g. "DashView") → copy the key
 4. ⚠️ Use this API key, NOT your login password
 
-### Step 2 — Deploy the Cloudflare Worker (free)
+### Step 2 — The Cloudflare Worker (already built in)
 
-1. Go to [workers.cloudflare.com](https://workers.cloudflare.com) → create a free account (no credit card)
-2. Click **"Create Worker"**
-3. Replace all the default code with the contents of **`cloudflare-worker.js`** from this project
-4. Click **"Save & Deploy"**
-5. Copy the Worker URL (looks like: `https://dashview-proxy.YOUR-NAME.workers.dev`)
+DashView's Worker is deployed at `https://dashview.youknowumer-io.workers.dev` and that URL is built into the app
+(`js/backend-config.js`). **Nobody has to paste or deploy a Worker URL** — the field is no longer in Settings.
+
+- To check it is alive, open the URL in a browser: you should see a status JSON with `"ok": true` and `"problems": []`.
+- To use a different Worker, change `WORKER_URL` in `js/backend-config.js`, set the same name in `wrangler.jsonc` (`"name"`) and redeploy.
+- The Worker only answers the sites in `ALLOWED_ORIGINS` and only talks to the Odoo hosts in `ALLOWED_ODOO_HOSTS` (both in `wrangler.jsonc`).
 
 ### Step 3 — Configure the Dashboard
 
@@ -39,7 +40,6 @@ Your Browser  →  Cloudflare Worker (free proxy)  →  Your Odoo
    - **Database**: your database name (found in Odoo URL or Settings)
    - **Username/email**: your Odoo login email
    - **API key**: the key you created in Step 1
-   - **Proxy URL**: the Worker URL from Step 2
 4. Click **"Connect to Odoo"**
 5. Navigate to **Odoo (Live)** in the sidebar — your live data will load!
 
@@ -78,7 +78,7 @@ Your Browser  →  Cloudflare Worker (free proxy)  →  Your Odoo
 - Try selecting a different module (e.g. "Sales", "CRM", "Inventory")
 
 ### Data loads but shows demo content
-- Make sure the **Proxy URL** field is filled in (without it, it falls to demo mode)
+- Make sure the Odoo URL, database, username and API key are filled in and you pressed **Connect to Odoo** (the Worker link is built in)
 - Check the status pill next to "Live Odoo" — it should show "● Live — connected"
 
 ---

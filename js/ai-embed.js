@@ -1303,7 +1303,7 @@
     function connHtml() {
       var o = odooInfo(), p = providerInfo(), h = S.health, out = '';
       out += '<div class="aiw-sec"><h4>Odoo</h4>';
-      if (!o.connected) out += '<div class="aiw-box bad"><h5>Not connected</h5><p>Add your Worker URL, Odoo URL, database, username and an API key to read live company data. Until then I will never invent business numbers.</p></div><div class="aiw-btns"><button type="button" class="aiw-btn primary" data-act="settings-odoo">Open Odoo settings</button></div>';
+      if (!o.connected) out += '<div class="aiw-box bad"><h5>Not connected</h5><p>Add your Odoo URL, database, username and an API key in Settings to read live company data. Until then I will never invent business numbers.</p></div><div class="aiw-btns"><button type="button" class="aiw-btn primary" data-act="settings-odoo">Open Odoo settings</button></div>';
       else if (S.healthBusy && !h) out += '<div class="aiw-skel"></div><div class="aiw-skel" style="margin-top:8px"></div>';
       else if (h) {
         out += '<div class="aiw-health"><div class="aiw-stat"><small>Status</small><b style="color:var(' + (h.ok ? '--aiw-good' : '--aiw-bad') + ')">' + (h.ok ? 'Live' : 'Not working') + '</b></div><div class="aiw-stat"><small>Response</small><b>' + (h.latencyMs ? fmtMs(h.latencyMs) : '—') + '</b></div>' +

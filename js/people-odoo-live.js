@@ -15,7 +15,8 @@
   function tone(id) { return TONES[Math.abs(+id || 0) % TONES.length]; }
   function label(v, none) { return Array.isArray(v) ? (v[1] || none || '—') : (v === false || v == null ? (none || '—') : String(v)); }
   function byId(id) { return document.getElementById(id); }
-  function configured(c) { return !!(c.url || c.db || c.username || c.apiKey || c.proxyUrl); }
+  /* proxyUrl is the built-in backend link now, so it says nothing about whether the user set Odoo up. */
+  function configured(c) { return !!(c.url || c.db || c.username || c.apiKey); }
   function authenticatedApi() {
     var api = window.AL_API, config = C.cfg();
     return !!(api && api.isConnected && api.isConnected() && config.url && config.db &&

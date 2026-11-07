@@ -597,6 +597,7 @@ textarea#chatInput::placeholder{color:var(--text3)}
 
 <div class="toast-stack" id="toastStack"></div>
 
+<script src="js/backend-config.js"></script>
 <script src="js/dv-security.js"></script>
 <script src="js/ai-api-config.js"></script>
 <script src="js/ai-config-store.js"></script>
@@ -1261,7 +1262,7 @@ function sendMessage(content, isRegen=false) {
         : Promise.resolve('');
       answerPromise = contextPromise.then(function (companyContext) {
         var notLive = (!odooLive && cfg.provider !== 'dashview')
-          ? 'Odoo is NOT connected in this workspace. If the user asks for company data (sales, invoices, stock, customers…), say plainly that Odoo is not connected and that they must open Settings → Odoo (Worker URL, Odoo URL, database, username, API key) and press Connect. Never invent figures.'
+          ? 'Odoo is NOT connected in this workspace. If the user asks for company data (sales, invoices, stock, customers…), say plainly that Odoo is not connected and that they must open Settings → Odoo (Odoo URL, database, username, API key) and press Connect. Never invent figures.'
           : '';
         var sys = [cfg.systemPrompt, companyContext, notLive].filter(Boolean).join('\n\n');
         return window.DVAIConfig.callAI(history, sys);
@@ -1533,7 +1534,7 @@ function refreshOdooChip(force) {
   var chip = document.getElementById('odooChip');
   if (!chip || !window.DVOdooAgent || !window.DVOdoo) return;
   var cfg = window.DVOdoo.getConfig() || {};
-  if (!cfg.proxyUrl && !cfg.url) { chip.hidden = false; chip.textContent = 'Odoo ⚠ not set up'; chip.title = 'Open Settings → Odoo'; return; }
+  if (!cfg.url) { chip.hidden = false; chip.textContent = 'Odoo ⚠ not set up'; chip.title = 'Open Settings → Odoo'; return; }
   chip.hidden = false; chip.textContent = 'Odoo …';
   window.DVOdooAgent.status(!!force).then(function (s) {
     if (!s.ok) { chip.textContent = 'Odoo ⚠ ' + (s.stage || 'error'); chip.title = (s.error || '') + (s.fix ? ' — ' + s.fix : ''); return; }

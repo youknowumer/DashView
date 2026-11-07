@@ -1,15 +1,25 @@
 {
-  "version": "2.33.0",
-  "build": "2026.11.06",
-  "released": "2026-11-06",
+  "version": "2.34.0",
+  "build": "2026.11.07",
+  "released": "2026-11-07",
   "notes": [
-    "New: Executive scorecard on the Overview - one card for every installed module (Sales, CRM, Point of Sale, Finance, Expenses, Purchase, Inventory, Manufacturing, Projects, Helpdesk, Fleet, People, Time Off): headline KPI vs the previous period, 12-month trend, three secondary KPIs, open alerts with amounts, a Healthy / Watch / Action status and a 0-100 score, plus a business-health ring and a Going well / Watch closely / Do next brief; every figure drills into the records, Copy brief and Export CSV included",
-    "New: Module scorecard in Odoo Live - Executive - a table of every app in the chosen lens with status, headline, trend, open alerts, records, new records this period vs previous and last activity, with plain-language freshness notes (quiet or unused apps, apps this Odoo user cannot read); selecting one app shows Module facts tiles",
-    "Improved: executive catalog - 5 more apps (Point of Sale, Time Off, Expenses, Helpdesk, Fleet) and 30+ new KPIs and alerts across Sales, CRM, Finance (payables, overdue bills, cash in / out / net), Purchase, Inventory (negative stock), Manufacturing (late orders), People and Projects, each alert with a suggested next step; Overview CSV, PDF and AI narrative now include the scorecard",
-    "Fixed: the Overview's Today at a glance section (overview-pulse) was cached by the service worker but never linked from dashboard.html, so it never appeared - it is now loaded",
-    "Fixed: Projects Open tasks counted tasks in closed stages - it now counts open stages only"
+    "Changed: the Cloudflare Worker URL (https://dashview.youknowumer-io.workers.dev) is now built into the app in js/backend-config.js and is no longer a Settings field - the Read-only Worker URL box and the Deploy the Worker setup step are removed (3-step setup is now 2-step), and nobody has to paste a Worker URL any more",
+    "Improved: every page that talks to Odoo (Dashboard, People, AI, Share, Sign in) reads the same built-in backend link, so an old or mistyped Proxy URL saved in a browser can no longer point the app at the wrong Worker; Odoo and AI messages no longer ask the user for a Worker URL",
+    "Changed: the Worker name in wrangler.jsonc is now dashview so Workers Builds deploys to dashview.youknowumer-io.workers.dev; to point DashView at another Worker change WORKER_URL in js/backend-config.js",
+    "Improved: the Odoo connection checklist shows the backend as linked by default, People and the AI status chip no longer count the built-in link as Odoo being set up, new tests in test/backend-worker.smoke.test.js"
   ],
   "history": [
+    {
+      "version": "2.34.0",
+      "date": "2026-11-07",
+      "notes": [
+        "Changed: the Cloudflare Worker URL (https://dashview.youknowumer-io.workers.dev) is now built into the app in js/backend-config.js and is no longer a Settings field - the Read-only Worker URL box and the Deploy the Worker setup step are removed (3-step setup is now 2-step), and nobody has to paste a Worker URL any more",
+        "Improved: every page that talks to Odoo (Dashboard, People, AI, Share, Sign in) reads the same built-in backend link, so an old or mistyped Proxy URL saved in a browser can no longer point the app at the wrong Worker; Odoo and AI messages no longer ask the user for a Worker URL",
+        "Changed: the Worker name in wrangler.jsonc is now dashview so Workers Builds deploys to dashview.youknowumer-io.workers.dev; to point DashView at another Worker change WORKER_URL in js/backend-config.js",
+        "Improved: the Odoo connection checklist shows the backend as linked by default, People and the AI status chip no longer count the built-in link as Odoo being set up, new tests in test/backend-worker.smoke.test.js"
+      ],
+      "critical": false
+    },
     {
       "version": "2.33.0",
       "date": "2026-11-06",
@@ -635,5 +645,5 @@
     }
   ],
   "critical": false,
-  "size": 5036232
+  "size": 5135571
 }

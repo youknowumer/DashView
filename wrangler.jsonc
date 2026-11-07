@@ -11,8 +11,9 @@
   //   To turn them on later, follow the "ENABLE D1" block at the bottom.
   //
   // NAME must match the Worker name in Cloudflare (Workers Builds).
-  // Yours is "workspace"  ->  https://workspace.youknowumer-io.workers.dev
-  "name": "workspace",
+  // Yours is "dashview"  ->  https://dashview.youknowumer-io.workers.dev
+  // That URL is built into the app in js/backend-config.js (WORKER_URL). If you ever rename the Worker, change both.
+  "name": "dashview",
   "main": "worker-src/index.js",
   "compatibility_date": "2025-09-01",
   "workers_dev": true,

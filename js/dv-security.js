@@ -113,10 +113,13 @@
     /* Lock on  → the key exists only in memory after unlock. Lock off → the normally stored key. */
     out.apiKey = hasPin() ? (mem.apiKey || '') : (typeof out.apiKey === 'string' ? out.apiKey : '');
     delete out.apiKeyEnc;
+    /* The Worker URL is built in (js/backend-config.js), never taken from browser storage. */
+    if (window.DV_BACKEND && window.DV_BACKEND.workerUrl) out.proxyUrl = window.DV_BACKEND.workerUrl;
     return out;
   }
   function saveCfg(c) {
     var stored = Object.assign({}, c);
+    if (window.DV_BACKEND && window.DV_BACKEND.workerUrl) stored.proxyUrl = window.DV_BACKEND.workerUrl;
     if (hasPin()) {
       if (!mem.key) return Promise.reject(new Error('Unlock the workspace before saving Odoo settings.'));
       mem.apiKey = c.apiKey || mem.apiKey;
@@ -455,7 +458,8 @@
       expectedKey && !hasKey ? 'Re-enter your Odoo API key.' : 'The workspace lock encrypts the stored API key.', !lockOn);
     add('auto', 'Auto-lock after \u2264 15 min idle', lockOn && c.autoLock > 0 && c.autoLock <= 15, 10, 'Pick 15 minutes or less.', !lockOn);
     add('redact', 'Backups exclude secrets', c.redact !== false, 10, 'Turn on \u201cExclude secrets from backups\u201d.');
-    add('tls', 'Worker and Odoo URLs use HTTPS', (!o.proxyUrl || /^https:/i.test(o.proxyUrl)) && (!o.url || /^https:/i.test(o.url)), 10, 'Use https:// for both URLs.');
+    var workerNow = (window.DV_BACKEND && window.DV_BACKEND.workerUrl) || o.proxyUrl;
+    add('tls', 'Worker and Odoo URLs use HTTPS', (!workerNow || /^https:/i.test(workerNow)) && (!o.url || /^https:/i.test(o.url)), 10, 'Use https:// for both URLs.');
     add('cors', 'Worker only accepts requests from this site', c.workerOrigin === 'restricted', 10, c.workerOrigin === 'open' ? 'Worker answers any origin - set ALLOWED_ORIGINS (see below).' : 'Run a live Odoo request so this can be verified.');
     var a = c.attempts || {};
     add('csp', 'Browser content policy (CSP) is active', !!document.querySelector('meta[http-equiv="Content-Security-Policy"]'), 5, 'Keep the CSP meta tag on every page.');

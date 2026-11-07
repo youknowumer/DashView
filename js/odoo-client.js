@@ -8,8 +8,8 @@
 
   var memo = {};
   var MSG = {
-    none: 'Odoo is not connected yet. Add your URL, database, username, API key and Worker URL in Settings → Odoo.',
-    noproxy: 'Worker URL is missing. Deploy cloudflare-worker.js and paste its URL in Settings → Odoo → Proxy URL.',
+    none: 'Odoo is not connected yet. Add your URL, database, username and API key in Settings → Odoo.',
+    noproxy: 'The DashView backend is not configured. Set WORKER_URL in js/backend-config.js and redeploy the site.',
     locked: 'Workspace is locked. Unlock it to use your saved Odoo credentials.'
   };
 
@@ -17,7 +17,8 @@
     var c;
     if (window.DVSec) c = window.DVSec.cfg();
     else { try { c = JSON.parse(localStorage.getItem('dashview_odoo_config')) || {}; } catch (e) { c = {}; } }
-    return { url: c.url, db: c.db, username: c.username || c.user, apiKey: c.apiKey, proxyUrl: c.proxyUrl || '' };
+    var w = (window.DV_BACKEND && window.DV_BACKEND.workerUrl) || '';   /* built-in Worker URL (js/backend-config.js) always wins */
+    return { url: c.url, db: c.db, username: c.username || c.user, apiKey: c.apiKey, proxyUrl: w || c.proxyUrl || '' };
   }
   function state() {
     var c = cfg();
@@ -79,7 +80,7 @@
       var d = null; try { d = JSON.parse(t); } catch (e) {}
       var transient = r.status === 429 || r.status === 502 || r.status === 503 || r.status === 504;
       if (!d || typeof d !== 'object') {
-        throw mkErr('Worker returned HTTP ' + r.status + ' (not JSON). Check the Worker URL in Settings.', 'badresponse', { status: r.status, retryable: transient });
+        throw mkErr('Worker returned HTTP ' + r.status + ' (not JSON). ' + (window.DV_BACKEND && window.DV_BACKEND.workerUrl ? 'The DashView backend may be offline or redeploying - try again in a minute.' : 'Check the Worker URL in Settings.'), 'badresponse', { status: r.status, retryable: transient });
       }
       if (!d.ok) {
         var msg = d.error || 'Odoo request failed';
@@ -116,7 +117,7 @@
     }, function () {
       if (gen !== _gen) throw mkErr('Request cancelled: the Odoo connection was reset.', 'cancelled');
       if (timedOut) throw mkErr('Odoo took too long to answer.', 'timeout', { retryable: true });
-      throw mkErr('Cannot reach the Worker. Check the Worker URL, your connection and ALLOWED_ORIGINS.', 'network', { retryable: true });
+      throw mkErr('Cannot reach the Worker. Check ' + (window.DV_BACKEND && window.DV_BACKEND.workerUrl ? '' : 'the Worker URL, ') + 'your connection and ALLOWED_ORIGINS.', 'network', { retryable: true });
     });
     return Promise.race([work, guard, killed]).then(function (v) { detach(); return v; }, function (e) { detach(); throw e; });
   }
@@ -124,7 +125,9 @@
   function _rawFetch(proxyUrl, body, gen) {
     var url = String(proxyUrl || '').trim().replace(/\/+$/, '');
     if (!/^https?:\/\/[^\s/]+/i.test(url)) {
-      return Promise.reject(mkErr('The Worker URL must start with https:// (for example https://dashview.yourname.workers.dev). Fix it in Settings → Odoo → Proxy URL.', 'badproxy'));
+      return Promise.reject(mkErr(window.DV_BACKEND && window.DV_BACKEND.workerUrl
+        ? 'The DashView backend URL is invalid. Fix WORKER_URL in js/backend-config.js (it must start with https://).'
+        : 'The Worker URL must start with https:// (for example https://dashview.yourname.workers.dev). Fix it in Settings → Odoo → Proxy URL.', 'badproxy'));
     }
     var retries = SAFE_RETRY[body.endpoint] ? MAX_RETRIES : 0;
     stats.sent++;
@@ -162,7 +165,9 @@
     return Promise.race([probe.then(function () { return 'up'; }, function () { return 'down'; }), limit]).then(function (state) {
       clearTimeout(timer);
       if (state === 'up') return 'Cannot reach the Worker: ' + host + ' is online, but the browser blocked its reply. Most often ALLOWED_ORIGINS on the Worker must be exactly ' + origin + ' (no path, no trailing slash) - fix it in Cloudflare and redeploy. If that is already right, the Worker crashed: open Cloudflare > your Worker > Logs.';
-      if (state === 'down') return 'Cannot reach the Worker at ' + host + '. Check the Worker URL (it must be your ...workers.dev address), that the Worker is deployed, and your internet connection.';
+      if (state === 'down') return 'Cannot reach the Worker at ' + host + '. ' + (window.DV_BACKEND && window.DV_BACKEND.workerUrl
+        ? 'Check that the Worker is deployed (Cloudflare > Workers) and your internet connection.'
+        : 'Check the Worker URL (it must be your ...workers.dev address), that the Worker is deployed, and your internet connection.');
       return '';
     }, function () { clearTimeout(timer); return ''; });
   }

@@ -1239,17 +1239,12 @@
                       <input type="password" class="stg-input" id="odooKey" autocomplete="new-password" placeholder="Odoo API key" aria-describedby="odooKeyHelp"/>
                       <span class="stg-field-help" id="odooKeyHelp">Odoo → Settings → Users → your account → Account Security → New API Key. Leave blank to retain a previously saved key.</span>
                     </div>
-                    <div class="stg-field span-2">
-                      <label for="odooProxyUrl">Read-only Worker URL &nbsp;<span class="stg-badge-free">Cloudflare Worker</span></label>
-                      <input type="url" class="stg-input" id="odooProxyUrl" autocomplete="url" placeholder="https://dashview-proxy.YOUR-NAME.workers.dev" aria-describedby="odooProxyHelp"/>
-                      <span class="stg-field-help" id="odooProxyHelp">Optional when signed in to DashView. Deploy <code>cloudflare-worker.js</code> and paste its HTTPS <code>.workers.dev</code> URL to use the Odoo Live explorer's read-only Worker path. Task assignments and Team data use authenticated DashView Node API methods, never Worker writes.</span>
-                    </div>
                   </div>
 
                   <!-- Security note -->
                   <div class="stg-security-note">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-                    <span>Credentials are saved in this browser and sent over HTTPS to the configured Odoo proxy for Odoo Live reads. Task assignments and Team use the authenticated DashView Node API; task writes are limited to allowlisted <code>project.task</code> fields and require an Owner/Admin session. No task write goes through the Worker or directly from the browser to Odoo. A passcode encrypts the saved key at rest.</span>
+                    <span>Credentials are saved in this browser and sent over HTTPS to DashView's built-in backend for Odoo Live reads. Task assignments and Team use the authenticated DashView Node API; task writes are limited to allowlisted <code>project.task</code> fields and require an Owner/Admin session. No task write goes through the Worker or directly from the browser to Odoo. A passcode encrypts the saved key at rest.</span>
                   </div>
 
                   <!-- Checkpoints -->
@@ -1272,8 +1267,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10-4.5 10-10 10z"/><path d="M12 8v4l3 3"/></svg>
                   </div>
                   <div class="stg-card-head-text">
-                    <h3>3-step setup</h3>
-                    <p>Takes about 5 minutes — no servers, no code</p>
+                    <h3>2-step setup</h3>
+                    <p>Takes about 2 minutes — no servers, no code</p>
                   </div>
                 </div>
                 <div class="stg-card-body">
@@ -1288,15 +1283,8 @@
                     <div class="stg-step">
                       <span class="stg-step-num">2</span>
                       <div class="stg-step-body">
-                        <b>Deploy the Cloudflare Worker (free, 2 min)</b>
-                        <p>Go to <a href="https://workers.cloudflare.com" target="_blank" rel="noopener">workers.cloudflare.com</a> → free account (no credit card) → Create Worker → paste the full contents of <code>cloudflare-worker.js</code> → Deploy → copy the Worker URL (e.g. <code>https://dashview-proxy.yourname.workers.dev</code>).</p>
-                      </div>
-                    </div>
-                    <div class="stg-step">
-                      <span class="stg-step-num">3</span>
-                      <div class="stg-step-body">
                         <b>Fill the fields above and connect</b>
-                        <p>Enter your Odoo URL, database, username and API key; sign in to DashView to use its authenticated Node API, or add the read-only Worker URL for the Odoo Live explorer → click <strong>Connect to Odoo</strong>. Task assignments and Team use authenticated Node API reads and task writes.</p>
+                        <p>Enter your Odoo URL, database, username and API key → click <strong>Connect to Odoo</strong>. DashView's backend link is already built in, so there is nothing else to deploy or paste. Task assignments and Team use authenticated Node API reads and task writes.</p>
                       </div>
                     </div>
                   </div>
@@ -1704,7 +1692,8 @@
               try { cfg = JSON.parse(localStorage.getItem('dashview_odoo_config')); } catch(e){}
               var dot = document.getElementById('stgTabOdooStatus');
               if(!dot) return;
-              if(cfg && cfg.proxyUrl && cfg.url) dot.className = 'stg-tab-status live';
+              var hasBackend = !!((window.DV_BACKEND && window.DV_BACKEND.workerUrl) || (cfg && cfg.proxyUrl));
+              if(cfg && hasBackend && cfg.url) dot.className = 'stg-tab-status live';
               else if(cfg && cfg.url) dot.className = 'stg-tab-status configured';
               else dot.className = 'stg-tab-status';
             }
@@ -2121,6 +2110,7 @@
   </div>
 </div>
 
+<script src="js/backend-config.js"></script>
 <script src="js/dv-security.js"></script>
 <script src="js/odoo-client.js"></script>
 <script src="js/odoo-profiles.js"></script>

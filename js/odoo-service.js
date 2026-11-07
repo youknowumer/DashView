@@ -42,7 +42,14 @@
 
   /* ── Config helpers ─────────────────────────────────────────────────────── */
   function isConnected() { return !!loadJSON(CONNECTED_KEY, false); }
-  function getConfig()   { return window.DVSec ? window.DVSec.cfg() : loadJSON(CONFIG_KEY, {}); }
+  /* The Worker URL is built into the app (js/backend-config.js) - it is not a user setting any more.
+     When it is present it always wins over anything saved in the browser. */
+  function backendUrl() { return (window.DV_BACKEND && window.DV_BACKEND.workerUrl) || ''; }
+  function getConfig() {
+    var c = window.DVSec ? window.DVSec.cfg() : loadJSON(CONFIG_KEY, {});
+    if (backendUrl()) { c = Object.assign({}, c); c.proxyUrl = backendUrl(); }
+    return c;
+  }
   function storeConfig(c) { return window.DVSec ? window.DVSec.saveCfg(c) : (saveJSON(CONFIG_KEY, c), Promise.resolve()); }
   function hasAuthenticatedApi() {
     return !!(window.AL_API && typeof window.AL_API.isConnected === 'function' && window.AL_API.isConnected());
@@ -101,7 +108,9 @@
         return r.text().then(function (t) {
           var d = null;
           try { d = JSON.parse(t); } catch (e) {}
-          if (!d) throw new Error('Proxy returned HTTP ' + r.status + ' (not JSON) — check the Proxy URL is your Worker URL.');
+          if (!d) throw new Error(backendUrl()
+            ? 'The DashView backend returned HTTP ' + r.status + ' (not JSON). It may be offline or redeploying - try again in a minute.'
+            : 'Proxy returned HTTP ' + r.status + ' (not JSON) — check the Proxy URL is your Worker URL.');
           if (!d.ok || !r.ok) {
             var er = new Error((d.error || 'Proxy returned HTTP ' + r.status) + ' [HTTP ' + r.status + ']');
             er.data = d; er.status = r.status; throw er;
@@ -111,11 +120,13 @@
       })
       .catch(function (err) {
         if (/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(err.message || '')) {
-          var generic = new Error('Cannot reach the Proxy URL. It must be your Worker URL (…workers.dev), and ALLOWED_ORIGINS on the Worker must include ' + (typeof location !== 'undefined' ? location.origin : 'this site') + '.');
+          var generic = new Error(backendUrl()
+            ? 'Cannot reach the DashView backend. Check your internet connection; if it keeps failing, ALLOWED_ORIGINS on the Worker must include ' + (typeof location !== 'undefined' ? location.origin : 'this site') + '.'
+            : 'Cannot reach the Proxy URL. It must be your Worker URL (…workers.dev), and ALLOWED_ORIGINS on the Worker must include ' + (typeof location !== 'undefined' ? location.origin : 'this site') + '.');
           /* Ask the Worker whether it is there at all, so the message names the real cause (see odoo-client.js). */
           var dx = window.DVOdooClient && window.DVOdooClient.diagnoseNetwork;
           if (typeof dx === 'function') {
-            return dx(base).then(function (msg) { if (msg) generic.message = msg.replace(/^Cannot reach the Worker/, 'Cannot reach the Proxy URL'); throw generic; }, function () { throw generic; });
+            return dx(base).then(function (msg) { if (msg) generic.message = msg.replace(/^Cannot reach the Worker/, backendUrl() ? 'Cannot reach the DashView backend' : 'Cannot reach the Proxy URL'); throw generic; }, function () { throw generic; });
           }
           throw generic;
         }
@@ -149,8 +160,8 @@
       if (v) merged[k] = v;
     });
     merged.url      = cleanOdooUrl(merged.url);
-    merged.proxyUrl = String(cfg.proxyUrl || '').trim();
-    if (!merged.proxyUrl && !hasAuthenticatedApi()) return Promise.resolve({ ok: false, error: 'Sign in to DashView or configure a read-only Worker URL to connect Odoo.' });
+    merged.proxyUrl = backendUrl() || String(cfg.proxyUrl || '').trim();
+    if (!merged.proxyUrl && !hasAuthenticatedApi()) return Promise.resolve({ ok: false, error: 'The DashView backend is not configured. Set WORKER_URL in js/backend-config.js, or sign in to DashView.' });
 
     {
       var missing = [];
@@ -202,14 +213,14 @@
       cfg.user = String(input.user == null && input.username == null ? saved.user || saved.username || '' : (input.user == null ? input.username : input.user)).trim();
       cfg.username = cfg.user;
       cfg.apiKey = String(input.apiKey || saved.apiKey || '').trim();
-      cfg.proxyUrl = String(input.proxyUrl == null ? saved.proxyUrl || '' : input.proxyUrl).trim();
+      cfg.proxyUrl = backendUrl() || String(input.proxyUrl == null ? saved.proxyUrl || '' : input.proxyUrl).trim();
     }
     var missing = [];
     if (!cfg.url) missing.push('Odoo URL');
     if (!cfg.db) missing.push('database');
     if (!cfg.user && !cfg.username) missing.push('username / email');
     if (!cfg.apiKey) missing.push('API key');
-    if (!cfg.proxyUrl && !hasAuthenticatedApi()) missing.push('Worker URL (or sign in to DashView)');
+    if (!cfg.proxyUrl && !hasAuthenticatedApi()) missing.push('the DashView backend (set WORKER_URL in js/backend-config.js, or sign in)');
     if (missing.length) return Promise.resolve({ ok: false, error: 'Add ' + missing.join(', ') + ' in Settings before testing.' });
     if (cfg.proxyUrl && !/^https:\/\//i.test(cfg.proxyUrl)) return Promise.resolve({ ok: false, error: 'Proxy URL must use HTTPS. Paste the HTTPS URL of your Worker.' });
     if (cfg.proxyUrl || hasAuthenticatedApi()) {
@@ -227,7 +238,7 @@
         })
         .catch(function (err) { return { ok: false, error: err.message }; });
     }
-    return Promise.resolve({ ok: false, error: 'Worker URL is missing. Add it in Settings → Odoo.' });
+    return Promise.resolve({ ok: false, error: 'The DashView backend is not configured. Set WORKER_URL in js/backend-config.js.' });
   }
 
   function fetchModel(modelName, opts) {
@@ -251,7 +262,7 @@
         return { ok: true, model: modelName, fields: fields, rows: arrRows, total: res.total, live: true };
       });
     }
-    return Promise.reject(new Error('Odoo is not connected. Configure a read-only Worker or sign in to DashView.'));
+    return Promise.reject(new Error('Odoo is not connected. The DashView backend is not configured (js/backend-config.js) and you are not signed in.'));
   }
 
   /* Aggregate totals via Odoo's read_group — for reporting/analytics-style
@@ -260,7 +271,7 @@
   function fetchReadGroup(modelName, opts) {
     opts = opts || {};
     var cfg = getConfig();
-    if (!cfg.proxyUrl && !hasAuthenticatedApi()) return Promise.reject(new Error('Odoo is not connected. Configure a read-only Worker or sign in to DashView.'));
+    if (!cfg.proxyUrl && !hasAuthenticatedApi()) return Promise.reject(new Error('Odoo is not connected. The DashView backend is not configured (js/backend-config.js) and you are not signed in.'));
     return proxyPost(cfg.proxyUrl, 'read-group', {
       model: modelName,
       domain: opts.domain || [],
@@ -282,7 +293,7 @@
     /* Raw Worker call (endpoint, extra body) for the AI agent: diagnose / batch / records / fields … */
     rpc: function (endpoint, body) {
       var cfg = getConfig();
-      if (!cfg.proxyUrl) return Promise.reject(new Error('Worker URL is missing. Add it in Settings → Odoo.'));
+      if (!cfg.proxyUrl) return Promise.reject(new Error('The DashView backend is not configured. Set WORKER_URL in js/backend-config.js.'));
       return proxyPost(cfg.proxyUrl, endpoint, body || {});
     }
   };
@@ -364,14 +375,16 @@
       byId('odooConnectBtn').addEventListener('click', function () {
         if (window.DVAuth && !window.DVAuth.can('manageOdoo')) { toast('Only Admins can connect Odoo.'); return; }
         var newCfg = readSettingsConfig();
-        if (!newCfg.url || !newCfg.db || !newCfg.user || (!newCfg.apiKey && !getConfig().apiKey) || (!newCfg.proxyUrl && !hasAuthenticatedApi())) {
-          showActionState('error', 'Complete the Odoo connection details and configure a read-only Worker or sign in to DashView.');
+        if (!newCfg.url || !newCfg.db || !newCfg.user || (!newCfg.apiKey && !getConfig().apiKey) || (!newCfg.proxyUrl && !backendUrl() && !hasAuthenticatedApi())) {
+          showActionState('error', backendUrl()
+            ? 'Fill in the Odoo URL, database, username and API key, then press Connect.'
+            : 'Complete the Odoo connection details and configure a read-only Worker or sign in to DashView.');
           return;
         }
         var btn = byId('odooConnectBtn'), testBtn = byId('odooTestBtn'), prev = btn.textContent;
         btn.textContent = 'Connecting…'; btn.disabled = true; btn.setAttribute('aria-busy', 'true');
         if (testBtn) testBtn.disabled = true;
-        showActionState('pending', 'Connecting to Odoo through your configured proxy…');
+        showActionState('pending', 'Connecting to Odoo…');
         var tag = byId('odooStatusTag');
         if (tag) { tag.textContent = 'Connecting…'; tag.classList.remove('configured', 'live', 'is-configured', 'is-live'); tag.classList.add('is-connecting'); }
         connect(newCfg).then(function (res) {

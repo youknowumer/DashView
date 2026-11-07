@@ -125,7 +125,7 @@
     if (!O) return { stage: 'config', error: 'The Odoo module did not load on this page.', fix: 'Reload the page. If it persists, js/odoo-service.js is missing.' };
     var c = O.getConfig() || {};
     var missing = [];
-    if (!c.proxyUrl) missing.push('Worker (Proxy) URL');
+    if (!c.proxyUrl) missing.push('DashView backend link (js/backend-config.js)');
     if (!c.url) missing.push('Odoo URL');
     if (!c.db) missing.push('Database');
     if (!c.user && !c.username) missing.push('Username');
@@ -142,7 +142,7 @@
   }
 
   var FIXES = {
-    reach: 'Odoo could not be reached. Check the Odoo URL (only the site address, e.g. https://name.odoo.com) and that the Worker URL is your …workers.dev address with ALLOWED_ORIGINS/ALLOWED_ODOO_HOSTS matching this site and Odoo.',
+    reach: 'Odoo could not be reached. Check the Odoo URL (only the site address, e.g. https://name.odoo.com) and that the DashView backend Worker has ALLOWED_ORIGINS/ALLOWED_ODOO_HOSTS matching this site and Odoo.',
     login: 'Login failed. On Odoo Online the Database is the subdomain (name.odoo.com → name). Use the login email and a fresh API key (Odoo → Preferences → Account Security → New API Key).',
     access: ''
   };
@@ -176,7 +176,7 @@
       return {
         ok: false, stage: stage, error: msg(e),
         fix: stage === 'proxy'
-          ? 'The Worker did not answer. Paste your Worker URL (…workers.dev) in Settings → Odoo and make sure the Worker is deployed and ALLOWED_ORIGINS includes ' + (typeof location !== 'undefined' ? location.origin : 'this site') + '.'
+          ? 'The DashView backend (Worker) did not answer. Make sure it is deployed and that ALLOWED_ORIGINS includes ' + (typeof location !== 'undefined' ? location.origin : 'this site') + '.'
           : FIXES.reach
       };
     });

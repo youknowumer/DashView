@@ -156,7 +156,7 @@
 
   function toRole(r) { return (r === 'ai' || r === 'assistant') ? 'assistant' : 'user'; }
 
-  // If the Odoo Cloudflare Worker (Settings → Odoo → Proxy URL) is set up,
+  // If the DashView Cloudflare Worker (built in, js/backend-config.js) is set up,
   // route Grok through it instead of calling api.x.ai straight from the
   // browser — xAI's API doesn't send CORS headers for browser callers, so a
   // direct fetch() to it fails with a network error. Routing through the

@@ -41,9 +41,9 @@
     },
     {
       id: 'backend', kind: 'live', severity: 'critical',
-      title: 'Cloudflare Worker proxy configured',
-      desc: 'Your Odoo API key is sent to a Worker <b>you own</b> (<code>*.workers.dev</code>), never straight from the browser to Odoo. Deploy <code>cloudflare-worker.js</code> and paste its URL under Proxy URL.',
-      status: function (ctx) { return ctx.cfg && ctx.cfg.proxyUrl ? 'ok' : 'blocked'; },
+      title: 'DashView backend (Cloudflare Worker) linked',
+      desc: 'Your Odoo API key goes to DashView\u2019s own Worker, which is built into the app, and never straight from the browser to Odoo. Nothing to paste or configure here.',
+      status: function (ctx) { return (window.DV_BACKEND && window.DV_BACKEND.workerUrl) || (ctx.cfg && ctx.cfg.proxyUrl) ? 'ok' : 'blocked'; },
       okText: 'Configured', warnText: 'Unverified', blockedText: 'Not set'
     },
     {
@@ -161,7 +161,7 @@
   };
   var NEXT_STEP = {
     creds: 'Add them in Settings \u2192 Odoo',
-    backend: 'Paste your workers.dev URL',
+    backend: 'Set WORKER_URL in js/backend-config.js',
     session: 'Press Connect to Odoo'
   };
 

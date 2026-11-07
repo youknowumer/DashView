@@ -23,18 +23,16 @@ https://TUMHARA-USERNAME.github.io/REPO-NAME/
 > `ALLOWED_ODOO_HOSTS` values before deploying, and use a dedicated read-only
 > Odoo account. Never put an administrator credential in the browser.
 
-### 2a. Cloudflare Worker deploy karo (5 minute)
+### 2a. Worker (backend) — ab built-in hai
 
-1. **workers.cloudflare.com** kholo → Free account banao (no credit card)
-2. **"Create Application"** → **"Create Worker"**
-3. Is repo ka `cloudflare-worker.js` file ka sara code copy karo
-4. Worker editor mein paste karo → **Save & Deploy**
-5. Worker variables mein `ALLOWED_ORIGINS` (exact dashboard origin) aur
-   `ALLOWED_ODOO_HOSTS` (exact Odoo hostname) set karo
-6. Worker URL copy karo:
-   ```
-   https://dashview-proxy.TUMHARA-NAME.workers.dev
-   ```
+Worker `https://dashview.youknowumer-io.workers.dev` par deploy hai aur uska link app ke andar
+`js/backend-config.js` mein likha hai (`WORKER_URL`). Settings mein ab **Proxy / Worker URL ki field nahi hai** —
+kisi ko kuch paste nahi karna.
+
+- Worker update karna ho to: `wrangler.jsonc` (name = `dashview`) commit karo → Workers Builds redeploy karta hai.
+  Ya `npx wrangler deploy`.
+- `wrangler.jsonc` mein `ALLOWED_ORIGINS` (exact dashboard origin) aur `ALLOWED_ODOO_HOSTS` (exact Odoo hostname) set rakho.
+- Dusra Worker use karna ho to `js/backend-config.js` mein `WORKER_URL` badlo aur site redeploy karo.
 
 ### 2b. Dashboard mein configure karo
 
@@ -46,7 +44,6 @@ Dashboard kholo → **Settings** → **Odoo integration**:
 | Database | `yourcompany-live` |
 | Username | `admin@yourcompany.com` |
 | API Key | (Odoo → Settings → Users → API Keys) |
-| Proxy URL | `https://dashview-proxy.NAAM.workers.dev` |
 
 **Connect to Odoo** dabao → Live data aane lagega ✅
 
@@ -89,13 +86,14 @@ npm start               # :4000 pe chalta hai
 ├── js/
 │   └── odoo-service.js        ← Updated: Cloudflare Worker support
 ├── server/                    ← Optional Node.js backend
-├── cloudflare-worker.js       ← Cloudflare Worker proxy code
+├── cloudflare-worker.js       ← Cloudflare Worker proxy code (legacy single-file copy)
+├── js/backend-config.js       ← Worker URL yahan hai (WORKER_URL) — Settings mein nahi
 ├── dashboard.html             ← Main dashboard
 └── DEPLOY.md                  ← Ye file
 ```
 
 ## Worker chal raha hai ya nahi? (quick check)
-1. Browser mein apna Worker URL kholo (jaise `https://workspace.NAAM.workers.dev`). Ab ek status JSON dikhta hai (`"ok": true`) aur `problems` mein likha hota hai kya set nahi hai (`ALLOWED_ODOO_HOSTS`, `ALLOWED_ORIGINS`). Pehle yahan "Not found" / "POST only" aata tha, jo dead Worker jaisa lagta tha.
+1. Browser mein apna Worker URL kholo (`https://dashview.youknowumer-io.workers.dev`). Ab ek status JSON dikhta hai (`"ok": true`) aur `problems` mein likha hota hai kya set nahi hai (`ALLOWED_ODOO_HOSTS`, `ALLOWED_ORIGINS`). Pehle yahan "Not found" / "POST only" aata tha, jo dead Worker jaisa lagta tha.
 2. Terminal se poora check: `ODOO_URL=... ODOO_DB=... ODOO_USER=... ODOO_KEY=... WORKER_URL=https://workspace.NAAM.workers.dev SITE_ORIGIN=https://youknowumer.github.io node scripts/odoo-check.mjs`
 3. DashView mein "Cannot reach the Worker" ab batata hai: Worker down/galat URL hai, ya Worker online hai magar browser ne reply block kiya (ALLOWED_ORIGINS exactly site ka origin hona chahiye, bina path aur bina `/` ke).
 4. Crash ho to Cloudflare → Worker → Logs dekho (observability ab on hai).
