@@ -1,0 +1,268 @@
+/* ==========================================================================
+   AI Assistant — iOS-style redesign  ·  v2.36.0
+   Apple-like type (SF Pro on Apple devices, Inter elsewhere), translucent bars,
+   inset-grouped lists, segmented controls, iMessage-style bubbles, squircle icons,
+   hairline separators, spring-like motion and press states.
+   Loads AFTER ai-embed.css and restyles the shell only. No markup / JS changes;
+   report, chart and table components inside answers inherit the new type tokens.
+   ========================================================================== */
+
+.aiw {
+  /* type — SF Pro / SF Mono first, Inter as the closest fallback */
+  --f-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  /* iOS-like surfaces & separators, derived from the theme tokens (light + dark) */
+  --ar-fill: color-mix(in srgb, var(--ink) 6%, transparent);
+  --ar-fill-2: color-mix(in srgb, var(--ink) 10%, transparent);
+  --ar-sep: color-mix(in srgb, var(--ink) 11%, transparent);
+  --ar-bar: color-mix(in srgb, var(--paper) 72%, transparent);
+  --ar-card: var(--paper-soft);
+  --ar-ease: cubic-bezier(.32, .72, 0, 1);
+  --ar-r: 22px;
+
+  font-family: var(--f-body);
+  font-size: 15px; line-height: 1.4; letter-spacing: -.011em;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;
+  font-feature-settings: "kern", "liga", "calt";
+
+  border-radius: 30px;
+  border: 1px solid var(--ar-sep);
+  background:
+    radial-gradient(1100px 420px at 50% -12%, color-mix(in srgb, var(--signal) 13%, transparent), transparent 70%),
+    var(--paper);
+  box-shadow: 0 40px 80px -48px rgba(0, 0, 0, .6), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+}
+.aiw ::selection { background: color-mix(in srgb, var(--signal) 35%, transparent); }
+.aiw button, .aiw input, .aiw textarea, .aiw select { font-family: inherit; letter-spacing: inherit; }
+.aiw button { -webkit-tap-highlight-color: transparent; }
+.aiw :focus-visible { outline: 3px solid color-mix(in srgb, var(--signal) 45%, transparent); outline-offset: 1px; border-radius: 12px; }
+.aiw * { scrollbar-width: thin; scrollbar-color: var(--ar-fill-2) transparent; }
+.aiw ::-webkit-scrollbar { width: 8px; height: 8px; }
+.aiw ::-webkit-scrollbar-thumb { background: var(--ar-fill-2); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+
+/* press feedback everywhere */
+.aiw button:not(:disabled):active, .aiw .aiw-cap:active, .aiw .aiw-thread:active { transform: scale(.97); }
+.aiw button { transition: transform .35s var(--ar-ease), background-color .2s, color .2s, border-color .2s, box-shadow .25s, opacity .2s; }
+
+/* ── nav bar (header) ───────────────────────────────────────────────────── */
+.aiw .aiw-head {
+  position: relative; z-index: 3; min-height: 60px; padding: 10px 18px 10px 22px; gap: 12px; border-bottom: 1px solid var(--ar-sep);
+  background: var(--ar-bar); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+}
+.aiw .aiw-title { margin: 0; font: 650 17px/1.2 var(--f-display); letter-spacing: -.022em; display: flex; align-items: center; gap: 10px; }
+.aiw .aiw-title::before {
+  content: ""; width: 26px; height: 26px; border-radius: 8px; flex: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231b1306'%3E%3Cpath d='M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z'/%3E%3Cpath d='M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z'/%3E%3C/svg%3E") center / 15px no-repeat,
+    linear-gradient(150deg, var(--signal-bright), var(--signal) 60%, var(--beacon));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 14px -6px var(--signal);
+}
+.aiw .aiw-route { font: 500 12px var(--f-body); letter-spacing: 0; }
+.aiw .aiw-chips { gap: 6px; }
+.aiw .aiw-chip { padding: 6px 12px 6px 10px; border: 0; border-radius: 99px; background: var(--ar-fill); color: var(--ink-70); font: 500 12.5px var(--f-body); letter-spacing: -.005em; }
+.aiw .aiw-chip:hover { background: var(--ar-fill-2); color: var(--ink); }
+.aiw .aiw-chip i { width: 7px; height: 7px; }
+.aiw .aiw-actions { gap: 8px; }
+.aiw .aiw-actions .btn {
+  border: 0; border-radius: 99px; min-height: 34px; padding: 7px 15px; font: 600 14px var(--f-body); letter-spacing: -.012em;
+  background: var(--ar-fill); color: var(--ink); box-shadow: none; transform: none;
+}
+.aiw .aiw-actions .btn:hover { background: var(--ar-fill-2); transform: none; }
+.aiw .aiw-actions #aiwNewBtn { background: var(--signal); color: var(--on-signal, var(--paper)); }
+.aiw .aiw-actions #aiwNewBtn:hover { background: var(--signal-bright); }
+.aiw .aiw-iconbtn { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--ar-fill); color: var(--ink-70); }
+.aiw .aiw-iconbtn:hover, .aiw .aiw-iconbtn[aria-pressed="true"] { background: color-mix(in srgb, var(--signal) 16%, transparent); color: var(--signal); }
+
+/* ── sidebar (chats) ────────────────────────────────────────────────────── */
+.aiw .aiw-rail { background: color-mix(in srgb, var(--ink) 2.5%, transparent); border-right: 1px solid var(--ar-sep); }
+.aiw .aiw-rail-top { padding: 12px 12px 6px; }
+.aiw .aiw-search { height: 36px; padding: 0 10px; gap: 6px; border: 0; border-radius: 10px; background: var(--ar-fill); color: var(--ink-50); }
+.aiw .aiw-search input { font-size: 15px; letter-spacing: -.011em; }
+.aiw .aiw-search:focus-within { background: var(--ar-fill-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 30%, transparent); }
+.aiw .aiw-cat { border: 0; background: var(--ar-fill); font: 500 12px var(--f-body); padding: 5px 10px; }
+.aiw .aiw-cat.active { background: color-mix(in srgb, var(--c) 18%, transparent); }
+.aiw .aiw-threads { padding: 2px 8px 12px; }
+.aiw .aiw-group { margin: 14px 10px 4px; font: 600 12px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--ink-50); }
+.aiw .aiw-thread { border: 0 !important; border-radius: 12px; padding: 8px 34px 8px 8px !important; background: transparent; }
+.aiw .aiw-thread:hover { background: var(--ar-fill); }
+.aiw .aiw-thread.active { background: color-mix(in srgb, var(--c, var(--signal)) 16%, transparent); box-shadow: none !important; }
+.aiw .aiw-thread-ic { width: 30px; height: 30px; border-radius: 9px; }
+.aiw .aiw-thread-txt b { font: 600 14.5px var(--f-body); letter-spacing: -.014em; }
+.aiw .aiw-thread small { font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-50); }
+.aiw .aiw-thread-k { font-weight: 600; }
+.aiw .aiw-empty-note { padding: 40px 18px; font-size: 14px; line-height: 1.5; color: var(--ink-50); }
+.aiw .aiw-rail-foot { border-top: 1px solid var(--ar-sep); padding: 11px 18px; font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-50); }
+
+/* ── welcome ────────────────────────────────────────────────────────────── */
+.aiw .aiw-welcome { max-width: 900px; gap: 16px; }
+.aiw .aiw-welcome .aiw-hero { display: block; text-align: center; padding: 4px 0 0; }
+.aiw .aiw-welcome .aiw-hero-mark {
+  width: 48px; height: 48px; margin: 0 auto 10px; border-radius: 15px; /* iOS app-icon squircle */
+  background: linear-gradient(155deg, var(--signal-bright), var(--signal) 55%, var(--beacon));
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .5), inset 0 -2px 6px rgba(0, 0, 0, .12), 0 18px 34px -14px var(--signal);
+}
+.aiw .aiw-welcome .aiw-hero-mark svg { width: 24px; height: 24px; }
+.aiw .aiw-welcome .aiw-hero h2 { margin: 0; font: 700 clamp(26px, 2.4vw, 31px)/1.12 var(--f-display); letter-spacing: -.034em; color: var(--ink); background: none; -webkit-text-fill-color: currentColor; }
+.aiw .aiw-welcome .aiw-hero p { margin: 8px auto 0; max-width: 560px; font: 400 14px/1.45 var(--f-body); letter-spacing: -.011em; color: var(--ink-50); -webkit-line-clamp: 1; max-width: 800px; }
+
+.aiw .aiw-welcome .aiw-sec { gap: 8px; }
+.aiw .aiw-sec-head { padding: 0 6px; gap: 8px; align-items: baseline; }
+.aiw .aiw-sec-head::after { display: none; }
+.aiw .aiw-sec-head h3 { font: 700 17px/1.2 var(--f-display); letter-spacing: -.024em; text-transform: none; color: var(--ink); }
+.aiw .aiw-sec-head span { font: 400 13px var(--f-body); letter-spacing: 0; color: var(--ink-50); }
+
+/* quick actions — widget tiles with iOS app-icon glyphs */
+.aiw .aiw-welcome .aiw-cap-grid { gap: 10px; }
+.aiw .aiw-welcome .aiw-cap {
+  --c: var(--signal); grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 10px 12px; border: 0; border-radius: 18px;
+  background: var(--ar-card); box-shadow: inset 0 0 0 1px var(--ar-sep);
+}
+.aiw .aiw-cap-grid .aiw-cap:nth-child(1) { --c: #FF9F0A; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(2) { --c: #5E5CE6; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(3) { --c: #30D158; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(4) { --c: #BF5AF2; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(5) { --c: #0A84FF; }
+.aiw .aiw-cap-grid .aiw-cap:nth-child(6) { --c: #FF375F; }
+.aiw .aiw-welcome .aiw-cap:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent), 0 16px 30px -20px var(--c); }
+.aiw .aiw-welcome .aiw-cap-ic {
+  width: 40px; height: 40px; border-radius: 12px; color: #fff;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 72%, #fff), var(--c) 60%, color-mix(in srgb, var(--c) 82%, #000));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 12px -6px var(--c);
+}
+.aiw .aiw-welcome .aiw-cap b { font: 600 15px/1.25 var(--f-body); letter-spacing: -.016em; }
+.aiw .aiw-welcome .aiw-cap > span:last-child { font: 400 13px/1.3 var(--f-body); letter-spacing: -.006em; color: var(--ink-50); }
+
+/* areas — segmented control */
+.aiw .aiw-welcome .aiw-areas-tabs { gap: 2px; padding: 3px; width: fit-content; max-width: 100%; margin: 2px 0 0 6px; border-radius: 12px; background: var(--ar-fill); }
+.aiw .aiw-welcome .aiw-areas-tabs button { border: 0; background: transparent; border-radius: 9px; padding: 5px 12px 5px 6px; color: var(--ink-70); transform: none; box-shadow: none; }
+.aiw .aiw-welcome .aiw-areas-tabs button:hover { background: var(--ar-fill); transform: none; }
+.aiw .aiw-welcome .aiw-areas-tabs button.active { background: var(--paper); color: var(--ink); box-shadow: 0 3px 8px rgba(0, 0, 0, .22), 0 0 0 .5px var(--ar-sep); }
+.aiw .aiw-welcome .aiw-areas-tabs b { font: 600 13.5px var(--f-body); letter-spacing: -.012em; }
+.aiw .aiw-welcome .aiw-areas-tabs em { background: transparent; padding: 0; font: 500 12px var(--f-body); color: var(--ink-50); }
+.aiw .aiw-welcome .aiw-area-ic { width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4); }
+
+/* prompts — inset grouped rows */
+.aiw .aiw-welcome .aiw-prompts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.aiw .aiw-welcome .aiw-prompts button {
+  min-height: 44px; padding: 6px 12px 6px 9px; gap: 10px; border: 0; border-radius: 14px; background: var(--ar-card);
+  box-shadow: inset 0 0 0 1px var(--ar-sep); color: var(--ink); font: 400 14px/1.3 var(--f-body); letter-spacing: -.012em;
+}
+.aiw .aiw-welcome .aiw-prompt-t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aiw .aiw-welcome .aiw-prompts button:hover { background: color-mix(in srgb, var(--c) 8%, var(--ar-card)); transform: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
+.aiw .aiw-welcome .aiw-prompt-ic { width: 28px; height: 28px; border-radius: 8px; }
+.aiw .aiw-welcome .aiw-prompt-go { font-size: 0; width: 14px; height: 14px; background: var(--ink-30); transform: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat; }
+.aiw .aiw-welcome .aiw-prompts button:hover .aiw-prompt-go { background: var(--c); transform: translateX(2px); }
+
+/* ── conversation (iMessage-like) ───────────────────────────────────────── */
+.aiw .aiw-messages { padding: 22px 28px 10px; }
+.aiw .aiw-col { max-width: 800px; gap: 18px; }
+.aiw .aiw-msg { gap: 10px; animation: aiwPop .45s var(--ar-ease) both; }
+@keyframes aiwPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+.aiw .aiw-msg.user .aiw-av { display: none; }
+.aiw .aiw-msg.user .aiw-bubble { max-width: min(74%, 580px); }
+.aiw .aiw-msg.user .aiw-card {
+  border: 0; border-radius: 20px 20px 6px 20px; padding: 9px 16px; font: 400 15px/1.4 var(--f-body);
+  background: linear-gradient(180deg, var(--signal-bright), var(--signal)); color: var(--on-signal, #1b1306);
+  box-shadow: 0 10px 22px -14px var(--signal);
+}
+.aiw .aiw-msg.user .aiw-card * { color: inherit; }
+.aiw .aiw-msg.ai .aiw-av { width: 30px; height: 30px; border-radius: 50%; margin-top: 2px; background: linear-gradient(155deg, var(--signal-bright), var(--signal)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
+.aiw .aiw-msg.ai .aiw-card {
+  padding: 14px 18px 10px; border: 0; border-radius: 6px 22px 22px 22px; background: var(--ar-card);
+  box-shadow: inset 0 0 0 1px var(--ar-sep);
+}
+.aiw .aiw-msg.ai .aiw-card.selected { box-shadow: inset 0 0 0 1.5px var(--signal), 0 0 0 4px color-mix(in srgb, var(--signal) 18%, transparent); }
+.aiw .aiw-meta { margin-bottom: 6px; gap: 8px; }
+.aiw .aiw-who { font: 650 14px var(--f-display); letter-spacing: -.016em; color: var(--ink); }
+.aiw .aiw-tag { border-radius: 99px; padding: 2px 9px; font: 600 11px var(--f-body); letter-spacing: 0; text-transform: none; }
+.aiw .aiw-time { font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-30); }
+.aiw .ai-embed-content { font-size: 15px; line-height: 1.5; letter-spacing: -.011em; }
+.aiw .aiw-msg-tools { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--ar-sep); }
+.aiw .aiw-tool { border-radius: 99px; font: 500 13px var(--f-body); color: var(--ink-50); padding: 5px 11px; }
+.aiw .aiw-tool:hover { background: var(--ar-fill); color: var(--ink); border-color: transparent; }
+.aiw .aiw-btn { border: 0; border-radius: 99px; padding: 8px 15px; background: var(--ar-fill); color: var(--ink); font: 600 13.5px var(--f-body); letter-spacing: -.01em; }
+.aiw .aiw-btn:hover { background: var(--ar-fill-2); color: var(--ink); }
+.aiw .aiw-btn.primary { background: var(--signal); color: var(--on-signal, var(--paper)); }
+.aiw .aiw-btn.primary:hover { background: var(--signal-bright); color: var(--on-signal, var(--paper)); }
+.aiw .aiw-followups button { border: 0; background: var(--ar-fill); border-radius: 99px; padding: 8px 15px; font: 500 14px/1.3 var(--f-body); letter-spacing: -.01em; }
+.aiw .aiw-followups button:hover { background: color-mix(in srgb, var(--signal) 18%, transparent); }
+.aiw .aiw-path, .aiw .aiw-chart, .aiw .aiw-kpi, .aiw .aiw-box, .aiw .aiw-stat, .aiw .aiw-file-card, .aiw .aiw-q { border-radius: 16px; border-color: var(--ar-sep); }
+.aiw .aiw-kpi small, .aiw .aiw-stat small { font: 600 11.5px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--ink-50); }
+.aiw .aiw-kpi b, .aiw .aiw-stat b { font-family: var(--f-display); letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+.aiw .aiw-tbl td, .aiw .aiw-tbl th, .aiw .aiw-drow b, .aiw .aiw-grow b { font-variant-numeric: tabular-nums; }
+
+/* ── composer ───────────────────────────────────────────────────────────── */
+.aiw .aiw-composer-wrap { padding: 6px 24px 12px; }
+.aiw .aiw-composer-wrap > * { max-width: 800px; }
+.aiw .aiw-composer {
+  align-items: center; gap: 6px; padding: 6px 6px 6px 8px; border: 0; border-radius: 28px;
+  background: var(--ar-bar); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: inset 0 0 0 1px var(--ar-sep), 0 20px 40px -26px rgba(0, 0, 0, .7);
+}
+.aiw .aiw-composer:focus-within {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--signal) 75%, transparent), 0 0 0 5px color-mix(in srgb, var(--signal) 16%, transparent), 0 20px 44px -26px var(--signal);
+}
+.aiw .aiw-composer textarea { padding: 9px 6px; font: 400 16px/1.4 var(--f-body); letter-spacing: -.014em; }
+.aiw .aiw-composer textarea::placeholder { color: var(--ink-30); }
+.aiw .aiw-composer textarea:focus, .aiw .aiw-composer textarea:focus-visible { outline: none; box-shadow: none; }
+.aiw .aiw-composer .aiw-iconbtn { width: 36px; height: 36px; }
+.aiw .aiw-send {
+  position: relative; width: 36px; height: 36px; min-height: 36px; padding: 0; flex: none; border: 0; border-radius: 50%; font-size: 0; line-height: 0;
+  background: var(--signal); color: var(--on-signal, var(--paper));
+}
+.aiw .aiw-send::after { content: ""; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5 12l7-7 7 7'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5 12l7-7 7 7'/%3E%3C/svg%3E") center / contain no-repeat; }
+.aiw .aiw-send:hover:not(:disabled) { background: var(--signal-bright); }
+.aiw .aiw-send:disabled { opacity: 1; background: var(--ar-fill-2); color: var(--ink-30); cursor: default; }
+.aiw .aiw-hint { justify-content: center; gap: 14px; margin-top: 8px; font: 400 12px var(--f-body); letter-spacing: 0; color: var(--ink-30); }
+.aiw .aiw-hint .aiw-link { color: var(--ink-50); font-size: 12px; }
+.aiw .aiw-file-chip { border: 0; background: var(--ar-fill); border-radius: 12px; }
+
+/* ── details sheet ──────────────────────────────────────────────────────── */
+.aiw .aiw-insp { background: color-mix(in srgb, var(--paper-soft) 94%, transparent); border-left: 1px solid var(--ar-sep); }
+.aiw .aiw-insp-head { padding: 10px 12px; border-bottom: 1px solid var(--ar-sep); }
+.aiw .aiw-tabs { border: 0; border-radius: 11px; background: var(--ar-fill); padding: 3px; }
+.aiw .aiw-tabs button { border-radius: 8px; padding: 5px 14px; font: 600 13px var(--f-body); letter-spacing: -.01em; color: var(--ink-70); }
+.aiw .aiw-tabs button.active { background: var(--paper); color: var(--ink); box-shadow: 0 3px 8px rgba(0, 0, 0, .22), 0 0 0 .5px var(--ar-sep); }
+.aiw .aiw-sec > h4 { font: 600 12px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--ink-50); }
+.aiw .aiw-box h5 { font: 650 14px var(--f-display); letter-spacing: -.015em; }
+.aiw .aiw-drop { border-radius: 26px; margin: 12px; }
+.aiw .aiw-scrim { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+
+/* ── laptops & phones ───────────────────────────────────────────────────── */
+@media (max-height: 820px) and (min-width: 901px) {
+  .aiw .aiw-welcome .aiw-hero p, .aiw .aiw-sec-head span { display: none; }
+  .aiw .aiw-welcome .aiw-cap { padding: 7px 11px; }
+  .aiw .aiw-welcome .aiw-cap-ic { width: 34px; height: 34px; border-radius: 10px; }
+  .aiw .aiw-welcome .aiw-cap { grid-template-columns: 34px minmax(0, 1fr); }
+  .aiw .aiw-welcome { gap: 14px; }
+  .aiw .aiw-welcome .aiw-hero-mark { width: 46px; height: 46px; border-radius: 14px; margin-bottom: 8px; }
+  .aiw .aiw-welcome .aiw-hero p { -webkit-line-clamp: 1; }
+  .aiw .aiw-welcome .aiw-cap { padding: 9px 12px; }
+  .aiw .aiw-welcome .aiw-prompts button { min-height: 42px; padding-top: 5px; padding-bottom: 5px; }
+  .aiw .aiw-sec-head h3 { font-size: 17px; }
+}
+@media (max-width: 900px) {
+  .aiw { border-radius: 24px; }
+  .aiw .aiw-head { padding: 8px 12px; min-height: 52px; }
+  .aiw .aiw-messages { padding: 16px 14px 8px; }
+  .aiw .aiw-composer-wrap { padding: 4px 12px 10px; }
+  .aiw .aiw-welcome .aiw-prompts { grid-template-columns: 1fr; }
+  .aiw .aiw-welcome .aiw-areas-tabs { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .aiw .aiw-msg.ai .aiw-av { display: none; }
+  .aiw .aiw-msg.ai .aiw-bubble { max-width: 100%; }
+  .aiw .aiw-msg.user .aiw-bubble { max-width: 86%; }
+  .aiw .aiw-composer textarea { font-size: 16px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .aiw .aiw-head, .aiw .aiw-composer, .aiw .aiw-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .aiw { --ar-bar: var(--paper-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aiw .aiw-msg { animation: none; }
+  .aiw button:not(:disabled):active, .aiw .aiw-cap:active, .aiw .aiw-thread:active, .aiw .aiw-welcome .aiw-cap:hover { transform: none; }
+}

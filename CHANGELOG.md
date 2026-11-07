@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.36.0 - 2026-11-07
+- Changed: the AI Assistant is redesigned in an iOS / Apple style - SF Pro type (Inter fallback), translucent nav bar and composer, app-icon tiles, segmented area switcher, inset prompt rows, iMessage-style bubbles, hairline separators, press and spring motion; fits laptop screens, light / dark / mobile (css/ai-redesign.css, no logic changes)
+
+## 2.35.0 - 2026-11-07
+- Changed: the AI Assistant has a new 'Aurora' look (css/ai-redesign.css) - softer glass workspace, centred hero, colour-coded quick actions, pill area switcher, rounded chat bubbles, floating composer with round send button, refreshed chats rail and details pane; light, dark and mobile restyled, no logic changes
+
 ## 2.34.0 - 2026-11-07
 - Changed: the Cloudflare Worker URL (https://dashview.youknowumer-io.workers.dev) is now built into the app in js/backend-config.js and is no longer a Settings field - the Read-only Worker URL box and the Deploy the Worker setup step are removed (3-step setup is now 2-step), and nobody has to paste a Worker URL any more
 - Improved: every page that talks to Odoo (Dashboard, People, AI, Share, Sign in) reads the same built-in backend link, so an old or mistyped Proxy URL saved in a browser can no longer point the app at the wrong Worker; Odoo and AI messages no longer ask the user for a Worker URL

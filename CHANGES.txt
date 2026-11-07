@@ -1,33 +1,7 @@
-DashView 2.34.0 - changed files (same paths as the project; copy the "update" folder over the project and replace the files as they are)
+DashView 2.36.0 - AI Assistant, iOS / Apple-style redesign
+Copy this "update" folder over the project (same paths) and replace the files.
 
-WORKER LINK IS NOW BUILT IN  (https://dashview.youknowumer-io.workers.dev)
-js/backend-config.js           NEW. The one place the Worker URL lives (WORKER_URL). Frozen, validated (https only).
-js/dv-security.js              cfg() / saveCfg() always use the built-in Worker URL; security checkup reads it too
-js/odoo-service.js             connect / test / reads use the built-in Worker; a typed or old saved Worker URL is ignored
-js/odoo-client.js              same for every Odoo Live / Overview / People read; error texts no longer ask for a Worker URL
-js/odoo-live.js                setup steps show "Backend link - built in"; "Worker URL missing" text removed
-js/odoo-connectivity.js        checklist shows the backend as linked
-js/ai-odoo-agent.js            AI status messages no longer ask for a Worker URL
-js/ai-config-store.js          comment only
-js/ai-embed.js                 "Not connected" box no longer asks for a Worker URL
-js/people-odoo-live.js         the built-in link is not counted as "Odoo is set up" (People keeps its demo / connect prompt)
-
-HIDDEN FROM THE FRONTEND
-dashboard.html                 Settings > Odoo: the "Read-only Worker URL" box and the "Deploy the Worker" step are gone (3-step setup is now 2-step); loads backend-config.js
-ai.html, people.html, login.html, share.html   load js/backend-config.js first; ai.html status chip + prompt text updated
-index.html                     landing text no longer says "paste the Worker URL"
-
-BACKEND / DEPLOY
-wrangler.jsonc                 Worker name = "dashview" -> deploys to dashview.youknowumer-io.workers.dev (ALLOWED_ORIGINS / ALLOWED_ODOO_HOSTS unchanged)
-DEPLOY.md, SETUP_GUIDE.md, ODOO_SETUP.md   steps updated: no Worker URL to paste
-
-TESTS
-test/backend-worker.smoke.test.js   NEW, 26 checks (built-in URL wins, form field gone, load order, cache list, wrangler name)
-test/package.json                   adds test:backend to the test chain
-
-RELEASE
-version.json, package.json, sw.js, CHANGELOG.md   release 2.34.0 (Software Update prompt); sw.js now pre-caches js/backend-config.js
-CHANGES.txt                    this list
-
-Then: commit + push, hard-refresh (Ctrl+Shift+R) so the new service worker cache loads.
-Worker side: nothing to change if your Worker is already "dashview" with ALLOWED_ORIGINS = your site origin.
+css/ai-redesign.css   NEW / replaces 2.35.0 version. The full iOS-style look of the AI Assistant (SF Pro type, nav bar, sidebar, welcome, bubbles, composer, details sheet).
+dashboard.html        loads css/ai-redesign.css (one <link> line, before ios-smooth.css)
+sw.js                 cache version dv-2.36.0 + ai-redesign.css in the offline list
+version.json / package.json / CHANGELOG.md   2.36.0
