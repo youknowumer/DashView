@@ -1,16 +1,25 @@
 {
-  "version": "2.40.0",
+  "version": "2.41.0",
   "build": "2026.11.10",
   "released": "2026-11-10",
   "notes": [
-    "Redesigned: Drill explorer (drill-in only) - one clear flow: Scope and filters card (period presets 7 days / 30 days / 90 days / 12 months / Year to date / All time and a custom From - To date range, Total / Average / Count measure, removable filter chips), a labelled Group by row with Records and Data checks as separate views, and a 4-step How it works guide that highlights where you are (css/exec-drill.css, js/exec-drill.js)",
-    "New: Add filter - pick a field, choose Is any of / Is none of, search the value list (each value shows its record count and amount, limited by the filters already applied) or set an amount range (at least / at most); every filter becomes a chip you can remove on its own, with Clear all, Back (Alt + Left) and Reset",
-    "New: explicit row actions - Drill in and Exclude on every row (X excludes the focused row), tick several rows to Keep only these or Exclude these with the selected total and share shown, and Exclude no longer jumps to another breakdown",
-    "New: list filters on every breakdown - search ( / ), minimum value, change filter (Rising / Falling / New with counts), chart size Top 10 / 15 / 25 / 50, an x of y shown and share-of-total read-out, clear empty states with Clear list filters, Back one step and Reset all",
-    "Improved: summary - caption, Records, Average per record and Previous-period tiles plus a plain-language Scope line; Copy summary copies the scope, total and top rows; CSV of a filtered breakdown exports exactly the rows shown; removing or stepping back past a month drill restores the chosen period",
-    "Improved: tests - 53 new checks in test/exec-drill.smoke.test.js for presets, custom range, Add filter, exclude, multi-select, list filters, back / reset, copy and keyboard; two timing-sensitive waits made safer"
+    "New: Telegram-style tab bar - full-width frosted bar with icon over label, red count badge, sliding or capsule highlight; the floating capsule stays available (css/tabbar-telegram.css, js/tabbar-prefs.js)",
+    "New: Settings > Appearance > Tab bar - live preview, style, labels (always / active only / hidden), icon size, bar position (bottom / top), indicator (capsule / card / line / none), highlight colour, filled icons, blur, opacity, separator line, task badge (number / dot / off), New and Live tags, hide on scroll, tap feedback",
+    "New: choose which tabs show and drag to reorder them (Settings always stays); settings are saved on the device and shared between the dashboard and People pages",
+    "Improved: dashboard.html and people.html load the new tab bar files; service worker cache updated"
   ],
   "history": [
+    {
+      "version": "2.41.0",
+      "date": "2026-11-10",
+      "notes": [
+        "New: Telegram-style tab bar - full-width frosted bar with icon over label, red count badge, sliding or capsule highlight; the floating capsule stays available (css/tabbar-telegram.css, js/tabbar-prefs.js)",
+        "New: Settings > Appearance > Tab bar - live preview, style, labels (always / active only / hidden), icon size, bar position (bottom / top), indicator (capsule / card / line / none), highlight colour, filled icons, blur, opacity, separator line, task badge (number / dot / off), New and Live tags, hide on scroll, tap feedback",
+        "New: choose which tabs show and drag to reorder them (Settings always stays); settings are saved on the device and shared between the dashboard and People pages",
+        "Improved: dashboard.html and people.html load the new tab bar files; service worker cache updated"
+      ],
+      "critical": false
+    },
     {
       "version": "2.40.0",
       "date": "2026-11-10",
@@ -698,5 +707,5 @@
     }
   ],
   "critical": false,
-  "size": 5236601
+  "size": 5284774
 }

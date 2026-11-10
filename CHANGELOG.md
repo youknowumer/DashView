@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.41.0 - 2026-11-10
+- New: Telegram-style tab bar - full-width frosted bar with icon over label, red count badge, sliding or capsule highlight; the floating capsule stays available (css/tabbar-telegram.css, js/tabbar-prefs.js)
+- New: Settings > Appearance > Tab bar - live preview, style, labels (always / active only / hidden), icon size, bar position (bottom / top), indicator (capsule / card / line / none), highlight colour, filled icons, blur, opacity, separator line, task badge (number / dot / off), New and Live tags, hide on scroll, tap feedback
+- New: choose which tabs show and drag to reorder them (Settings always stays); settings are saved on the device and shared between the dashboard and People pages
+- Improved: dashboard.html and people.html load the new tab bar files; service worker cache updated
+
 ## 2.40.0 - 2026-11-10
 - Redesigned: Drill explorer (drill-in only) - one clear flow: Scope and filters card (period presets 7 days / 30 days / 90 days / 12 months / Year to date / All time and a custom From - To date range, Total / Average / Count measure, removable filter chips), a labelled Group by row with Records and Data checks as separate views, and a 4-step How it works guide that highlights where you are (css/exec-drill.css, js/exec-drill.js)
 - New: Add filter - pick a field, choose Is any of / Is none of, search the value list (each value shows its record count and amount, limited by the filters already applied) or set an amount range (at least / at most); every filter becomes a chip you can remove on its own, with Clear all, Back (Alt + Left) and Reset
