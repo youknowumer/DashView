@@ -96,12 +96,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('records tab lists a paged set of documents with "Open in Odoo" links', links.length === 25 && links[0].getAttribute('href') === 'https://acme.odoo.com/web#id=41&model=sale.order&view_type=form' && links[0].rel.includes('noopener'));
   ok('record values are HTML-escaped', !p().querySelector('img') && p().textContent.includes('<img src=x onerror=1>'));
   ok('record tools show bounded pagination and total count', p().querySelector('#dvdrPageInfo').textContent === 'Showing 1–25 of 600' && p().querySelector('[data-page="prev"]').disabled && !p().querySelector('[data-page="next"]').disabled);
-  p().querySelector('[data-page="next"]').click(); await wait(100);
+  p().querySelector('[data-page="next"]').click(); await wait(250);
   ok('Next page fetches records using an Odoo offset', bodies.filter((b) => b.endpoint === 'records').pop().offset === 25 && p().querySelectorAll('a.dvdr-open').length === 25);
-  p().querySelector('[data-page="prev"]').click(); await wait(100);
-  const search = p().querySelector('#dvdrSearch'); search.value = 'S0042'; search.dispatchEvent(new w.Event('input', { bubbles: true })); await wait(350);
+  p().querySelector('[data-page="prev"]').click(); await wait(250);
+  const search = p().querySelector('#dvdrSearch'); search.value = 'S0042'; search.dispatchEvent(new w.Event('input', { bubbles: true })); await wait(450);
   ok('record search applies a server-side ilike filter and resets pagination', bodies.filter((b) => b.endpoint === 'records').pop().domain.some((x) => Array.isArray(x) && x[1] === 'ilike') && p().querySelector('#dvdrPageInfo').textContent === 'Showing 1–1 of 1');
-  search.value = ''; search.dispatchEvent(new w.Event('input', { bubbles: true })); await wait(350);
+  search.value = ''; search.dispatchEvent(new w.Event('input', { bubbles: true })); await wait(450);
   let exported = null; F.download = (name, csv) => { exported = { name, csv }; };
   p().querySelector('#dvdrCsv').click(); await wait(100);
   const exportCalls = bodies.filter((b) => b.endpoint === 'records' && b.limit > 25);
@@ -167,6 +167,150 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('second click flips to ascending', bodies.filter((b) => b.endpoint === 'records').pop().order === 'amount_total asc, id desc');
   p().querySelector('#dvdrCsv').click(); await wait(400);
   ok('exports are recorded in the security log', logged.some((x) => /^Exported drill records\|sale\.order/.test(x)));
+  w.DVDrill.close();
+
+  /* ── v2.40 redesign: scope & filters, Add filter, exclude, multi-select, range, back / reset ─────────── */
+  w.localStorage.setItem('dashview_odoo_config', JSON.stringify({ url: 'https://acme.odoo.com', db: 'acme', username: 'a@b.c', apiKey: 'k', proxyUrl: 'https://w.example' }));
+  w.localStorage.removeItem('dashview_drill_guide_off');
+  w.DVDrill.open({ title: 'Revenue', model: 'sale.order', domain: [['state', 'in', ['sale', 'done']]], measure: 'amount_total', date: 'date_order', kind: 'money' });
+  await wait(300);
+  const q = (s) => p().querySelector(s), qa = (s) => Array.from(p().querySelectorAll(s));
+  const lastRG = () => bodies.filter((b) => b.endpoint === 'read-group').pop();
+  const chips = () => qa('.dvdr-crumb').map((x) => x.textContent);
+  ok('redesign: scope & filters card with Period, Measure and Filters rows', q('.dvdr-fl') && /Period/.test(q('#dvdrPRow').textContent) && /Measure/.test(q('#dvdrMRow').textContent) && /Filters/.test(q('.dvdr-fr-f').textContent));
+  ok('redesign: the "Group by" row is labelled and Records sits beside it as a view', /Group by/.test(q('.dvdr-bar').textContent) && q('.dvdr-tsep') && q('[data-dim="rec"]'));
+  ok('redesign: how-it-works guide shows 4 steps for a first visit and highlights the current one', !q('#dvdrGuide').hidden && qa('.dvdr-steps li').length === 4 && qa('.dvdr-steps li.is-now').length === 1);
+  q('[data-guide="off"]').click();
+  ok('redesign: "Got it" hides the guide and remembers it', q('#dvdrGuide').hidden && w.localStorage.getItem('dashview_drill_guide_off') === 'true');
+  q('#dvdrGuideBtn').click();
+  ok('redesign: the header button brings the guide back', !q('#dvdrGuide').hidden);
+  ok('redesign: period presets, All time and Custom are offered', ['7 days', '30 days', '90 days', '12 months', 'Year to date', 'All time', 'Custom…'].every((t) => qa('#dvdrPer .dvdr-pb').some((b) => b.textContent === t)) && q('#dvdrPer .is-on').textContent === '30 days');
+  ok('redesign: hero has a caption, summary tiles and a plain-language scope line', /Amount/.test(q('.dvdr-big > small').textContent) && qa('.dvdr-meta > span').length >= 3 && /Scope/.test(q('.dvdr-scope').textContent));
+  ok('redesign: rows have explicit Drill in and Exclude actions plus a tick box', q('tr.dvdr-r.is-pick .dvdr-ra.is-go') && q('tr.dvdr-r.is-pick .dvdr-ra.is-no') && q('tr.dvdr-r.is-pick input[data-sel]') && q('th input[data-selall]'));
+  ok('redesign: Back is hidden at the top level', q('#dvdrBack').hidden);
+
+  /* period preset */
+  bodies.length = 0; q('[data-per="90"]').click(); await wait(250);
+  const w90 = bodies.filter((b) => b.endpoint === 'read-group' && b.domain.some((x) => Array.isArray(x) && x[0] === 'date_order'));
+  ok('redesign: picking 90 days re-queries with the new window and marks it active', w90.length > 0 && q('[data-per="90"]').classList.contains('is-on') && !q('[data-per="30"]').classList.contains('is-on'));
+  /* custom date range: current window + equal-length previous window */
+  q('[data-per="custom"]').click();
+  ok('redesign: Custom shows the From / To inputs', !q('#dvdrCustom').hidden);
+  bodies.length = 0;
+  q('#dvdrFrom').value = '2026-03-01'; q('#dvdrTo').value = '2026-03-31'; q('[data-range="apply"]').click(); await wait(250);
+  const cd = bodies.filter((b) => b.endpoint === 'read-group').map((b) => JSON.stringify(b.domain)).join('|');
+  ok('redesign: custom range filters on both dates (end is exclusive next day)', cd.includes('["date_order",">=","2026-03-01"]') && cd.includes('["date_order","<","2026-04-01"]'));
+  ok('redesign: the previous period is the equal-length window before the range', cd.includes('["date_order",">=","2026-01-29"]') && cd.includes('["date_order","<","2026-03-01"]'));
+  ok('redesign: hero shows the range and previous-period label', /Mar/.test(q('.dvdr-big > small').textContent) && /previous 31 days/i.test(q('.dvdr-meta').textContent));
+  q('[data-per="30"]').click(); await wait(250);
+  ok('redesign: choosing a preset clears the custom range', !lastRG().domain.some((x) => Array.isArray(x) && x[2] === '2026-03-01'));
+
+  /* Add filter: any of */
+  q('#dvdrAddBtn').click(); await wait(250);
+  ok('redesign: Add filter opens a panel listing fields (no time fields) and the amount', !q('#dvdrAdd').hidden && q('#dvdrAF') && Array.from(q('#dvdrAF').options).some((o) => /Company/.test(o.textContent)) && !Array.from(q('#dvdrAF').options).some((o) => /Month|Day|Week/.test(o.textContent)) && Array.from(q('#dvdrAF').options).some((o) => o.value === '__m'));
+  ok('redesign: values load with record counts, respecting the current filters', qa('.dvdr-av').length === 2 && /Alpha/.test(q('.dvdr-av').textContent) && /8/.test(q('.dvdr-av em').textContent));
+  const sq = q('#dvdrAQ'); sq.value = 'beta'; sq.dispatchEvent(new w.Event('input', { bubbles: true }));
+  ok('redesign: the value list can be searched', qa('.dvdr-av').length === 1 && /Beta/.test(q('.dvdr-av').textContent));
+  sq.value = ''; sq.dispatchEvent(new w.Event('input', { bubbles: true }));
+  q('[data-add="apply"]').click();
+  ok('redesign: applying with nothing ticked explains what to do and adds no filter', /Tick at least one value/.test(q('#dvdrAInfo').textContent) && chips().length === 1);
+  const alpha = q('.dvdr-av input'); alpha.checked = true; alpha.dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok('redesign: ticked values are counted', /1 selected/.test(q('#dvdrAInfo').textContent));
+  bodies.length = 0; q('[data-add="apply"]').click(); await wait(300);
+  ok('redesign: a chip appears and queries carry the "in" filter', chips().some((t) => /Company: Alpha/.test(t)) && q('.dvdr-cw.kind-in') && bodies.filter((b) => b.endpoint === 'read-group').every((b) => JSON.stringify(b.domain).includes('["company_id","in",[1]]')) && q('#dvdrAdd').hidden);
+  ok('redesign: an "in" filter keeps its field available to break down by', !!q('[data-dim="company_id"]'));
+  ok('redesign: Back becomes available', !q('#dvdrBack').hidden);
+
+  /* amount range filter */
+  q('#dvdrAddBtn').click(); await wait(50);
+  const af = q('#dvdrAF'); af.value = '__m'; af.dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok('redesign: choosing the amount offers a min / max range', q('#dvdrAMin') && q('#dvdrAMax'));
+  q('[data-add="apply"]').click();
+  ok('redesign: an empty range is refused with a message', /minimum, a maximum/.test(q('#dvdrAInfo').textContent));
+  q('#dvdrAMin').value = '500'; q('#dvdrAMax').value = '100'; q('[data-add="apply"]').click();
+  ok('redesign: min larger than max is refused', /larger than the maximum/.test(q('#dvdrAInfo').textContent));
+  q('#dvdrAMax').value = '9000'; bodies.length = 0; q('[data-add="apply"]').click(); await wait(300);
+  ok('redesign: range filter adds a dashed chip and both bounds to the query', q('.dvdr-cw.kind-range') && bodies.filter((b) => b.endpoint === 'read-group').every((b) => { const s2 = JSON.stringify(b.domain); return s2.includes('["amount_total",">=",500]') && s2.includes('["amount_total","<=",9000]'); }));
+
+  /* remove just one chip */
+  const before = chips().length;
+  bodies.length = 0; q('.dvdr-cw.kind-range .dvdr-cx').click(); await wait(300);
+  ok('redesign: the x on a chip removes only that filter', chips().length === before - 1 && chips().some((t) => /Company: Alpha/.test(t)) && !bodies.filter((b) => b.endpoint === 'read-group').some((b) => JSON.stringify(b.domain).includes('amount_total')));
+  q('[data-clear-f]') && q('[data-clear-f]').click();
+  q('[data-crumb="0"]').click(); await wait(300);
+  ok('redesign: the first chip clears everything', chips().length === 1);
+
+  /* exclude a row */
+  const firstRow = () => q('tr.dvdr-r.is-pick');
+  bodies.length = 0; firstRow().querySelector('[data-ex]').click(); await wait(300);
+  ok('redesign: Exclude adds a "not equal" chip and filters it out of every query', chips().some((t) => /Company ≠ Alpha/.test(t)) && q('.dvdr-cw.kind-ex') && bodies.filter((b) => b.endpoint === 'read-group').every((b) => JSON.stringify(b.domain).includes('["company_id","!=",1]')));
+  ok('redesign: excluding does not jump to another breakdown', q('.dvdr-tab.is-on').textContent === 'Company' || !!q('.dvdr-tab.is-on'));
+  q('#dvdrBack').click(); await wait(300);
+  ok('redesign: Back removes the last filter', chips().length === 1);
+
+  /* keyboard: X excludes the focused row, Alt+Left goes back */
+  firstRow().dispatchEvent(new w.KeyboardEvent('keydown', { key: 'x', bubbles: true })); await wait(300);
+  ok('redesign: pressing X on a focused row excludes it', chips().some((t) => /≠/.test(t)));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true })); await wait(300);
+  ok('redesign: Alt+Left steps back', chips().length === 1);
+
+  /* multi-select: keep only / exclude these */
+  q('[data-dim="partner_id"]').click(); await wait(300);
+  const boxes = () => qa('input[data-sel]');
+  ok('redesign: the selection bar is hidden until something is ticked', q('#dvdrSelBar').hidden);
+  boxes()[0].checked = true; boxes()[0].dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok('redesign: ticking a row shows the bar with the count and the share of total', !q('#dvdrSelBar').hidden && /1 selected/.test(q('#dvdrSelBar').textContent) && /70\.0%/.test(q('#dvdrSelBar').textContent) && firstRow().classList.contains('is-sel'));
+  q('th input[data-selall]').checked = true; q('th input[data-selall]').dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok('redesign: the header box selects every shown row', /2 selected/.test(q('#dvdrSelBar').textContent) && boxes().every((b) => b.checked));
+  q('[data-selact="clear"]').click();
+  ok('redesign: Clear empties the selection', q('#dvdrSelBar').hidden && boxes().every((b) => !b.checked));
+  boxes()[0].checked = true; boxes()[0].dispatchEvent(new w.Event('change', { bubbles: true }));
+  bodies.length = 0; q('[data-selact="in"]').click(); await wait(300);
+  ok('redesign: Keep only these filters to the ticked customers', chips().some((t) => /Customer: Acme Ltd/.test(t)) && bodies.filter((b) => b.endpoint === 'read-group').every((b) => JSON.stringify(b.domain).includes('["partner_id","in",[7]]')));
+  q('[data-crumb="0"]').click(); await wait(300);
+  q('[data-dim="partner_id"]').click(); await wait(300);
+  boxes()[1].checked = true; boxes()[1].dispatchEvent(new w.Event('change', { bubbles: true }));
+  bodies.length = 0; q('[data-selact="out"]').click(); await wait(300);
+  ok('redesign: Exclude these uses "not in"', chips().some((t) => /Customer ≠ Zed Corp/.test(t)) && bodies.filter((b) => b.endpoint === 'read-group').every((b) => JSON.stringify(b.domain).includes('["partner_id","not in",[8]]')));
+  q('[data-crumb="0"]').click(); await wait(300);
+
+  /* list filters: minimum value, change, search, chart size */
+  const rowsNow = () => qa('tr.dvdr-r.is-pick');
+  ok('redesign: both companies are listed before filtering', rowsNow().length === 2);
+  const mn = q('#dvdrMin'); mn.value = '600'; mn.dispatchEvent(new w.Event('input', { bubbles: true }));
+  ok('redesign: minimum value hides smaller rows and says how many are shown', rowsNow().length === 1 && /1 of 2 shown/.test(q('#dvdrFilterInfo').textContent) && /% of total/.test(q('#dvdrFilterInfo').textContent) && !q('#dvdrFilterTools').hidden);
+  mn.value = ''; mn.dispatchEvent(new w.Event('input', { bubbles: true }));
+  ok('redesign: clearing the minimum brings the rows back', rowsNow().length === 2);
+  ok('redesign: change filter counts rising / falling / new', !q('#dvdrChgW').hidden && /Rising\s*2/.test(q('#dvdrChg').textContent) && /Falling\s*0/.test(q('#dvdrChg').textContent));
+  q('[data-chg="down"]').click();
+  ok('redesign: a filter with no matches explains itself and offers a way out', rowsNow().length === 0 && /No rows match these list filters/.test(q('#dvdrBody').textContent) && q('[data-clear-rows]'));
+  q('[data-clear-rows]').click();
+  ok('redesign: "Clear list filters" restores the list', rowsNow().length === 2 && q('[data-chg="all"]').classList.contains('is-on'));
+  const topSel = q('#dvdrTop'); topSel.value = '10'; topSel.dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok('redesign: chart size can be changed without reloading', rowsNow().length === 2 && q('#dvdrTop').value === '10');
+  ok('redesign: filtered CSV exports only what is shown', (() => { const f = q('#dvdrRowFilter'); f.value = 'beta'; f.dispatchEvent(new w.Event('input', { bubbles: true })); let got = null; F.download = (n, c) => { got = c; }; q('#dvdrCsv').click(); const lines = got.trim().split('\r\n'); f.value = ''; f.dispatchEvent(new w.Event('input', { bubbles: true })); return lines.length === 2 && /Beta/.test(lines[1]); })());
+
+  /* copy summary */
+  let copied = '';
+  Object.defineProperty(w.navigator, 'clipboard', { value: { writeText: (t) => { copied = t; return Promise.resolve(); } }, configurable: true });
+  q('#dvdrCopy').click(); await wait(30);
+  ok('redesign: Copy summary copies scope, total and the top rows as text', /Revenue – drill summary/.test(copied) && /Scope:/.test(copied) && /By Company:/.test(copied) && /1\. Alpha/.test(copied));
+
+  /* Escape closes the Add filter panel first, then the explorer */
+  q('#dvdrAddBtn').click(); await wait(250);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  ok('redesign: Escape closes the Add filter panel before the explorer', p() && q('#dvdrAdd').hidden);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  ok('redesign: a second Escape closes the explorer', !p());
+
+  /* Reset returns to how the explorer opened */
+  w.DVDrill.open({ title: 'Revenue', model: 'sale.order', measure: 'amount_total', date: 'date_order', kind: 'money', crumbs: [{ label: 'Company: Beta', domain: [['company_id', '=', 2]], dim: 'company_id' }] });
+  await wait(300);
+  q('[data-per="all"]').click(); await wait(250);
+  firstRow() && firstRow().querySelector('[data-ex]') && firstRow().querySelector('[data-ex]').click(); await wait(300);
+  ok('redesign: a seeded chip can be removed without touching the others', chips().length >= 2);
+  q('#dvdrReset').click(); await wait(300);
+  ok('redesign: Reset restores the seeded filter, period and measure', chips().length === 2 && /Company: Beta/.test(chips()[1]) && !q('[data-per="all"]').classList.contains('is-on') && q('[data-metric="sum"]').classList.contains('is-on'));
   w.DVDrill.close();
 
   /* ── Data checks tab ──────────────────────────────────────────────── */

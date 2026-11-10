@@ -179,3 +179,151 @@
 .dvdr-hp.is-bad { background: color-mix(in srgb, var(--st-bad) 14%, transparent); color: var(--st-bad); }
 @media (max-width: 760px) { .dvdr-dq-doc { grid-template-columns: 1fr; } .dvdr-dq-co { margin-left: 0; } }
 @media print { .dvdr { display: none; } }
+
+/* ==========================================================================
+   v2.40 — Drill explorer redesign (drill-in only)
+   Scope & filters card · labelled Group by · explicit row actions · multi-select ·
+   Add filter panel · guide · selection bar · summary tiles. Shared tokens only.
+   ========================================================================== */
+.dvdr [hidden] { display: none !important; }
+.dvdr-panel { width: min(1060px, 97vw); }
+.dvdr-h { padding: 16px 22px 8px; }
+.dvdr-ht { min-width: 0; }
+.dvdr-sub { margin: 4px 0 0; max-width: 64ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; color: var(--ink-50); }
+.dvdr-hb { display: flex; align-items: center; gap: 8px; flex: none; }
+.dvdr-hbtn { padding: 6px 12px; border: 1px solid var(--line); border-radius: 99px; background: var(--paper-soft); color: var(--ink-70); font: 600 .75rem var(--f-body); cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.dvdr-hbtn:hover { color: var(--ink); border-color: var(--signal); }
+.dvdr-hbtn[aria-pressed="true"] { color: var(--ink); background: var(--signal-10); border-color: var(--signal); }
+.dvdr-hbtn:focus-visible, .dvdr-add:focus-visible, .dvdr-ra:focus-visible, .dvdr-cx:focus-visible, .dvdr-clear:focus-visible, .dvdr-gx:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.dvdr-lb { flex: none; min-width: 66px; font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.dvdr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Guide */
+.dvdr-guide { display: flex; align-items: center; gap: 14px; margin: 2px 22px 10px; padding: 10px 12px 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper-soft); }
+.dvdr-steps { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; flex: 1; margin: 0; padding: 0; }
+.dvdr-steps li { display: flex; gap: 8px; align-items: flex-start; font-size: .75rem; line-height: 1.35; color: var(--ink-50); }
+.dvdr-steps li b { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--paper); color: var(--ink-70); font: 700 11px var(--f-mono); }
+.dvdr-steps li strong { display: block; color: var(--ink); font-size: .78rem; }
+.dvdr-steps li.is-now b { background: var(--signal); border-color: var(--signal); color: var(--on-signal, #fff); }
+.dvdr-gx { flex: none; padding: 5px 12px; border: 1px solid var(--line); border-radius: 99px; background: var(--paper); color: var(--ink-70); font: 600 .72rem var(--f-body); cursor: pointer; }
+.dvdr-gx:hover { color: var(--ink); border-color: var(--signal); }
+
+/* Scope & filters card */
+.dvdr-fl { margin: 0 22px; padding: 4px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper-soft); }
+.dvdr-fr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; }
+.dvdr-fr + .dvdr-fr { border-top: 1px solid var(--line); }
+.dvdr-fl .dvdr-per { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; background: var(--paper); scrollbar-width: none; }
+.dvdr-fl .dvdr-per::-webkit-scrollbar { display: none; }
+.dvdr-pb { white-space: nowrap; }
+.dvdr-pb i { font-style: normal; margin-left: 4px; font-size: .68rem; color: var(--ink-50); font-variant-numeric: tabular-nums; }
+.dvdr-custom { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.dvdr-custom label { display: grid; gap: 3px; font: 600 .68rem var(--f-body); color: var(--ink-50); }
+.dvdr-fr-f { align-items: flex-start; }
+.dvdr-fr-f .dvdr-lb { padding-top: 6px; }
+.dvdr-fr-f .dvdr-cr { flex: 1; min-width: 0; padding: 0; }
+.dvdr-cr nav { gap: 6px; }
+
+/* Filter chips: label = go back to that step, x = remove only this filter */
+.dvdr-cw { display: inline-flex; align-items: center; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--paper); overflow: hidden; }
+.dvdr-cw .dvdr-crumb { border: 0; border-radius: 0; background: transparent; padding: 4px 4px 4px 11px; }
+.dvdr-cw .dvdr-crumb.is-here { background: transparent; color: var(--ink); }
+.dvdr-cw.is-last { border-color: var(--signal); background: var(--signal-10); }
+.dvdr-cw.kind-ex { border-color: var(--st-bad); background: transparent; }
+.dvdr-cw.kind-ex .dvdr-crumb { color: var(--st-bad); }
+.dvdr-cw.kind-in { border-color: var(--signal); }
+.dvdr-cw.kind-range { border-style: dashed; }
+.dvdr-cx { flex: none; padding: 4px 9px 4px 5px; border: 0; background: transparent; color: var(--ink-50); font-size: 11px; line-height: 1; cursor: pointer; }
+.dvdr-cx:hover { color: var(--st-bad); }
+.dvdr-clear { padding: 4px 6px; border: 0; background: none; color: var(--ink-50); font: 600 .75rem var(--f-body); text-decoration: underline; cursor: pointer; }
+.dvdr-clear:hover { color: var(--ink); }
+.dvdr-add { flex: none; padding: 5px 13px; border: 1px dashed var(--line-strong); border-radius: 99px; background: transparent; color: var(--ink-70); font: 600 .75rem var(--f-body); cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.dvdr-add:hover:not(:disabled), .dvdr-add.is-on { color: var(--ink); border-color: var(--signal); background: var(--signal-10); border-style: solid; }
+.dvdr-add:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Add filter panel */
+.dvdr-addp { padding: 10px 0 8px; border-top: 1px solid var(--line); }
+.dvdr-ap { display: grid; gap: 10px; }
+.dvdr-af, .dvdr-ar label { display: grid; gap: 4px; max-width: 320px; font: 600 .72rem var(--f-body); color: var(--ink-50); }
+.dvdr-ar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.dvdr-ar p { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--ink-50); }
+.dvdr-ac { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dvdr-ac input[type="search"] { flex: 1; min-width: 160px; }
+.dvdr-al { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.dvdr-av { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: .8125rem; color: var(--ink); cursor: pointer; }
+.dvdr-av:last-child { border-bottom: 0; }
+.dvdr-av:hover { background: var(--signal-10); }
+.dvdr-av span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dvdr-av em { font-style: normal; font-size: .72rem; color: var(--ink-50); font-variant-numeric: tabular-nums; }
+.dvdr-al-load { padding: 18px 12px; text-align: center; font-size: .8125rem; color: var(--ink-50); }
+.dvdr-aa { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.dvdr-aa span { margin-right: auto; font-size: .75rem; color: var(--ink-50); }
+.dvdr-aa span.is-error { color: var(--st-bad); }
+.dvdr-fl select, .dvdr-fl input[type="number"], .dvdr-fl input[type="date"], .dvdr-fl input[type="search"], .dvdr-tools select, .dvdr-tools input[type="number"] { padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font: 500 .8rem var(--f-body); }
+.dvdr-fl select:focus-visible, .dvdr-fl input:focus-visible, .dvdr-tools select:focus-visible, .dvdr-tools input:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+.dvdr-av input, .dvdr-tb .ck input { accent-color: var(--signal); width: 15px; height: 15px; cursor: pointer; }
+
+/* Summary hero */
+.dvdr-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 24px; padding: 14px 22px 12px; }
+.dvdr-big { display: grid; gap: 2px; }
+.dvdr-big > small { font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.dvdr-bigv { display: flex; align-items: baseline; gap: 12px; }
+.dvdr-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.dvdr-meta > span { display: flex; flex-direction: column; gap: 2px; min-width: 112px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-soft); }
+.dvdr-meta small { font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+.dvdr-meta b { font-size: .9rem; }
+.dvdr-scope { grid-column: 1 / -1; margin: 0; font-size: .75rem; color: var(--ink-50); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dvdr-scope b { margin-right: 8px; font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-70); }
+
+/* Group by */
+.dvdr-bar { display: flex; flex-wrap: nowrap; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 12px 22px 6px; }
+.dvdr-bar .dvdr-lb { padding-top: 8px; }
+.dvdr-bar .dvdr-tabs { flex: 1; min-width: 0; align-items: center; }
+.dvdr-tsep { align-self: center; margin-left: 6px; padding: 0 4px 0 12px; border-left: 1px solid var(--line-strong); font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-50); }
+
+/* List filters */
+.dvdr-tools { align-items: end; gap: 10px 14px; }
+.dvdr-tools label { min-width: 0; }
+.dvdr-tools #dvdrMin { width: 120px; min-width: 0; }
+.dvdr-tools #dvdrRowFilter { min-width: min(220px, 60vw); }
+.dvdr-chgw { display: grid; gap: 4px; }
+.dvdr-chgw .dvdr-lb { min-width: 0; font-size: .72rem; font-family: var(--f-body); letter-spacing: 0; text-transform: none; font-weight: 600; }
+.dvdr-fi { align-self: center; flex: 1; min-width: 130px; font-size: .75rem; color: var(--ink-50); }
+.dvdr-tools > .dvdr-fi { text-align: right; }
+
+/* Selection bar */
+.dvdr-selbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 6px 22px 0; padding: 8px 12px; border: 1px solid var(--signal); border-radius: 12px; background: var(--signal-10); font-size: .8125rem; color: var(--ink); }
+.dvdr-selbar > div { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Rows: checkbox + explicit actions (the old trailing arrow is gone) */
+.dvdr-r.is-pick .nm span::after { content: none !important; }
+.dvdr-tb .ck { width: 34px; padding-right: 0; text-align: center; }
+.dvdr-r.is-sel td { background: var(--signal-10); }
+.dvdr-tb .act { width: 1%; text-align: right; white-space: nowrap; }
+.dvdr-ra { margin-left: 6px; padding: 4px 11px; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--paper); color: var(--ink-70); font: 600 .72rem var(--f-body); cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.dvdr-ra.is-go { color: var(--signal); border-color: var(--signal); }
+.dvdr-ra.is-go:hover { background: var(--signal-10); }
+.dvdr-ra.is-no { opacity: .7; }
+.dvdr-ra.is-no:hover, .dvdr-r:hover .dvdr-ra.is-no, .dvdr-r:focus-within .dvdr-ra.is-no { opacity: 1; }
+.dvdr-ra.is-no:hover { color: var(--st-bad); border-color: var(--st-bad); }
+.dvdr-empty-a { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.dvdr-empty-a .btn { margin-top: 0; }
+.dvdr-f > div { flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .dvdr-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dvdr-hero { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .dvdr-guide, .dvdr-fl, .dvdr-selbar { margin-left: 14px; margin-right: 14px; }
+  .dvdr-guide { flex-direction: column; align-items: stretch; }
+  .dvdr-fl { padding: 2px 12px; }
+  .dvdr-bar { flex-direction: column; gap: 4px; }
+  .dvdr-bar .dvdr-lb { padding-top: 0; }
+  .dvdr-hb .dvdr-hbtn:not(#dvdrBack) { display: none; }
+  .dvdr-ra.is-no { display: none; }
+  .dvdr-tools #dvdrMin, .dvdr-tools select { width: 100%; }
+  .dvdr-tools > .dvdr-fi { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .dvdr-hbtn, .dvdr-add, .dvdr-ra { transition: none; } }
+@media (forced-colors: active) { .dvdr-cw.is-last, .dvdr-add.is-on, .dvdr-selbar, .dvdr-r.is-sel td { outline: 2px solid Highlight; } }
+@media print { .dvdr-guide, .dvdr-addp, .dvdr-selbar, .dvdr-ra, .dvdr-cx, .dvdr-add { display: none !important; } }

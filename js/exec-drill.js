@@ -14,6 +14,12 @@
    • Exports are written to the local security log (what, how many rows).
    • Data checks tab (products, contacts): duplicate names, missing / duplicate / badly formatted internal
      references and reference-base conflicts, with severity, drill into the affected records and CSV export.
+   v2.40 redesign (drill-in only):
+   • Scope & filters card: period presets + custom date range, measure switch, removable filter chips, "+ Add filter" (is any of / is none of, searchable value list with counts, amount range).
+   • Group by row labelled; Records / Data checks sit beside it as views. Optional "How it works" guide (4 steps).
+   • Rows have explicit "Drill in" and "Exclude" actions; tick several rows to keep or exclude them together.
+   • Breakdown filters: search, minimum value, change (rising / falling / new), chart size; "x of y shown, z% of total".
+   • Back button, Reset all, Copy summary, Alt+Left = back, / = search.
    API: DVDrill.open({ title, model, domain, measure, date, kind, inverse, crumbs, companyIds, metric })
    ========================================================================== */
 (function () {
@@ -34,6 +40,10 @@
   var SORTABLE = ['char', 'text', 'integer', 'float', 'monetary', 'date', 'datetime', 'many2one', 'selection', 'boolean'];
 
   var D = null, seq = 0, opener = null;
+  var GUIDE_KEY = 'dashview_drill_guide_off';
+  var PRESETS = [['7', '7 days', 7], ['30', '30 days', 30], ['90', '90 days', 90], ['365', '12 months', 365], ['ytd', 'Year to date', -1]];
+  var CHG = [['all', 'All'], ['up', 'Rising'], ['down', 'Falling'], ['new', 'New']];
+  var TOPS = [10, 15, 25, 50];
 
   function $(id) { return document.getElementById(id); }
   function jget(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
@@ -43,6 +53,28 @@
     var n = new Date(); return Math.max(1, Math.ceil((n - new Date(n.getFullYear(), 0, 1)) / 864e5));
   }
   function periodText() { var p = jget(PERIOD_KEY, 30); return p === -1 ? 'year to date' : p === 365 ? '12 months' : p + ' days'; }
+  function z2(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(d) { return d.getFullYear() + '-' + z2(d.getMonth() + 1) + '-' + z2(d.getDate()); }
+  function parseYmd(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+  function addDays(v, n) { var d = parseYmd(v); d.setDate(d.getDate() + n); return ymd(d); }
+  function dayCount(a, b) { return Math.round((parseYmd(b) - parseYmd(a)) / 864e5) + 1; }
+  function niceDate(v) { var d = parseYmd(v); return d ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : String(v); }
+  function ytdDays() { var n = new Date(); return Math.max(1, Math.ceil((n - new Date(n.getFullYear(), 0, 1)) / 864e5)); }
+  function perFromGlobal() { var p = jget(PERIOD_KEY, 30); return p === -1 ? 'ytd' : String(p); }
+  function presetList() {
+    var l = PRESETS.slice();
+    if (D && /^\d+$/.test(D.per || '') && !l.some(function (x) { return x[0] === D.per; })) { l.push([D.per, D.per + ' days', +D.per]); l.sort(function (a, b) { return (a[2] < 0 ? 366 : a[2]) - (b[2] < 0 ? 366 : b[2]); }); }
+    return l;
+  }
+  function perText() {
+    if (D.all) return 'all time';
+    if (D.range) return niceDate(D.range.from) + ' \u2013 ' + niceDate(D.range.to);
+    var p = presetList().filter(function (x) { return x[0] === D.per; })[0];
+    return p ? p[1].toLowerCase() : D.days + ' days';
+  }
+  function prevText() { return D.range ? 'previous ' + dayCount(D.range.from, D.range.to) + ' days' : perText(); }
+  function toast(m) { if (window.showToast) window.showToast(m); }
+  function listNames(a) { var n = a.map(function (x) { return x.label; }); return short(n.slice(0, 2).join(', '), 40) + (n.length > 2 ? ' +' + (n.length - 2) : ''); }
   function short(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
   function compact(v) {
     var a = Math.abs(v);
@@ -54,7 +86,11 @@
   function money() { return D.spec.kind === 'money' && D.metric !== 'count'; }
   function metricLabel() { return D.metric === 'count' ? 'Count' : D.metric === 'avg' ? 'Average per record' : (D.spec.kind === 'money' ? 'Amount' : 'Total'); }
   function curDim() { return D.dims.filter(function (x) { return x.id === D.dim; })[0]; }
-  function resetRows() { D.rowFilter = ''; D.sort = null; var f = $('dvdrRowFilter'); if (f) f.value = ''; }
+  function resetRows() {
+    D.rowFilter = ''; D.sort = null; D.minVal = null; D.chg = 'all'; D.sel = {};
+    var f = $('dvdrRowFilter'); if (f) f.value = '';
+    var m = $('dvdrMin'); if (m) m.value = '';
+  }
   function odooBase(c) { try { var u = new URL(String((c && c.url) || '')); return /^https?:$/.test(u.protocol) && !u.username && !u.password ? u.origin + u.pathname.replace(/\/+$/, '') : ''; } catch (e) { return ''; } }
   function secLog(what, detail) { try { if (window.DVSec && window.DVSec.log) window.DVSec.log(what, detail, 'ok'); } catch (e) {} }
   function fv(v, big) { return money() ? F.money(v, big !== false && Math.abs(v) >= 1e5) : F.num(v, 0); }
@@ -76,6 +112,12 @@
   }
   function window_(prev) {
     if (!D.spec.date || D.all) return [];
+    if (D.range) {
+      var from = D.range.from, to = D.range.to;
+      if (!prev) return [[D.spec.date, '>=', from], [D.spec.date, '<', addDays(to, 1)]];
+      var span = dayCount(from, to);
+      return [[D.spec.date, '>=', addDays(from, -span)], [D.spec.date, '<', from]];
+    }
     var n = D.days;
     return prev ? [[D.spec.date, '>=', PR.ago(n * 2)], [D.spec.date, '<', PR.ago(n)]] : [[D.spec.date, '>=', PR.ago(n)]];
   }
@@ -102,7 +144,19 @@
     SELECTIONS.filter(function (k) { return f[k] && f[k].type === 'selection'; }).slice(0, 2).forEach(function (k) { dims.push({ id: k, label: f[k].string || k, gb: k, field: k, sel: f[k].selection || [] }); });
     return dims;
   }
-  function usedFields() { return D.crumbs.map(function (c) { return c.dim; }); }
+  function usedFields() { return D.crumbs.filter(function (c) { return !c.kind || c.kind === 'drill'; }).map(function (c) { return c.dim; }).filter(Boolean); }
+  function ensureDim() {
+    if (D.dim === 'rec' || D.dim === 'dq') return;
+    var d = D.dims.filter(function (x) { return x.id === D.dim; })[0];
+    if (!d || usedFields().indexOf(d.id) > -1) D.dim = pickDefault();
+  }
+  function syncTimeAll() { if (!D.crumbs.some(function (c) { return TIME_IDS.indexOf(c.dim) > -1; })) D.all = !D.spec.date || D.per === 'all'; }
+  function scopeText() {
+    var p = [];
+    D.crumbs.forEach(function (c) { p.push(c.label); });
+    p.push(D.spec.date ? (D.all ? 'All time' : D.range ? perText() : 'Last ' + perText()) : 'All records');
+    return p.join(' \u00B7 ');
+  }
   function pickDefault() {
     var used = usedFields(), first = D.dims.filter(function (x) { return !x.bad; });
     var open = first.filter(function (x) { return used.indexOf(x.id) < 0 && !(x.time && used.some(function (u) { return TIME_IDS.indexOf(u) > -1; })); });
@@ -117,20 +171,36 @@
     if (!spec || !spec.model) return;
     close(true);
     opener = from || document.activeElement;
-    D = { spec: spec, crumbs: (spec.crumbs || []).map(function (c) { return { label: c.label, domain: c.domain, dim: c.dim || '' }; }), days: periodDays(), all: !spec.date, dims: [], dim: null, rows: [], tot: null, mode: 'dim', recOffset: 0, searchTerm: '', recSeq: 0, metric: spec.measure && /^(sum|avg|count)$/.test(spec.metric || '') ? spec.metric : (spec.measure ? 'sum' : 'count'), sort: null, rowFilter: '', recSort: null, dq: null, dqSev: 'all', dqView: 'check', dqCo: 'all', dqOpen: {}, dqShow: {}, dqQ: '', dqCat: '', dqGroups: {} };
+    D = { spec: spec, crumbs: (spec.crumbs || []).map(function (c) { return { label: c.label, domain: c.domain, dim: c.dim || '' }; }), days: periodDays(), all: !spec.date, per: spec.date ? perFromGlobal() : 'all', range: null, customOpen: false, chg: 'all', minVal: null, topN: TOPS[1], sel: {}, vis: [], guide: !jget(GUIDE_KEY, false), add: { open: false, field: '', op: 'in', vals: null, sel: {}, q: '', seq: 0 }, dims: [], dim: null, rows: [], tot: null, mode: 'dim', recOffset: 0, searchTerm: '', recSeq: 0, metric: spec.measure && /^(sum|avg|count)$/.test(spec.metric || '') ? spec.metric : (spec.measure ? 'sum' : 'count'), sort: null, rowFilter: '', recSort: null, dq: null, dqSev: 'all', dqView: 'check', dqCo: 'all', dqOpen: {}, dqShow: {}, dqQ: '', dqCat: '', dqGroups: {} };
     var el = document.createElement('div'); el.id = 'dvdr'; el.className = 'dvdr';
     el.innerHTML = '<div class="dvdr-back" data-x="1"></div><aside class="dvdr-panel" role="dialog" aria-modal="true" aria-labelledby="dvdrT">' +
-      '<header class="dvdr-h"><div><small>Drill explorer</small><h3 id="dvdrT">' + esc(spec.title || spec.model) + '</h3></div><button type="button" class="dvdr-x" data-x="1" aria-label="Close drill explorer">\u2715</button></header>' +
-      '<div id="dvdrCr" class="dvdr-cr"></div><div id="dvdrHero" class="dvdr-hero"></div>' +
-      '<div class="dvdr-bar"><div id="dvdrTabs" class="dvdr-tabs" role="tablist" aria-label="Break down by"></div><div id="dvdrMetric" class="dvdr-per" role="group" aria-label="Measure"></div><div id="dvdrPer" class="dvdr-per"></div></div>' +
-      '<div id="dvdrFilterTools" class="dvdr-record-tools" hidden><label>Filter rows<input id="dvdrRowFilter" type="search" maxlength="80" placeholder="Type to filter this list" autocomplete="off"></label><span id="dvdrFilterInfo"></span></div>' +
+      '<header class="dvdr-h"><div class="dvdr-ht"><small>Drill explorer</small><h3 id="dvdrT">' + esc(spec.title || spec.model) + '</h3><p id="dvdrSub" class="dvdr-sub"></p></div>' +
+      '<div class="dvdr-hb"><button type="button" class="dvdr-hbtn" id="dvdrBack" data-back="1" hidden>\u2039 Back</button><button type="button" class="dvdr-hbtn" data-guide="toggle" id="dvdrGuideBtn" aria-controls="dvdrGuide">How it works</button><button type="button" class="dvdr-x" data-x="1" aria-label="Close drill explorer">\u2715</button></div></header>' +
+      '<div id="dvdrGuide" class="dvdr-guide" hidden></div>' +
+      '<section class="dvdr-fl" aria-label="Scope and filters">' +
+        '<div class="dvdr-fr" id="dvdrPRow"><span class="dvdr-lb" id="dvdrLbP">Period</span><div id="dvdrPer" class="dvdr-per" role="group" aria-labelledby="dvdrLbP"></div>' +
+          '<div id="dvdrCustom" class="dvdr-custom" hidden><label>From<input id="dvdrFrom" type="date"></label><label>To<input id="dvdrTo" type="date"></label><button type="button" class="btn btn-outline btn-sm" data-range="apply">Apply</button></div></div>' +
+        '<div class="dvdr-fr" id="dvdrMRow"><span class="dvdr-lb" id="dvdrLbM">Measure</span><div id="dvdrMetric" class="dvdr-per" role="group" aria-labelledby="dvdrLbM"></div></div>' +
+        '<div class="dvdr-fr dvdr-fr-f"><span class="dvdr-lb">Filters</span><div id="dvdrCr" class="dvdr-cr"></div><button type="button" class="dvdr-add" id="dvdrAddBtn" data-add="toggle" aria-expanded="false" aria-controls="dvdrAdd">+ Add filter</button></div>' +
+        '<div id="dvdrAdd" class="dvdr-addp" hidden></div>' +
+      '</section>' +
+      '<div id="dvdrHero" class="dvdr-hero"></div>' +
+      '<div class="dvdr-bar"><span class="dvdr-lb" id="dvdrLbG">Group by</span><div id="dvdrTabs" class="dvdr-tabs" role="tablist" aria-labelledby="dvdrLbG"></div></div>' +
+      '<div id="dvdrFilterTools" class="dvdr-record-tools dvdr-tools" hidden>' +
+        '<label>Search<input id="dvdrRowFilter" type="search" maxlength="80" placeholder="Search this list ( / )" autocomplete="off"></label>' +
+        '<label id="dvdrMinL">Minimum value<input id="dvdrMin" type="number" min="0" step="any" placeholder="0" inputmode="decimal"></label>' +
+        '<div id="dvdrChgW" class="dvdr-chgw" hidden><span class="dvdr-lb">Change</span><div id="dvdrChg" class="dvdr-per" role="group" aria-label="Change vs previous period"></div></div>' +
+        '<label id="dvdrTopL">Chart shows<select id="dvdrTop">' + TOPS.map(function (n) { return '<option value="' + n + '"' + (n === TOPS[1] ? ' selected' : '') + '>Top ' + n + '</option>'; }).join('') + '</select></label>' +
+        '<span id="dvdrFilterInfo" class="dvdr-fi" aria-live="polite"></span></div>' +
+      '<div id="dvdrSelBar" class="dvdr-selbar" hidden></div>' +
       '<div id="dvdrRecordTools" class="dvdr-record-tools" hidden><label>Search records<input id="dvdrSearch" type="search" maxlength="120" placeholder="Search this selection" autocomplete="off"></label><span id="dvdrPageInfo"></span><div><button type="button" class="btn btn-outline btn-sm" data-page="prev">Previous</button><button type="button" class="btn btn-outline btn-sm" data-page="next">Next</button></div></div>' +
       '<div id="dvdrBody" class="dvdr-body"><div class="olx-skel"></div></div>' +
-      '<footer class="dvdr-f"><span id="dvdrNote"></span><div><button type="button" class="btn btn-outline btn-sm" id="dvdrCsv">Export CSV</button><button type="button" class="btn btn-outline btn-sm" data-x="1">Close</button></div></footer></aside>';
+      '<footer class="dvdr-f"><span id="dvdrNote"></span><div><button type="button" class="btn btn-outline btn-sm" id="dvdrReset" data-reset="1">Reset</button><button type="button" class="btn btn-outline btn-sm" id="dvdrCopy" data-copy="1">Copy summary</button><button type="button" class="btn btn-outline btn-sm" id="dvdrCsv">Export CSV</button><button type="button" class="btn btn-outline btn-sm" data-x="1">Close</button></div></footer></aside>';
     document.body.appendChild(el);
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', onKey);
     el.addEventListener('input', onInput);
+    el.addEventListener('change', onChange);
     document.addEventListener('keydown', docKey);
     var x = el.querySelector('.dvdr-x'); if (x) x.focus();
     var my = ++seq;
@@ -147,10 +217,17 @@
     if (!silent) opener = null;
   }
   function docKey(e) {
-    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); if (D && D.add && D.add.open) { D.add.open = false; paintAdd(); paintChrome(); return; } close(); return; }
+    if (D && e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); return; }
+    var tg = e.target && e.target.tagName;
+    if (D && e.key === '/' && !e.ctrlKey && !e.metaKey && tg !== 'INPUT' && tg !== 'TEXTAREA' && tg !== 'SELECT') {
+      var sf = (D.mode === 'rec' ? $('dvdrSearch') : $('dvdrRowFilter'));
+      if (sf && !sf.disabled && !sf.closest('[hidden]')) { e.preventDefault(); sf.focus(); }
+      return;
+    }
     if (e.key !== 'Tab') return;
     var p = $('dvdr'); if (!p) return;
-    var f = p.querySelectorAll('button:not([disabled]),[href],[tabindex]:not([tabindex="-1"])'); if (!f.length) return;
+    var f = Array.prototype.filter.call(p.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'), function (n) { return !n.closest('[hidden]'); }); if (!f.length) return;
     if (!p.contains(document.activeElement)) { f[0].focus(); e.preventDefault(); return; }
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
     else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
@@ -158,6 +235,7 @@
   function onKey(e) {
     if (!e.target.matches || !e.target.matches('[data-i][tabindex]')) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.target.click(); return; }
+    if ((e.key === 'x' || e.key === 'X') && D) { e.preventDefault(); excludeRow(+e.target.getAttribute('data-i')); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       var n = e.key === 'ArrowDown' ? e.target.nextElementSibling : e.target.previousElementSibling;
       if (n && n.matches('[data-i]')) { e.preventDefault(); n.focus(); }
@@ -166,6 +244,21 @@
   function onClick(e) {
     var t = e.target;
     if (t.closest('[data-x]')) { close(); return; }
+    if (t.closest('[data-back]')) { goBack(); return; }
+    if (t.closest('[data-reset]')) { resetAll(); return; }
+    if (t.closest('[data-copy]')) { copySummary(); return; }
+    if (t.closest('[data-clear-rows]')) { resetRows(); var cdm = curDim(); if (cdm && D.rows.length) paintDim(cdm); return; }
+    var gd = t.closest('[data-guide]');
+    if (gd) { var gm = gd.getAttribute('data-guide'); if (gm === 'off') { try { localStorage.setItem(GUIDE_KEY, 'true'); } catch (x) {} D.guide = false; } else D.guide = !D.guide; paintGuide(); return; }
+    var rm = t.closest('[data-rm]'); if (rm) { removeCrumb(+rm.getAttribute('data-rm')); return; }
+    if (t.closest('[data-clear-f]')) { goCrumb(0); return; }
+    var ad = t.closest('[data-add]'); if (ad) { addAction(ad.getAttribute('data-add')); return; }
+    var aop = t.closest('[data-add-op]'); if (aop) { D.add.op = aop.getAttribute('data-add-op'); paintAdd(); return; }
+    if (t.closest('[data-add-all]')) { addPickShown(true); return; }
+    if (t.closest('[data-add-none]')) { addPickShown(false); return; }
+    var rg = t.closest('[data-range]'); if (rg) { applyRange(); return; }
+    var chg = t.closest('[data-chg]'); if (chg) { D.chg = chg.getAttribute('data-chg'); var cd = curDim(); if (cd && D.rows.length) paintDim(cd); return; }
+    var sa = t.closest('[data-selact]'); if (sa) { selAction(sa.getAttribute('data-selact')); return; }
     var tab = t.closest('[data-dim]'); if (tab) { D.dim = tab.getAttribute('data-dim'); D.triedAlt = false; resetRows(); refresh(); return; }
     var met = t.closest('[data-metric]'); if (met) { D.metric = met.getAttribute('data-metric'); D.sort = null; refresh(); return; }
     var srt = t.closest('[data-sort]');
@@ -192,14 +285,16 @@
     var dqg = t.closest('[data-dq-cmp]'); if (dqg) { var gr = D.dqGroups[dqg.getAttribute('data-dq-cmp')]; if (gr) invOpen(gr.ids, gr.check, 'compare', dqg); return; }
     var dqx = t.closest('[data-dq-impact]'); if (dqx) { dqImpact(dqx.getAttribute('data-dq-impact'), dqx); return; }
     var dqd = t.closest('[data-dq-drill]'); if (dqd) { dqDrill(dqd.getAttribute('data-dq-drill')); return; }
-    var cr = t.closest('[data-crumb]'); if (cr) { D.crumbs = D.crumbs.slice(0, +cr.getAttribute('data-crumb')); D.triedAlt = false; D.dim = pickDefault(); D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); refresh(); return; }
-    var per = t.closest('[data-per]'); if (per) { D.all = per.getAttribute('data-per') === 'all'; D.recOffset = 0; refresh(); return; }
+    var cr = t.closest('[data-crumb]'); if (cr) { goCrumb(+cr.getAttribute('data-crumb')); return; }
+    var per = t.closest('[data-per]'); if (per) { setPer(per.getAttribute('data-per')); return; }
     var page = t.closest('[data-page]');
     if (page) {
       D.recOffset = page.getAttribute('data-page') === 'next' ? D.recOffset + PAGE_SIZE : Math.max(0, D.recOffset - PAGE_SIZE);
       loadRecords(seq);
       return;
     }
+    var ex = t.closest('[data-ex]'); if (ex) { excludeRow(+ex.getAttribute('data-ex')); return; }
+    if (t.closest('.ck')) return;
     var row = t.closest('[data-i]'); if (row && D.rows[+row.getAttribute('data-i')]) { pick(D.rows[+row.getAttribute('data-i')]); return; }
     if (t.closest('#dvdrCsv')) exportCsv();
   }
@@ -212,6 +307,12 @@
       var qi = $('dvdrDqQ'); if (qi) { qi.focus(); try { qi.setSelectionRange(qi.value.length, qi.value.length); } catch (x) {} }
       return;
     }
+    if (e.target.id === 'dvdrMin') {
+      var mv = e.target.value.trim(); D.minVal = mv !== '' && isFinite(+mv) && +mv >= 0 ? +mv : null;
+      var dm0 = curDim(); if (dm0 && D.rows.length) paintDim(dm0);
+      return;
+    }
+    if (e.target.id === 'dvdrAQ') { D.add.q = e.target.value.trim().toLowerCase(); paintAddList(); return; }
     if (e.target.id === 'dvdrRowFilter') {
       D.rowFilter = e.target.value.trim().toLowerCase();
       var dm = curDim(); if (dm && D.rows.length) paintDim(dm);
@@ -241,6 +342,7 @@
   }
   function refresh(my) {
     my = my || ++seq; if (!D) return;
+    D.sel = {};
     if (D.dim === 'dq' && dqProfile()) { D.mode = 'dq'; paintChrome(); loadHero(my); loadDq(my); return; }
     var dim = D.dims.filter(function (x) { return x.id === D.dim; })[0];
     D.mode = D.dim === 'rec' || !dim ? 'rec' : 'dim';
@@ -256,7 +358,7 @@
       var pm = {}; r[1].forEach(function (g) { pm[keyOf(g, dim.gb)] = val(g); });
       var rows = r[0].map(function (g) {
         var raw = g[dim.gb], dom = g.__domain && g.__domain.length ? g.__domain : (dim.time ? null : [[dim.field, '=', Array.isArray(raw) ? raw[0] : raw === undefined ? false : raw]]);
-        return { key: keyOf(g, dim.gb), label: labelOf(g, dim), value: val(g), prev: compare ? (pm[keyOf(g, dim.gb)] || 0) : null, domain: dom, id: Array.isArray(raw) ? raw[0] : null, count: g.__count || 0 };
+        return { key: keyOf(g, dim.gb), label: labelOf(g, dim), value: val(g), prev: compare ? (pm[keyOf(g, dim.gb)] || 0) : null, domain: dom, raw: Array.isArray(raw) ? raw[0] : raw === undefined ? false : raw, id: Array.isArray(raw) ? raw[0] : null, count: g.__count || 0 };
       }).filter(function (x) { return x.domain; });
       if (!dim.time) rows.sort(function (a, b) { return b.value - a.value; });
       D.rows = dim.time ? rows : rows.slice(0, LIMIT); D.more = dim.time ? 0 : Math.max(0, rows.length - LIMIT); D.compare = compare;
@@ -308,25 +410,53 @@
   /* ── paint ───────────────────────────────────────────────────────────── */
   function paintChrome() {
     var cr = $('dvdrCr'); if (!cr) return;
-    var parts = ['<button type="button" class="dvdr-crumb' + (D.crumbs.length ? '' : ' is-here') + '" data-crumb="0">' + esc(D.spec.title || 'All') + '</button>'];
+    var parts = ['<button type="button" class="dvdr-crumb' + (D.crumbs.length ? '' : ' is-here') + '" data-crumb="0" title="Show everything again">' + esc(short(D.spec.title || 'All', 34)) + '</button>'];
     D.crumbs.forEach(function (c, i) {
-      parts.push('<span class="dvdr-sep" aria-hidden="true">\u203A</span><button type="button" class="dvdr-crumb' + (i === D.crumbs.length - 1 ? ' is-here' : '') + '" data-crumb="' + (i + 1) + '">' + esc(short(c.label, 34)) + '</button>');
+      var last = i === D.crumbs.length - 1;
+      parts.push('<span class="dvdr-cw kind-' + esc(c.kind || 'drill') + (last ? ' is-last' : '') + '"><button type="button" class="dvdr-crumb' + (last ? ' is-here' : '') + '" data-crumb="' + (i + 1) + '" title="' + esc(c.label) + '">' + esc(short(c.label, 34)) + '</button><button type="button" class="dvdr-cx" data-rm="' + i + '" aria-label="Remove filter ' + esc(c.label) + '" title="Remove this filter">\u2715</button></span>');
     });
-    cr.innerHTML = '<nav aria-label="Drill path">' + parts.join('') + '</nav>';
+    if (D.crumbs.length > 1) parts.push('<button type="button" class="dvdr-clear" data-clear-f="1">Clear all</button>');
+    cr.innerHTML = '<nav aria-label="Applied filters">' + parts.join('') + '</nav>';
     var used = usedFields();
     var tabs = D.dims.filter(function (x) { return !x.bad && used.indexOf(x.id) < 0; }).map(function (x) {
       return '<button type="button" role="tab" class="dvdr-tab' + (D.dim === x.id ? ' is-on' : '') + '" aria-selected="' + (D.dim === x.id) + '" data-dim="' + esc(x.id) + '">' + esc(x.label) + '</button>';
     });
-    tabs.push('<button type="button" role="tab" class="dvdr-tab' + (D.dim === 'rec' ? ' is-on' : '') + '" aria-selected="' + (D.dim === 'rec') + '" data-dim="rec">Records</button>');
+    tabs.push('<span class="dvdr-tsep" aria-hidden="true">or view</span>');
+    tabs.push('<button type="button" role="tab" class="dvdr-tab dvdr-tab-rec' + (D.dim === 'rec' ? ' is-on' : '') + '" aria-selected="' + (D.dim === 'rec') + '" data-dim="rec" title="The actual documents behind this number">Records</button>');
     if (dqProfile()) tabs.push('<button type="button" role="tab" class="dvdr-tab dvdr-tab-dq' + (D.dim === 'dq' ? ' is-on' : '') + '" aria-selected="' + (D.dim === 'dq') + '" data-dim="dq">Data checks' + (D.dq && D.dq.counts && D.dq.counts.error ? ' <b class="dvdr-badge">' + F.num(D.dq.counts.error, 0) + '</b>' : '') + '</button>');
     $('dvdrTabs').innerHTML = tabs.join('');
-    $('dvdrPer').innerHTML = D.spec.date ? '<button type="button" class="dvdr-pb' + (!D.all ? ' is-on' : '') + '" data-per="period">Last ' + esc(periodText()) + '</button><button type="button" class="dvdr-pb' + (D.all ? ' is-on' : '') + '" data-per="all">All time</button>' : '';
+    var pRow = $('dvdrPRow'); if (pRow) pRow.hidden = !D.spec.date || D.mode === 'dq';
+    var pb = presetList().map(function (x) { return '<button type="button" class="dvdr-pb' + (!D.all && !D.range && D.per === x[0] ? ' is-on' : '') + '" data-per="' + esc(x[0]) + '" aria-pressed="' + (!D.all && !D.range && D.per === x[0]) + '">' + esc(x[1]) + '</button>'; });
+    pb.push('<button type="button" class="dvdr-pb' + (D.all ? ' is-on' : '') + '" data-per="all" aria-pressed="' + D.all + '">All time</button>');
+    pb.push('<button type="button" class="dvdr-pb' + (D.range ? ' is-on' : '') + '" data-per="custom" aria-pressed="' + !!D.range + '">Custom\u2026</button>');
+    $('dvdrPer').innerHTML = D.spec.date ? pb.join('') : '';
+    var cu = $('dvdrCustom');
+    if (cu) {
+      cu.hidden = !(D.customOpen || D.range);
+      var fr = $('dvdrFrom'), to = $('dvdrTo');
+      if (fr && document.activeElement !== fr && D.range) fr.value = D.range.from;
+      if (to && document.activeElement !== to && D.range) to.value = D.range.to;
+    }
     $('dvdrRecordTools').hidden = D.mode !== 'rec';
+    var mRow = $('dvdrMRow'); if (mRow) mRow.hidden = !(D.spec.measure && D.mode !== 'dq');
     var mt = $('dvdrMetric');
     if (mt) mt.innerHTML = D.spec.measure && D.mode !== 'dq' ? [['sum', 'Total'], ['avg', 'Average'], ['count', 'Count']].map(function (m) {
       return '<button type="button" class="dvdr-pb' + (D.metric === m[0] ? ' is-on' : '') + '" data-metric="' + m[0] + '" aria-pressed="' + (D.metric === m[0]) + '">' + m[1] + '</button>';
     }).join('') : '';
     var ft = $('dvdrFilterTools'); if (ft && D.mode !== 'dim') ft.hidden = true;
+    if (D.mode !== 'dim') paintSel();
+    var bk = $('dvdrBack'); if (bk) bk.hidden = !D.crumbs.length;
+    var sub = $('dvdrSub'); if (sub) sub.textContent = (D.spec.model || '') + ' \u00B7 ' + scopeText();
+    var rs = $('dvdrReset'); if (rs) rs.hidden = false;
+    paintAddState(); paintGuide();
+  }
+  function paintGuide() {
+    var g = $('dvdrGuide'), b = $('dvdrGuideBtn'); if (!g) return;
+    g.hidden = !D.guide; if (b) b.setAttribute('aria-pressed', String(!!D.guide));
+    if (!D.guide) { g.innerHTML = ''; return; }
+    var now = D.mode === 'rec' ? 4 : D.crumbs.length ? 3 : 2;
+    var st = [['Scope', 'Pick the period and the measure'], ['Group by', 'Choose how to split the number'], ['Drill in', 'Click a row, or tick rows to keep or exclude them'], ['Records', 'Open the documents, then Open in Odoo']];
+    g.innerHTML = '<ol class="dvdr-steps">' + st.map(function (x, k) { return '<li' + (k + 1 === now ? ' class="is-now"' : '') + '><b>' + (k + 1) + '</b><span><strong>' + x[0] + '</strong>' + x[1] + '</span></li>'; }).join('') + '</ol><button type="button" class="dvdr-gx" data-guide="off">Got it</button>';
   }
   function deltaHtml(cur, prev) {
     if (prev == null || !prev) return '';
@@ -335,8 +465,11 @@
   }
   function paintHero() {
     var h = $('dvdrHero'), t = D.tot; if (!h || !t) return;
-    h.innerHTML = '<div class="dvdr-big"><strong>' + esc(fv(t.cur)) + '</strong>' + deltaHtml(t.cur, t.prev) + '</div>' +
-      '<div class="dvdr-meta"><span><b>' + F.num(t.count, 0) + '</b> records</span>' + (D.spec.measure && D.metric === 'sum' && t.count ? '<span>Average <b>' + esc(fv(t.cur / t.count)) + '</b> per record</span>' : '') + (t.prev != null ? '<span>Previous ' + esc(periodText()) + ' <b>' + esc(fv(t.prev)) + '</b></span>' : '<span>All time</span>') + '</div>';
+    var cap = metricLabel() + ' \u00B7 ' + (D.spec.date ? perText() : 'all records');
+    var tiles = '<span><small>Records</small><b>' + F.num(t.count, 0) + '</b></span>';
+    if (D.spec.measure && D.metric === 'sum' && t.count) tiles += '<span><small>Average per record</small><b>' + esc(fv(t.cur / t.count)) + '</b></span>';
+    tiles += t.prev != null ? '<span><small>Previous ' + esc(prevText()) + '</small><b>' + esc(fv(t.prev)) + '</b></span>' : '<span><small>Period</small><b>' + (D.spec.date ? 'All time' : 'No date filter') + '</b></span>';
+    h.innerHTML = '<div class="dvdr-big"><small>' + esc(cap) + '</small><div class="dvdr-bigv"><strong>' + esc(fv(t.cur)) + '</strong>' + deltaHtml(t.cur, t.prev) + '</div></div><div class="dvdr-meta">' + tiles + '</div><p class="dvdr-scope"><b>Scope</b>' + esc(scopeText()) + '</p>';
   }
   function barColor(r, dim, i) {
     if (dim.co && r.id != null && C.companyColor) return C.companyColor(r.id);
@@ -390,33 +523,282 @@
     var on = D.sort && D.sort.key === key, ar = on ? (D.sort.dir === 1 ? '\u25B2' : '\u25BC') : '';
     return '<th' + (cls ? ' class="' + cls + '"' : '') + ' aria-sort="' + (on ? (D.sort.dir === 1 ? 'ascending' : 'descending') : 'none') + '"><button type="button" class="dvdr-sh' + (on ? ' is-on' : '') + '" data-sort="' + key + '">' + esc(label) + (ar ? '<i aria-hidden="true">' + ar + '</i>' : '') + '</button></th>';
   }
+  function chgOf(r) { return r.prev ? (r.value - r.prev) / Math.abs(r.prev) * 100 : null; }
+  function filtersOn() { return !!(D.rowFilter || D.minVal != null || D.chg !== 'all'); }
+  function visibleRows(all, dim) {
+    return all.filter(function (r) {
+      if (D.rowFilter && String(r.label).toLowerCase().indexOf(D.rowFilter) < 0) return false;
+      if (D.minVal != null && !(r.value >= D.minVal)) return false;
+      if (D.compare && !dim.time && D.chg !== 'all') {
+        var c = chgOf(r);
+        if (D.chg === 'up') return c != null && c >= 1;
+        if (D.chg === 'down') return c != null && c <= -1;
+        if (D.chg === 'new') return r.prev === 0 && r.value > 0;
+      }
+      return true;
+    });
+  }
+  function emptyHtml(msg, listFilters) {
+    var a = [];
+    if (listFilters) a.push('<button type="button" class="btn btn-outline btn-sm" data-clear-rows="1">Clear list filters</button>');
+    if (D.crumbs.length) a.push('<button type="button" class="btn btn-outline btn-sm" data-back="1">\u2039 Back one step</button>');
+    if (D.crumbs.length || D.range || D.all !== !D.spec.date) a.push('<button type="button" class="btn btn-outline btn-sm" data-reset="1">Reset all</button>');
+    return '<div class="dvdr-empty">' + esc(msg) + (a.length ? '<div class="dvdr-empty-a">' + a.join('') + '</div>' : '') + '</div>';
+  }
   function paintDim(dim) {
     var all = D.rows, body = $('dvdrBody'), ft = $('dvdrFilterTools'); if (!body) return;
-    if (!all.length) { body.innerHTML = '<div class="dvdr-empty">Nothing found for this selection.</div>'; $('dvdrNote').textContent = ''; if (ft) ft.hidden = true; return; }
+    if (!all.length) { body.innerHTML = emptyHtml('Nothing found for this selection.'); $('dvdrNote').textContent = ''; if (ft) ft.hidden = true; D.vis = []; paintSel(); return; }
     var showShare = D.metric !== 'avg';
-    var total = all.reduce(function (s, r) { return s + r.value; }, 0);
-    var rows = D.rowFilter ? all.filter(function (r) { return String(r.label).toLowerCase().indexOf(D.rowFilter) > -1; }) : all;
-    if (ft) { ft.hidden = all.length < 8 && !D.rowFilter; $('dvdrFilterInfo').textContent = D.rowFilter ? rows.length + ' of ' + all.length + ' shown' : ''; }
+    var total = all.reduce(function (s2, r) { return s2 + r.value; }, 0);
+    var rows = visibleRows(all, dim), on = filtersOn(); D.vis = rows;
+    if (ft) {
+      ft.hidden = all.length < 4 && !on;
+      $('dvdrMinL').hidden = !!dim.time; $('dvdrTopL').hidden = !!dim.time;
+      var cw = $('dvdrChgW'); cw.hidden = !(D.compare && !dim.time);
+      if (!cw.hidden) {
+        var cnt = { up: 0, down: 0, 'new': 0 };
+        all.forEach(function (r) { var c = chgOf(r); if (c != null && c >= 1) cnt.up++; else if (c != null && c <= -1) cnt.down++; if (r.prev === 0 && r.value > 0) cnt['new']++; });
+        $('dvdrChg').innerHTML = CHG.map(function (c) { return '<button type="button" class="dvdr-pb' + (D.chg === c[0] ? ' is-on' : '') + '" data-chg="' + c[0] + '" aria-pressed="' + (D.chg === c[0]) + '">' + c[1] + (c[0] === 'all' ? '' : ' <i>' + cnt[c[0]] + '</i>') + '</button>'; }).join('');
+      }
+      var vsum = rows.reduce(function (s2, r) { return s2 + r.value; }, 0);
+      $('dvdrFilterInfo').textContent = on ? rows.length + ' of ' + all.length + ' shown' + (showShare && total > 0 && rows.length ? ' \u00B7 ' + (vsum / total * 100).toFixed(0) + '% of total' : '') : '';
+      var tp = $('dvdrTop'); if (tp && +tp.value !== D.topN) tp.value = String(D.topN);
+    }
     var max = Math.max.apply(null, all.map(function (r) { return Math.abs(r.value); })) || 1;
-    var chartRows = dim.time ? rows.slice(-24) : rows.slice().sort(function (a, b) { return b.value - a.value; }).slice(0, TOP);
+    var chartRows = dim.time ? rows.slice(-24) : rows.slice().sort(function (a, b) { return b.value - a.value; }).slice(0, D.topN);
     var html = insights(dim, all, total, showShare);
     if (!rows.length) {
-      body.innerHTML = html + '<div class="dvdr-empty">No rows match this filter.</div>'; $('dvdrNote').textContent = ''; return;
+      body.innerHTML = html + emptyHtml('No rows match these list filters.', true); $('dvdrNote').textContent = ''; paintSel(); return;
     }
     html += '<div class="dvdr-cv' + (dim.time ? '' : ' is-h') + '" style="' + (dim.time ? '' : 'height:' + Math.max(180, 46 + chartRows.length * 30) + 'px') + '"><canvas id="dvdrCv" role="img" aria-label="' + esc(metricLabel() + ' by ' + dim.label) + '"></canvas></div>';
-    var showRecs = D.spec.measure && D.metric !== 'count';
-    html += '<div class="dvdr-scroll"><table class="dvdr-tb"><thead><tr>' + th(dim.label, 'label') + th(metricLabel(), 'value', 'n') + (showRecs ? th('Records', 'count', 'n') : '') + (showShare ? th('Share', 'value', 'n') : '') + (D.compare ? th('vs previous', 'delta', 'n') : '') + '</tr></thead><tbody>' +
+    var showRecs = D.spec.measure && D.metric !== 'count', pickable = !dim.time;
+    html += '<div class="dvdr-scroll"><table class="dvdr-tb dvdr-bk"><thead><tr>' + (pickable ? '<th class="ck"><input type="checkbox" data-selall="1" aria-label="Select all shown rows"></th>' : '') + th(dim.label, 'label') + th(metricLabel(), 'value', 'n') + (showRecs ? th('Records', 'count', 'n') : '') + (showShare ? th('Share', 'value', 'n') : '') + (D.compare ? th('vs previous', 'delta', 'n') : '') + '<th class="act"><span class="dvdr-sr">Actions</span></th></tr></thead><tbody>' +
       sortRows(rows, dim).map(function (r) {
         var idx = D.rows.indexOf(r), w = Math.max(2, Math.abs(r.value) / max * 100), col = barColor(r, dim);
-        return '<tr class="dvdr-r' + (dim.time ? '' : ' is-pick') + '" data-i="' + idx + '" tabindex="0" role="button" aria-label="Drill into ' + esc(r.label) + '" style="--c:' + col + '"><td class="nm"><i></i><span title="' + esc(r.label) + '">' + esc(short(r.label, 38)) + '</span></td>' +
+        return '<tr class="dvdr-r' + (dim.time ? '' : ' is-pick') + (D.sel[r.key] ? ' is-sel' : '') + '" data-i="' + idx + '" tabindex="0" style="--c:' + col + '">' +
+          (pickable ? '<td class="ck"><input type="checkbox" data-sel="' + idx + '"' + (D.sel[r.key] ? ' checked' : '') + ' aria-label="Select ' + esc(r.label) + '"></td>' : '') +
+          '<td class="nm"><i></i><span title="' + esc(r.label) + '">' + esc(short(r.label, 38)) + '</span></td>' +
           '<td class="n"><span class="bar"><u style="width:' + w.toFixed(1) + '%"></u></span><b>' + esc(fv(r.value)) + '</b></td>' +
           (showRecs ? '<td class="n">' + F.num(r.count, 0) + '</td>' : '') +
           (showShare ? '<td class="n">' + (total ? (r.value / total * 100).toFixed(1) + '%' : '\u2013') + '</td>' : '') +
-          (D.compare ? '<td class="n">' + (deltaHtml(r.value, r.prev) || '<span class="dvdr-na">new</span>') + '</td>' : '') + '</tr>';
+          (D.compare ? '<td class="n">' + (deltaHtml(r.value, r.prev) || '<span class="dvdr-na">new</span>') + '</td>' : '') +
+          '<td class="act"><button type="button" class="dvdr-ra is-go" data-dr="' + idx + '" aria-label="' + (dim.time ? 'Open ' : 'Drill into ') + esc(r.label) + '">' + (dim.time ? 'Open' : 'Drill in') + ' \u203A</button>' +
+          (dim.field ? '<button type="button" class="dvdr-ra is-no" data-ex="' + idx + '" aria-label="Exclude ' + esc(r.label) + '" title="Remove this from the view (X)">Exclude</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     body.innerHTML = html;
-    $('dvdrNote').textContent = (D.more ? 'Showing top ' + LIMIT + ' of ' + (all.length + D.more) + ' \u00B7 ' : '') + 'Click a row or bar to filter by it and break down further. Click a heading to sort.';
+    $('dvdrNote').textContent = (D.more ? 'Showing top ' + LIMIT + ' of ' + (all.length + D.more) + ' \u00B7 ' : '') + (pickable ? 'Drill in filters the view to that row. Tick rows to keep or exclude several. Click a heading to sort.' : 'Open a ' + dim.label.toLowerCase() + ' to look at it in detail. Click a heading to sort.');
+    paintSel();
     drawChart(dim, chartRows, showShare ? total : 0);
+  }
+  function syncRowSel() {
+    Array.prototype.forEach.call(document.querySelectorAll('#dvdr [data-sel]'), function (cb) {
+      var r = D.rows[+cb.getAttribute('data-sel')], on = !!(r && D.sel[r.key]); cb.checked = on;
+      var tr = cb.closest('tr'); if (tr) tr.classList.toggle('is-sel', on);
+    });
+  }
+  function syncSelAll() {
+    var a = document.querySelector('#dvdr [data-selall]'); if (!a) return;
+    var v = D.vis || [], n = v.filter(function (r) { return D.sel[r.key]; }).length;
+    a.checked = v.length > 0 && n === v.length; a.indeterminate = n > 0 && n < v.length;
+  }
+  function paintSel() {
+    var bar = $('dvdrSelBar'); if (!bar || !D) return;
+    var dim = curDim(), rows = D.rows.filter(function (r) { return D.sel[r.key]; });
+    if (D.mode !== 'dim' || !dim || dim.time || !rows.length) { bar.hidden = true; bar.innerHTML = ''; syncSelAll(); return; }
+    var sum = rows.reduce(function (s2, r) { return s2 + r.value; }, 0), tot = D.rows.reduce(function (s2, r) { return s2 + r.value; }, 0);
+    bar.hidden = false;
+    bar.innerHTML = '<span><b>' + rows.length + '</b> selected' + (D.metric !== 'avg' ? ' \u00B7 ' + esc(fv(sum)) + (tot ? ' (' + (sum / tot * 100).toFixed(1) + '% of total)' : '') : '') + '</span><div>' +
+      (dim.field ? '<button type="button" class="btn btn-primary btn-sm" data-selact="in">Keep only these</button><button type="button" class="btn btn-outline btn-sm" data-selact="out">Exclude these</button>' : '') +
+      '<button type="button" class="btn btn-outline btn-sm" data-selact="clear">Clear</button></div>';
+    syncSelAll();
+  }
+  function selAction(mode) {
+    if (!D) return;
+    if (mode === 'clear') { D.sel = {}; syncRowSel(); paintSel(); return; }
+    var dim = curDim(), rows = D.rows.filter(function (r) { return D.sel[r.key]; });
+    if (!dim || !dim.field || !rows.length) return;
+    D.crumbs.push({ label: dim.label + (mode === 'in' ? ': ' : ' \u2260 ') + listNames(rows), domain: [[dim.field, mode === 'in' ? 'in' : 'not in', rows.map(function (r) { return r.raw; })]], dim: dim.id, kind: mode === 'in' ? 'in' : 'ex' });
+    afterFilterChange();
+  }
+  function excludeRow(i) {
+    var r = D && D.rows[i], dim = curDim(); if (!r || !dim || !dim.field) return;
+    D.crumbs.push({ label: dim.label + ' \u2260 ' + r.label, domain: [[dim.field, '!=', r.raw]], dim: dim.id, kind: 'ex' });
+    afterFilterChange();
+  }
+  function afterFilterChange() {
+    syncTimeAll(); D.triedAlt = false; D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); ensureDim(); refresh();
+  }
+  function goBack() { if (!D || !D.crumbs.length) return; D.crumbs.pop(); afterFilterChange(); }
+  function goCrumb(n) {
+    D.crumbs = D.crumbs.slice(0, n); syncTimeAll();
+    D.triedAlt = false; D.dim = pickDefault(); D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); refresh();
+  }
+  function removeCrumb(i) { if (!D || !D.crumbs[i]) return; D.crumbs.splice(i, 1); afterFilterChange(); }
+  function resetAll() {
+    var sp = D.spec;
+    D.crumbs = (sp.crumbs || []).map(function (c) { return { label: c.label, domain: c.domain, dim: c.dim || '' }; });
+    D.days = periodDays(); D.all = !sp.date; D.per = sp.date ? perFromGlobal() : 'all'; D.range = null; D.customOpen = false;
+    D.metric = sp.measure && /^(sum|avg|count)$/.test(sp.metric || '') ? sp.metric : (sp.measure ? 'sum' : 'count');
+    D.add.open = false; D.add.vals = null; D.add.sel = {}; D.add.q = '';
+    D.triedAlt = false; D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows();
+    var rs = $('dvdrSearch'); if (rs) rs.value = '';
+    D.dim = pickDefault(); refresh();
+  }
+  function setPer(k) {
+    D.recOffset = 0; D.sel = {};
+    if (k === 'custom') { D.customOpen = true; paintChrome(); var f = $('dvdrFrom'); if (f) f.focus(); return; }
+    if (k === 'all') { D.all = true; D.range = null; D.per = 'all'; }
+    else {
+      var pr = presetList().filter(function (x) { return x[0] === k; })[0]; if (!pr) return;
+      D.all = false; D.range = null; D.per = k; D.days = pr[2] === -1 ? ytdDays() : pr[2];
+      D.crumbs = D.crumbs.filter(function (c) { return TIME_IDS.indexOf(c.dim) < 0; });
+    }
+    D.customOpen = false; refresh();
+  }
+  function applyRange() {
+    var a = $('dvdrFrom') && $('dvdrFrom').value, b = $('dvdrTo') && $('dvdrTo').value;
+    if (!parseYmd(a) || !parseYmd(b)) { toast('Choose both a start and an end date.'); return; }
+    if (a > b) { var sw = a; a = b; b = sw; }
+    D.range = { from: a, to: b }; D.all = false; D.per = 'custom'; D.customOpen = true; D.recOffset = 0;
+    D.crumbs = D.crumbs.filter(function (c) { return TIME_IDS.indexOf(c.dim) < 0; });
+    refresh();
+  }
+
+  /* ── Add filter panel ────────────────────────────────────────────────── */
+  function addFields() {
+    var out = D.dims.filter(function (x) { return !x.time && !x.bad && x.field; }).map(function (x) { return { id: x.id, label: x.label, type: 'dim' }; });
+    var mf = D.spec.measure && D.fields && D.fields[D.spec.measure];
+    if (mf) out.push({ id: '__m', label: mf.string || 'Amount', type: 'measure' });
+    return out;
+  }
+  function addCur() { var l = addFields(); return l.filter(function (x) { return x.id === D.add.field; })[0] || l[0] || null; }
+  function paintAddState() {
+    var A = D.add, box = $('dvdrAdd'), btn = $('dvdrAddBtn'); if (!box || !btn) return;
+    box.hidden = !A.open; btn.setAttribute('aria-expanded', String(!!A.open));
+    btn.disabled = !addFields().length; btn.classList.toggle('is-on', !!A.open);
+  }
+  function addAction(a) {
+    var A = D.add;
+    if (a === 'toggle') {
+      var fl = addFields();
+      if (!fl.length) { toast('No filterable fields are available for this data yet.'); return; }
+      A.open = !A.open;
+      if (A.open) { if (!fl.some(function (f) { return f.id === A.field; })) A.field = fl[0].id; A.vals = null; A.sel = {}; A.q = ''; A.err = ''; }
+      paintAdd(); return;
+    }
+    if (a === 'cancel') { A.open = false; paintAdd(); var b = $('dvdrAddBtn'); if (b) b.focus(); return; }
+    if (a === 'apply') { applyAdd(); return; }
+    if (a === 'reload') { A.err = ''; A.vals = null; loadAddVals(); }
+  }
+  function paintAdd() {
+    var A = D.add, box = $('dvdrAdd'); if (!box) return;
+    paintAddState();
+    if (!A.open) { box.innerHTML = ''; return; }
+    var flds = addFields(), cur = addCur(); if (cur) A.field = cur.id;
+    var h = '<div class="dvdr-ap"><label class="dvdr-af">Field<select id="dvdrAF">' + flds.map(function (f) { return '<option value="' + esc(f.id) + '"' + (f.id === A.field ? ' selected' : '') + '>' + esc(f.label) + '</option>'; }).join('') + '</select></label>';
+    if (cur && cur.type === 'measure') {
+      h += '<div class="dvdr-ar"><label>At least<input id="dvdrAMin" type="number" step="any" inputmode="decimal" placeholder="No minimum"></label><label>At most<input id="dvdrAMax" type="number" step="any" inputmode="decimal" placeholder="No maximum"></label><p>Keeps only records whose ' + esc(cur.label.toLowerCase()) + ' is inside this range.</p></div>';
+    } else {
+      h += '<div class="dvdr-ac"><div class="dvdr-per" role="group" aria-label="Condition">' + [['in', 'Is any of'], ['out', 'Is none of']].map(function (o) { return '<button type="button" class="dvdr-pb' + (A.op === o[0] ? ' is-on' : '') + '" data-add-op="' + o[0] + '" aria-pressed="' + (A.op === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+        '<input id="dvdrAQ" type="search" placeholder="Search values" autocomplete="off" aria-label="Search values" value="' + esc(A.q || '') + '"><button type="button" class="btn btn-outline btn-sm" data-add-all="1">Select shown</button><button type="button" class="btn btn-outline btn-sm" data-add-none="1">Clear</button></div><div id="dvdrAL" class="dvdr-al" role="group" aria-label="Values"></div>';
+    }
+    h += '<div class="dvdr-aa"><span id="dvdrAInfo" aria-live="polite"></span><button type="button" class="btn btn-outline btn-sm" data-add="cancel">Cancel</button><button type="button" class="btn btn-primary btn-sm" data-add="apply">Apply filter</button></div></div>';
+    box.innerHTML = h;
+    if (cur && cur.type === 'dim') { if (!A.vals && !A.loading) loadAddVals(); else paintAddList(); }
+  }
+  function loadAddVals() {
+    var A = D.add, dim = D.dims.filter(function (x) { return x.id === A.field; })[0]; if (!dim) return;
+    A.vals = null; A.sel = {}; A.err = ''; A.loading = true; var mine = ++A.seq;
+    paintAddList();
+    group(baseDomain().concat(window_(false)), [dim.gb]).then(function (gs) {
+      if (!D || mine !== A.seq || !$('dvdrAdd')) return;
+      A.loading = false;
+      A.vals = gs.map(function (g) {
+        var raw = g[dim.gb];
+        return { key: keyOf(g, dim.gb), label: labelOf(g, dim), raw: Array.isArray(raw) ? raw[0] : raw === undefined ? false : raw, count: g.__count || 0, value: val(g) };
+      }).sort(function (a, b) { return b.value - a.value || b.count - a.count; });
+      paintAddList();
+    }).catch(function (e) {
+      if (!D || mine !== A.seq || !$('dvdrAdd')) return;
+      A.loading = false; A.err = (e && e.message) || 'Values could not be loaded.'; paintAddList();
+    });
+  }
+  function setAddMsg(msg, bad) {
+    var el = $('dvdrAInfo'); if (!el) return;
+    var n = Object.keys(D.add.sel).length;
+    el.textContent = msg || (n ? n + ' selected' : ''); el.classList.toggle('is-error', !!bad);
+  }
+  function paintAddList() {
+    var A = D.add, box = $('dvdrAL'); if (!box) return;
+    if (A.err && !A.vals) { box.innerHTML = '<div class="dvdr-empty is-error">' + esc(A.err) + '<br><button type="button" class="btn btn-outline btn-sm" data-add="reload">Try again</button></div>'; return; }
+    if (!A.vals) { box.innerHTML = '<div class="dvdr-al-load">Loading values\u2026</div>'; setAddMsg(); return; }
+    var shown = []; A.vals.forEach(function (v, i) { if (!A.q || String(v.label).toLowerCase().indexOf(A.q) > -1) shown.push(i); });
+    A.shown = shown;
+    var money2 = D.spec.measure && D.metric !== 'count';
+    box.innerHTML = shown.length ? shown.slice(0, 200).map(function (i) {
+      var v = A.vals[i];
+      return '<label class="dvdr-av"><input type="checkbox" data-av="' + i + '"' + (A.sel[i] ? ' checked' : '') + '><span>' + esc(short(v.label, 48)) + '</span><em>' + F.num(v.count, 0) + (money2 ? ' \u00B7 ' + esc(fv(v.value)) : '') + '</em></label>';
+    }).join('') : '<div class="dvdr-al-load">No values match.</div>';
+    setAddMsg();
+  }
+  function addPickShown(on) {
+    var A = D.add; (A.shown || []).forEach(function (i) { if (on) A.sel[i] = true; else delete A.sel[i]; });
+    paintAddList();
+  }
+  function applyAdd() {
+    var A = D.add, cur = addCur(); if (!cur) return;
+    if (cur.type === 'measure') {
+      var mn = ($('dvdrAMin') || {}).value, mx = ($('dvdrAMax') || {}).value, dom = [];
+      if (mn !== '' && mn != null && isFinite(+mn)) dom.push([D.spec.measure, '>=', +mn]);
+      if (mx !== '' && mx != null && isFinite(+mx)) dom.push([D.spec.measure, '<=', +mx]);
+      if (!dom.length) { setAddMsg('Enter a minimum, a maximum or both.', true); return; }
+      if (dom.length === 2 && dom[0][2] > dom[1][2]) { setAddMsg('The minimum is larger than the maximum.', true); return; }
+      var lbl = cur.label + (dom.length === 2 ? ': ' + compact(dom[0][2]) + ' \u2013 ' + compact(dom[1][2]) : dom[0][1] === '>=' ? ' \u2265 ' + compact(dom[0][2]) : ' \u2264 ' + compact(dom[0][2]));
+      D.crumbs.push({ label: lbl, domain: dom, dim: '', kind: 'range' });
+    } else {
+      var dim = D.dims.filter(function (x) { return x.id === A.field; })[0];
+      var picked = (A.vals || []).filter(function (v, i) { return A.sel[i]; });
+      if (!dim || !picked.length) { setAddMsg('Tick at least one value.', true); return; }
+      var inn = A.op !== 'out';
+      D.crumbs.push({ label: dim.label + (inn ? ': ' : ' not ') + listNames(picked), domain: [[dim.field, inn ? 'in' : 'not in', picked.map(function (v) { return v.raw; })]], dim: dim.id, kind: inn ? 'in' : 'ex' });
+    }
+    A.open = false; A.vals = null; A.sel = {}; A.q = '';
+    paintAdd(); afterFilterChange();
+  }
+  function onChange(e) {
+    var t = e.target; if (!t || !D || !t.matches) return;
+    if (t.id === 'dvdrAF') { D.add.field = t.value; D.add.vals = null; D.add.sel = {}; D.add.q = ''; D.add.err = ''; D.add.loading = false; paintAdd(); var af = $('dvdrAF'); if (af) af.focus(); return; }
+    if (t.matches('[data-av]')) { var vi = +t.getAttribute('data-av'); if (t.checked) D.add.sel[vi] = true; else delete D.add.sel[vi]; setAddMsg(); return; }
+    if (t.id === 'dvdrTop') { D.topN = +t.value || TOPS[1]; var dm = curDim(); if (dm && D.rows.length) paintDim(dm); return; }
+    if (t.matches('[data-sel]')) {
+      var r = D.rows[+t.getAttribute('data-sel')]; if (!r) return;
+      if (t.checked) D.sel[r.key] = 1; else delete D.sel[r.key];
+      var tr = t.closest('tr'); if (tr) tr.classList.toggle('is-sel', t.checked);
+      paintSel(); return;
+    }
+    if (t.matches('[data-selall]')) {
+      (D.vis || []).forEach(function (r) { if (t.checked) D.sel[r.key] = 1; else delete D.sel[r.key]; });
+      syncRowSel(); paintSel();
+    }
+  }
+  function copySummary() {
+    if (!D) return;
+    var L = [(D.spec.title || D.spec.model) + ' \u2013 drill summary', 'Scope: ' + scopeText()];
+    if (D.tot) L.push(metricLabel() + ': ' + fv(D.tot.cur) + ' \u00B7 ' + F.num(D.tot.count, 0) + ' records' + (D.tot.prev != null ? ' \u00B7 previous ' + prevText() + ': ' + fv(D.tot.prev) : ''));
+    var dim = curDim();
+    if (D.mode === 'dim' && dim && D.rows.length) {
+      var rows = filtersOn() ? D.vis : D.rows, tot = D.rows.reduce(function (a, r) { return a + r.value; }, 0);
+      L.push('', 'By ' + dim.label + ':');
+      rows.slice(0, 10).forEach(function (r, i) { L.push((i + 1) + '. ' + r.label + ' \u2013 ' + fv(r.value) + (D.metric !== 'avg' && tot ? ' (' + (r.value / tot * 100).toFixed(1) + '%)' : '')); });
+      if (rows.length > 10) L.push('\u2026 and ' + (rows.length - 10) + ' more');
+    }
+    var text = L.join('\n');
+    function done() { toast('Summary copied.'); }
+    function fallback() {
+      try { var ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); toast(ok ? 'Summary copied.' : 'Copy is not available in this browser.'); }
+      catch (x) { toast('Copy is not available in this browser.'); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   }
   function drawChart(dim, rows, total) {
     var cv = $('dvdrCv'); if (!cv) return;
@@ -443,7 +825,7 @@
     $('dvdrPageInfo').textContent = 'Showing ' + (D.recTotal ? D.recOffset + 1 : 0) + '\u2013' + (D.recOffset + rows.length) + ' of ' + F.num(D.recTotal, 0);
     $('dvdrRecordTools').querySelector('[data-page="prev"]').disabled = D.recOffset <= 0;
     $('dvdrRecordTools').querySelector('[data-page="next"]').disabled = D.recOffset + rows.length >= D.recTotal;
-    if (!rows.length) { body.innerHTML = '<div class="dvdr-empty">' + (D.searchTerm ? 'No records match this search.' : 'No records match this selection.') + '</div>'; $('dvdrNote').textContent = 'Search applies to the current drill selection. Export is capped at ' + F.num(EXPORT_LIMIT, 0) + ' records.'; return; }
+    if (!rows.length) { body.innerHTML = emptyHtml(D.searchTerm ? 'No records match this search.' : 'No records match this selection.'); $('dvdrNote').textContent = 'Search applies to the current drill selection. Export is capped at ' + F.num(EXPORT_LIMIT, 0) + ' records.'; return; }
     function recHead(k) {
       var fd = f[k], num = fd && (fd.type === 'monetary' || fd.type === 'float'), can = fd && SORTABLE.indexOf(fd.type) > -1, on = D.recSort && D.recSort.field === k, lbl = esc((fd && fd.string) || k);
       return '<th' + (num ? ' class="n"' : '') + (on ? ' aria-sort="' + (D.recSort.dir === 1 ? 'ascending' : 'descending') + '"' : '') + '>' +
@@ -722,14 +1104,14 @@
     var dim = D.dims.filter(function (x) { return x.id === D.dim; })[0];
     if (!dim || !r || !r.domain) return;
     if (dim.time) { pickTime(r); return; }
-    D.crumbs.push({ label: dim.label + ': ' + r.label, domain: r.domain, dim: dim.id });
+    D.crumbs.push({ label: dim.label + ': ' + r.label, domain: r.domain, dim: dim.id, kind: 'drill' });
     D.triedAlt = false; D.dim = pickDefault(); D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); refresh();
   }
   function pickTime(r) {
     var dim = D.dims.filter(function (x) { return x.id === D.dim; })[0];
-    D.crumbs.push({ label: dim.label + ': ' + r.label, domain: r.domain, dim: dim.id });
+    D.crumbs.push({ label: dim.label + ': ' + r.label, domain: r.domain, dim: dim.id, kind: 'drill' });
     /* a month/day already narrows time, so the period window must not fight it */
-    D.all = true; D.triedAlt = false; D.dim = pickDefault(); D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); refresh();
+    D.all = true; D.range = null; D.triedAlt = false; D.dim = pickDefault(); D.recOffset = 0; D.searchTerm = ''; D.recSort = null; resetRows(); refresh();
   }
 
   function exportCsv() {
@@ -773,11 +1155,11 @@
     }
     var dim = curDim() || { label: 'Item' }, tot = D.rows.reduce(function (a, r) { return a + r.value; }, 0), sh = D.metric !== 'avg' && tot;
     rows = [[dim.label, metricLabel(), 'Records', 'Share %', 'Previous period', 'Change %']];
-    D.rows.forEach(function (r) {
+    (filtersOn() ? (D.vis || []) : D.rows).forEach(function (r) {
       var ch = r.prev ? pct(r.value, r.prev) : null;
       rows.push([r.label, r.value, r.count, sh ? Math.round(r.value / tot * 1000) / 10 : '', r.prev == null ? '' : r.prev, ch == null ? '' : Math.round(ch * 10) / 10]);
     });
-    secLog('Exported drill breakdown', (D.spec.model || 'data') + ' \u00B7 ' + dim.label + ' \u00B7 ' + D.rows.length + ' rows');
+    secLog('Exported drill breakdown', (D.spec.model || 'data') + ' \u00B7 ' + dim.label + ' \u00B7 ' + (rows.length - 1) + ' rows');
     F.download('drill-' + (D.spec.model || 'data').replace(/\./g, '-') + '-' + new Date().toISOString().slice(0, 10) + '.csv', F.csv(rows));
   }
 

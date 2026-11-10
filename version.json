@@ -1,13 +1,29 @@
 {
-  "version": "2.39.0",
-  "build": "2026.11.07",
-  "released": "2026-11-07",
+  "version": "2.40.0",
+  "build": "2026.11.10",
+  "released": "2026-11-10",
   "notes": [
-    "Changed: the whole theme now uses the iOS / Apple type system - SF Pro Text / Display and SF Mono on Apple devices, with Inter as the closest fallback elsewhere (Manrope, IBM Plex Mono, Sora, Fira Code and Bricolage Grotesque removed); only fonts changed (css/base.css, css/globals.css, css/landing-pro.css, css/login.css, css/pro-detail.css, index.html, login.html, ai.html, overview.html, data-studio.html, js/dashboard.js, js/dashboard-builder.js, js/updater.js)",
-    "New: AI thinking panel - animated orb with a live clock, Connect / Plan / Read / Write stage rail, a step timeline with per-step timings and a read-only trust note; steps update in place without restarting the animation, light / dark and reduced-motion aware (js/ai-embed.js, css/ai-redesign.css)",
-    "Improved: AI chat colours follow the theme - status, report-section, category and quick-action colours now use the iOS / chart palette tokens, so they change with light / dark and the chosen accent; shadows use a theme-tinted shade (css/ai-embed.css, css/ai-redesign.css, js/ai-embed.js)"
+    "Redesigned: Drill explorer (drill-in only) - one clear flow: Scope and filters card (period presets 7 days / 30 days / 90 days / 12 months / Year to date / All time and a custom From - To date range, Total / Average / Count measure, removable filter chips), a labelled Group by row with Records and Data checks as separate views, and a 4-step How it works guide that highlights where you are (css/exec-drill.css, js/exec-drill.js)",
+    "New: Add filter - pick a field, choose Is any of / Is none of, search the value list (each value shows its record count and amount, limited by the filters already applied) or set an amount range (at least / at most); every filter becomes a chip you can remove on its own, with Clear all, Back (Alt + Left) and Reset",
+    "New: explicit row actions - Drill in and Exclude on every row (X excludes the focused row), tick several rows to Keep only these or Exclude these with the selected total and share shown, and Exclude no longer jumps to another breakdown",
+    "New: list filters on every breakdown - search ( / ), minimum value, change filter (Rising / Falling / New with counts), chart size Top 10 / 15 / 25 / 50, an x of y shown and share-of-total read-out, clear empty states with Clear list filters, Back one step and Reset all",
+    "Improved: summary - caption, Records, Average per record and Previous-period tiles plus a plain-language Scope line; Copy summary copies the scope, total and top rows; CSV of a filtered breakdown exports exactly the rows shown; removing or stepping back past a month drill restores the chosen period",
+    "Improved: tests - 53 new checks in test/exec-drill.smoke.test.js for presets, custom range, Add filter, exclude, multi-select, list filters, back / reset, copy and keyboard; two timing-sensitive waits made safer"
   ],
   "history": [
+    {
+      "version": "2.40.0",
+      "date": "2026-11-10",
+      "notes": [
+        "Redesigned: Drill explorer (drill-in only) - one clear flow: Scope and filters card (period presets 7 days / 30 days / 90 days / 12 months / Year to date / All time and a custom From - To date range, Total / Average / Count measure, removable filter chips), a labelled Group by row with Records and Data checks as separate views, and a 4-step How it works guide that highlights where you are (css/exec-drill.css, js/exec-drill.js)",
+        "New: Add filter - pick a field, choose Is any of / Is none of, search the value list (each value shows its record count and amount, limited by the filters already applied) or set an amount range (at least / at most); every filter becomes a chip you can remove on its own, with Clear all, Back (Alt + Left) and Reset",
+        "New: explicit row actions - Drill in and Exclude on every row (X excludes the focused row), tick several rows to Keep only these or Exclude these with the selected total and share shown, and Exclude no longer jumps to another breakdown",
+        "New: list filters on every breakdown - search ( / ), minimum value, change filter (Rising / Falling / New with counts), chart size Top 10 / 15 / 25 / 50, an x of y shown and share-of-total read-out, clear empty states with Clear list filters, Back one step and Reset all",
+        "Improved: summary - caption, Records, Average per record and Previous-period tiles plus a plain-language Scope line; Copy summary copies the scope, total and top rows; CSV of a filtered breakdown exports exactly the rows shown; removing or stepping back past a month drill restores the chosen period",
+        "Improved: tests - 53 new checks in test/exec-drill.smoke.test.js for presets, custom range, Add filter, exclude, multi-select, list filters, back / reset, copy and keyboard; two timing-sensitive waits made safer"
+      ],
+      "critical": false
+    },
     {
       "version": "2.39.0",
       "date": "2026-11-07",
@@ -682,5 +698,5 @@
     }
   ],
   "critical": false,
-  "size": 5192063
+  "size": 5236601
 }
