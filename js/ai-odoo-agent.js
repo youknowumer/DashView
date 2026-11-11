@@ -525,6 +525,11 @@
   /* Shared answer template + the reporting skill that matches the question (js/ai-response-template.js; absent = old behaviour). */
   function tplLib() { return (typeof window !== 'undefined' && window.DVAITemplate) || null; }
   function skillFor(question) { var T = tplLib(); return T && T.detectSkill ? T.detectSkill(question) : null; }
+  /* A deliverable (report, page, table, chart, code) goes into an artifact; ordinary questions keep the normal answer template. */
+  function artifactBlock(question) {
+    var A = (typeof window !== 'undefined' && window.DVArtifacts) || null;
+    return A && A.wantsArtifact && A.wantsArtifact(question) ? A.promptRules({ odoo: true }) : '';
+  }
   function templateBlock(question) {
     var T = tplLib(); if (!T || !T.promptFor) return '';
     var sk = skillFor(question);
@@ -654,7 +659,7 @@
         var visPre = dataQueries.length ? dashboardArtifact(question, dataQueries, results, s) : null, T0 = tplLib();
         var findings = visPre && T0 && T0.findingsText ? T0.findingsText(visPre) : '';
         var deepFindings = visPre && T0 && T0.deepFindingsText ? T0.deepFindingsText(visPre) : '';
-        var system = [opts.systemPrompt, ANSWER_RULES, templateBlock(question),
+        var system = [opts.systemPrompt, ANSWER_RULES, templateBlock(question), artifactBlock(question),
           'TODAY: ' + iso(new Date()) + (s.currency ? ' · company currency: ' + s.currency : '') + (s.company ? ' · company: ' + s.company : '') + '\n' + areasLine(s),
           'LIVE QUERY RESULTS (' + trace.queries + ' queries, ' + trace.ms + ' ms):\n' + block, findings ? 'COMPUTED FINDINGS (calculated by code from the rows above and also shown as charts - exact; quote them in Key insights, never recompute them):\n' + findings : '', deepFindings ? 'DEEPER FINDINGS (also calculated by code and shown in the Insight board with a High / Medium / Note priority - use them for Risks and Recommended actions, quote the numbers exactly, never recompute or extend them):\n' + deepFindings : '', fileBlock].filter(Boolean).join('\n\n');
         return callLLM(history, system).then(function (text) {

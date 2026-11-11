@@ -1,0 +1,3 @@
+Purani file delete kar dein (ab css/tabbar-anchored.css use hoti hai):
+  css/tabbar-telegram.css
+(Is note file ko bhi delete kar dein.)

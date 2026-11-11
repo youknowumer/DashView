@@ -74,7 +74,8 @@
 <link rel="stylesheet" href="css/profile-pro.css"/>
 <link rel="stylesheet" href="css/studio-zoom.css"/>
 <link rel="stylesheet" href="css/ai-redesign.css"/>
-<link rel="stylesheet" href="css/tabbar-telegram.css"/>
+<link rel="stylesheet" href="css/ai-artifacts.css"/>
+<link rel="stylesheet" href="css/tabbar-anchored.css"/>
 <link rel="stylesheet" href="css/ios-smooth.css"/>
 <script defer src="js/ios-smooth.js"></script>
 <script src="js/8k-quality.js" defer></script>
@@ -479,6 +480,10 @@
             <div class="aiw-actions">
               <button type="button" class="btn btn-outline btn-sm" id="aiwNewBtn">+ New chat</button>
               <button type="button" class="btn btn-outline btn-sm" id="aiwExportBtn">Export</button>
+              <button type="button" class="aiw-iconbtn aiw-artbtn" id="aiwArtBtn" aria-label="Artifacts library" title="Artifacts — the reports, pages, tables and charts the assistant made for you">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h4M9 13h6M9 17h4"/></svg>
+                <span class="aart-count" hidden></span>
+              </button>
               <button type="button" class="aiw-iconbtn" id="aiwInspBtn" aria-label="Toggle details panel" aria-pressed="false" title="Path, connection and files">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
               </button>
@@ -2171,6 +2176,7 @@
 <script src="js/settings-overview.js"></script>
 <script src="js/profile-pro.js"></script>
 <script src="js/ai-files.js"></script>
+<script src="js/ai-artifacts.js"></script>
 <script src="js/ai-embed.js"></script>
 <script src="js/tabbar.js"></script>
 <script defer src="js/sidebar-dock.js"></script>

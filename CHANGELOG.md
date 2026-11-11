@@ -1,7 +1,19 @@
 # Changelog
 
+## 2.42.0 - 2026-11-11
+- New: AI Artifacts - the assistant can now make a finished report, memo, web page or dashboard, SVG image, CSV table, chart or piece of code and open it in its own side panel next to the chat instead of burying it in the conversation (js/ai-artifacts.js, css/ai-artifacts.css)
+- New: artifact panel - Preview / Source / Changes tabs; every version is kept with who made it (assistant or you) and can be compared line by line, restored or renamed; Edit saves your change as a new version (Ctrl/Cmd+S); Pin, Full screen and a drag-to-resize edge; the panel replaces the details pane and the two never fight for space
+- New: ask for changes right under the artifact (with quick suggestions) - the assistant receives the current version and sends back the next one under the same id; follow-up messages like make it shorter work too
+- New: per-type previews - documents with a contents bar; web pages in a sandbox (no network, no forms, no access to your DashView data) with phone / tablet / desktop widths and Open page; tables with sort, live search, totals row and column stats; charts (bars, line, area, donut, stacked) with a data table; SVG with zoom; code with syntax colours and line numbers
+- New: downloads in the right format - documents as Markdown, HTML, Word or PDF; tables as CSV (formula-safe), Excel or JSON; charts as PNG, SVG, CSV or JSON; pages and code as files; plus Print and Copy
+- New: Artifacts library (button in the AI header) - search, filter by type, pin, delete, export and import a backup, optional auto-open; Save as artifact on any long answer and an Artifact button on every Odoo chart; a Create tab with ready prompts on a new chat
+- New: the Odoo agent uses live rows only inside artifacts and follows the report template for document artifacts; chat export and copy include the artifact content
+- Changed: the Telegram tab bar style is renamed Anchored (css/tabbar-anchored.css); a style saved by 2.41.0 is migrated automatically and keeps its other choices
+- New: Settings section tabs (Profile, Appearance, Odoo, AI Assistant, Data & backup, Security, Help) now use the same bar - icon over label, hairline, blur, indicator, highlight colour, filled icon and a ringed status dot - and follow every option under Settings > Appearance > Tab bar; the new Settings tabs option (Match tab bar / Capsule) keeps the old capsule if you prefer it; the open tab scrolls into view on narrow screens
+- Improved: tests for the artifacts engine and panel and for the anchored tab bar; service worker cache updated
+
 ## 2.41.0 - 2026-11-10
-- New: Telegram-style tab bar - full-width frosted bar with icon over label, red count badge, sliding or capsule highlight; the floating capsule stays available (css/tabbar-telegram.css, js/tabbar-prefs.js)
+- New: Anchored tab bar - full-width frosted bar with icon over label, red count badge, sliding or capsule highlight; the floating capsule stays available (css/tabbar-anchored.css, js/tabbar-prefs.js)
 - New: Settings > Appearance > Tab bar - live preview, style, labels (always / active only / hidden), icon size, bar position (bottom / top), indicator (capsule / card / line / none), highlight colour, filled icons, blur, opacity, separator line, task badge (number / dot / off), New and Live tags, hide on scroll, tap feedback
 - New: choose which tabs show and drag to reorder them (Settings always stays); settings are saved on the device and shared between the dashboard and People pages
 - Improved: dashboard.html and people.html load the new tab bar files; service worker cache updated

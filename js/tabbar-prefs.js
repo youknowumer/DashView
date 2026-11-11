@@ -1,6 +1,6 @@
 /* ==========================================================================
    DashView — Tab bar preferences  (js/tabbar-prefs.js)
-   Paired with css/tabbar-telegram.css.
+   Paired with css/tabbar-anchored.css.
 
    1. Reads the saved tab bar preferences (localStorage "dv-tabbar") and puts them on <html> as
       data-tb-* attributes + CSS variables. This part runs immediately (load the script in <head>)
@@ -16,7 +16,7 @@
   var root = document.documentElement;
 
   var DEFAULTS = {
-    style: 'telegram',      // telegram | floating
+    style: 'anchored',      // anchored | floating   (saved value "telegram" from 2.41.0 is read as anchored)
     labels: 'always',       // always | active | hidden
     indicator: 'pill',      // pill | tint | line | none
     icon: 'md',             // sm | md | lg
@@ -28,14 +28,15 @@
     filled: true,
     badges: 'count',        // count | dot | off
     tags: 'off',            // dot | off   ("New" / "Live")
+    settingsTabs: 'match',  // match | capsule   (Settings section tabs follow the tab bar, or keep the capsule)
     haptics: false,
     autohide: false,
     order: [],
     hidden: []
   };
   var ENUM = {
-    style: ['telegram', 'floating'], labels: ['always', 'active', 'hidden'], indicator: ['pill', 'tint', 'line', 'none'],
-    icon: ['sm', 'md', 'lg'], position: ['bottom', 'top'], color: ['accent', 'neutral'], badges: ['count', 'dot', 'off'], tags: ['dot', 'off']
+    style: ['anchored', 'floating'], labels: ['always', 'active', 'hidden'], indicator: ['pill', 'tint', 'line', 'none'],
+    icon: ['sm', 'md', 'lg'], position: ['bottom', 'top'], color: ['accent', 'neutral'], badges: ['count', 'dot', 'off'], tags: ['dot', 'off'], settingsTabs: ['match', 'capsule']
   };
   var ICON_PX = { sm: 22, md: 25, lg: 29 };
   var LOCKED = { settings: 1 };      // can never be hidden, so nobody locks themselves out
@@ -45,6 +46,7 @@
   function normalise(raw) {
     var p = {}, k;
     raw = raw && typeof raw === 'object' ? raw : {};
+    if (raw.style === 'telegram') raw = Object.assign({}, raw, { style: 'anchored' });   // renamed in 2.42.0; keep saved choices
     for (k in DEFAULTS) p[k] = DEFAULTS[k];
     Object.keys(ENUM).forEach(function (key) { if (ENUM[key].indexOf(raw[key]) > -1) p[key] = raw[key]; });
     p.blur = clamp(raw.blur, 0, 40, DEFAULTS.blur);
@@ -75,6 +77,7 @@
     root.setAttribute('data-tb-line', prefs.hairline ? 'on' : 'off');
     root.setAttribute('data-tb-badges', prefs.badges);
     root.setAttribute('data-tb-tags', prefs.tags);
+    root.setAttribute('data-tb-stg', prefs.settingsTabs);
     var icon = ICON_PX[prefs.icon];
     var itemH = icon + 14 + (prefs.labels === 'hidden' ? 0 : 17);
     s.setProperty('--tb2-icon', icon + 'px');
@@ -149,6 +152,28 @@
     }
   }
 
+
+  /* Settings section tabs (Profile, Appearance, Odoo …): full name on hover, and in a scrolling bar the open tab is brought into view */
+  function bindSettingsRail() {
+    var rail = document.querySelector('#view-settings .stg-rail');
+    if (!rail || rail.__tbp) return;
+    rail.__tbp = true;
+    [].forEach.call(rail.querySelectorAll('.stg-tab'), function (t) {
+      if (t.getAttribute('title')) return;
+      var l = t.querySelector('span:not(.stg-tab-status)');
+      if (l) t.setAttribute('title', l.textContent.replace(/\s+/g, ' ').trim());
+    });
+    function reveal() {
+      if (prefs.style !== 'anchored' || prefs.settingsTabs !== 'match') return;
+      var a = rail.querySelector('.stg-tab.active');
+      if (!a || !rail.offsetParent || rail.scrollWidth <= rail.clientWidth + 1) return;
+      var left = Math.max(0, a.offsetLeft - (rail.clientWidth - a.offsetWidth) / 2);
+      try { rail.scrollTo({ left: left, behavior: 'smooth' }); } catch (e) { rail.scrollLeft = left; }
+    }
+    new MutationObserver(reveal).observe(rail, { attributes: true, subtree: true, attributeFilter: ['class'] });
+    reveal();
+  }
+
   /* ── 3. Settings → Appearance → Tab bar ─────────────────────────────────────────────────────── */
   var ui = null;     // refs to the card's pieces
   function toast(m) { if (window.showToast) window.showToast(m); }
@@ -217,7 +242,7 @@
     var card = el('div', 'stg-card tbp-card'); card.id = 'tbpCard';
     card.innerHTML =
       '<div class="stg-card-head"><div class="stg-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="6.5" rx="2.2"/><path d="M7.5 17.25h.01M12 17.25h.01M16.5 17.25h.01"/><path d="M5 4.5h14M5 8.5h9"/></svg></div>' +
-      '<div class="stg-card-head-text"><h3>Tab bar</h3><p>Change how the navigation bar looks and behaves. Changes apply instantly and are saved on this device.</p></div></div>' +
+      '<div class="stg-card-head-text"><h3>Tab bar</h3><p>Change how the navigation bar and the Settings tabs look and behave. Changes apply instantly and are saved on this device.</p></div></div>' +
       '<div class="stg-card-body" id="tbpBody"></div>';
     panel.appendChild(card);
     var body = card.querySelector('#tbpBody');
@@ -231,43 +256,44 @@
     /* style */
     body.appendChild(el('div', 'stg-card-subhead', '<h4>Style</h4><p>Pick the overall look of the bar.</p>'));
     var styleOpts = el('div', 'surface-opts'); styleOpts.setAttribute('role', 'radiogroup'); styleOpts.setAttribute('aria-label', 'Tab bar style');
-    [['telegram', 'Telegram bar', 'Full-width bar, icon over label, red count badges.'], ['floating', 'Floating capsule', 'The glass pill with a sliding bead.']].forEach(function (o) {
+    [['anchored', 'Anchored bar', 'Full-width bar docked to the screen edge, icon over label, red count badges.'], ['floating', 'Floating capsule', 'The glass pill with a sliding bead.']].forEach(function (o) {
       var b = el('button', 'surface-opt'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('data-style', o[0]);
-      b.innerHTML = '<div class="surface-swatch ' + (o[0] === 'telegram' ? 'flat' : 'glass') + '" aria-hidden="true"></div><b>' + o[1] + '</b><span>' + o[2] + '</span>';
-      b.addEventListener('click', function () { prefs.style = o[0]; commit(o[0] === 'telegram' ? 'Telegram-style tab bar on' : 'Floating tab bar on'); });
+      b.innerHTML = '<div class="surface-swatch ' + (o[0] === 'anchored' ? 'flat' : 'glass') + '" aria-hidden="true"></div><b>' + o[1] + '</b><span>' + o[2] + '</span>';
+      b.addEventListener('click', function () { prefs.style = o[0]; commit(o[0] === 'anchored' ? 'Anchored tab bar on' : 'Floating tab bar on'); });
       styleOpts.appendChild(b);
     });
     body.appendChild(styleOpts);
 
-    /* Telegram options */
-    var tg = el('div', 'tbp-tg-only'); tg.id = 'tbpTg';
-    tg.appendChild(el('div', 'stg-card-subhead', '<h4>Layout</h4><p class="tbp-sub-x">Labels, icons and where the bar sits.</p>'));
+    /* Anchored-bar options */
+    var an = el('div', 'tbp-an-only'); an.id = 'tbpAn';
+    an.appendChild(el('div', 'stg-card-subhead', '<h4>Layout</h4><p class="tbp-sub-x">Labels, icons and where the bar sits.</p>'));
     var rows = [];
     rows.push(segRow({ title: 'Labels', help: 'Show the name under every icon, only under the open tab, or never.', opts: [['always', 'Always'], ['active', 'Active only'], ['hidden', 'Hidden']], get: function () { return prefs.labels; }, set: function (v) { prefs.labels = v; }, toast: 'Labels updated' }));
     rows.push(segRow({ title: 'Icon size', help: 'Small fits more tabs on a phone, large is easier to tap.', opts: [['sm', 'Small'], ['md', 'Medium'], ['lg', 'Large']], get: function () { return prefs.icon; }, set: function (v) { prefs.icon = v; }, toast: 'Icon size updated' }));
-    rows.push(segRow({ title: 'Position', help: 'Dock the bar to the bottom (like Telegram) or under the top bar.', opts: [['bottom', 'Bottom'], ['top', 'Top']], get: function () { return prefs.position; }, set: function (v) { prefs.position = v; }, toast: 'Position updated' }));
-    rows.forEach(function (r) { tg.appendChild(r); });
+    rows.push(segRow({ title: 'Position', help: 'Dock the bar to the bottom of the screen or under the top bar.', opts: [['bottom', 'Bottom'], ['top', 'Top']], get: function () { return prefs.position; }, set: function (v) { prefs.position = v; }, toast: 'Position updated' }));
+    rows.push(segRow({ title: 'Settings tabs', help: 'The section tabs inside Settings (Profile, Appearance, Odoo …) use this same bar look, or keep the glass capsule.', opts: [['match', 'Match tab bar'], ['capsule', 'Capsule']], get: function () { return prefs.settingsTabs; }, set: function (v) { prefs.settingsTabs = v; }, toast: 'Settings tabs updated' }));
+    rows.forEach(function (r) { an.appendChild(r); });
 
-    tg.appendChild(el('div', 'stg-card-subhead', '<h4>Active tab</h4><p>How the open tab is highlighted.</p>'));
+    an.appendChild(el('div', 'stg-card-subhead', '<h4>Active tab</h4><p>How the open tab is highlighted.</p>'));
     var rows2 = [];
     rows2.push(segRow({ title: 'Indicator', help: 'Capsule behind the icon, a tinted card that slides, a line on the edge, or colour only.', opts: [['pill', 'Capsule'], ['tint', 'Card'], ['line', 'Line'], ['none', 'None']], get: function () { return prefs.indicator; }, set: function (v) { prefs.indicator = v; }, toast: 'Indicator updated' }));
     rows2.push(segRow({ title: 'Highlight colour', help: 'Follow your accent colour, or use plain white / black.', opts: [['accent', 'Accent'], ['neutral', 'Neutral']], get: function () { return prefs.color; }, set: function (v) { prefs.color = v; }, toast: 'Highlight colour updated' }));
     rows2.push(toggleRow({ title: 'Filled icon', help: 'Fill the icon of the open tab instead of an outline.', get: function () { return prefs.filled; }, set: function (v) { prefs.filled = v; } }));
-    rows2.forEach(function (r) { tg.appendChild(r); });
+    rows2.forEach(function (r) { an.appendChild(r); });
 
-    tg.appendChild(el('div', 'stg-card-subhead', '<h4>Glass</h4><p>Blur and transparency behind the bar.</p>'));
+    an.appendChild(el('div', 'stg-card-subhead', '<h4>Glass</h4><p>Blur and transparency behind the bar.</p>'));
     var rows3 = [];
     rows3.push(rangeRow({ title: 'Blur', help: 'Frosted-glass blur of the page behind the bar.', min: 0, max: 40, step: 2, get: function () { return prefs.blur; }, set: function (v) { prefs.blur = v; }, fmt: function (v) { return v + ' px'; } }));
     rows3.push(rangeRow({ title: 'Opacity', help: 'Lower is more see-through, 100% is a solid bar.', min: 30, max: 100, step: 2, get: function () { return prefs.opacity; }, set: function (v) { prefs.opacity = v; }, fmt: function (v) { return v + '%'; } }));
     rows3.push(toggleRow({ title: 'Separator line', help: 'A thin line between the bar and the page.', get: function () { return prefs.hairline; }, set: function (v) { prefs.hairline = v; } }));
-    rows3.forEach(function (r) { tg.appendChild(r); });
-    body.appendChild(tg);
+    rows3.forEach(function (r) { an.appendChild(r); });
+    body.appendChild(an);
 
     /* behaviour (both styles) */
     body.appendChild(el('div', 'stg-card-subhead', '<h4>Badges &amp; behaviour</h4><p>Counts, tags and scrolling.</p>'));
     var rows4 = [];
     rows4.push(segRow({ title: 'Task count badge', help: 'Open task count on Task assignments: a number, a dot, or nothing.', opts: [['count', 'Number'], ['dot', 'Dot'], ['off', 'Off']], get: function () { return prefs.badges; }, set: function (v) { prefs.badges = v; }, toast: 'Badge updated' }));
-    rows4.push(segRow({ cls: 'tbp-tg-only', title: '"New" and "Live" tags', help: 'Show them as a small green dot on the icon.', opts: [['dot', 'Dot'], ['off', 'Off']], get: function () { return prefs.tags; }, set: function (v) { prefs.tags = v; }, toast: 'Tags updated' }));
+    rows4.push(segRow({ cls: 'tbp-an-only', title: '"New" and "Live" tags', help: 'Show them as a small green dot on the icon.', opts: [['dot', 'Dot'], ['off', 'Off']], get: function () { return prefs.tags; }, set: function (v) { prefs.tags = v; }, toast: 'Tags updated' }));
     rows4.push(toggleRow({ title: 'Hide while scrolling', help: 'Slide the bar away when you scroll down; it returns when you scroll up.', get: function () { return prefs.autohide; }, set: function (v) { prefs.autohide = v; } }));
     rows4.push(toggleRow({ cls: 'no-border', title: 'Tap feedback', help: 'A short vibration when you tap a tab (phones that support it).', get: function () { return prefs.haptics; }, set: function (v) { prefs.haptics = v; } }));
     rows4.forEach(function (r) { body.appendChild(r); });
@@ -405,9 +431,9 @@
   }
 
   /* ── boot ───────────────────────────────────────────────────────────────────────────────────── */
-  function boot() { bindDock(); initSettings(); }
+  function boot() { bindDock(); bindSettingsRail(); initSettings(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-  window.addEventListener('load', function () { bindDock(); if (!ui) initSettings(); else syncUI(); });
+  window.addEventListener('load', function () { bindDock(); bindSettingsRail(); if (!ui) initSettings(); else syncUI(); });
   document.addEventListener('dv:theme', function () { renderPreview(); });
 
   /* another tab / the other page (dashboard ↔ people) changed the settings */

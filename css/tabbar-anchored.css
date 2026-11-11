@@ -1,0 +1,426 @@
+/* ==========================================================================
+   DashView — Anchored tab bar  (css/tabbar-anchored.css)
+   Paired with js/tabbar-prefs.js (preferences + Settings → Appearance → Tab bar).
+   Load AFTER css/sidebar-itb.css on dashboard.html and people.html.
+
+   Everything here is driven by attributes that js/tabbar-prefs.js puts on <html>:
+     data-tb-style   anchored | floating      (floating = the previous glass capsule, untouched)
+     data-tb-labels  always | active | hidden
+     data-tb-ind     pill | tint | line | none   (active indicator)
+     data-tb-icon    sm | md | lg            (+ --tb2-icon in px)
+     data-tb-pos     bottom | top
+     data-tb-color   accent | neutral        (colour of the active tab)
+     data-tb-fill    on | off                (filled icon when active)
+     data-tb-line    on | off                (hairline between bar and page)
+     data-tb-badges  count | dot | off
+     data-tb-tags    dot | off               ("New" / "Live" tags as a small dot)
+   and the variables --tb2-blur, --tb2-a (background opacity), --tb2-icon, --tb2-h, --tb2-item-h.
+   Without the script none of these exist, so the old floating dock keeps working.
+   ========================================================================== */
+
+html[data-tb-style="anchored"] {
+  --tb2-surface: 23, 25, 27;
+  --tb2-hair: rgba(255, 255, 255, .09);
+  --tb2-idle: rgba(255, 255, 255, .52);
+  --tb2-hover: rgba(255, 255, 255, .86);
+  --tb2-neutral: #ffffff;
+  --tb2-accent: var(--signal-bright, var(--signal, #e8a33d));
+  --tb2-badge: #ff3b30;
+  --tb2-ease: cubic-bezier(.32, .72, 0, 1);
+}
+html[data-tb-style="anchored"][data-theme="light"] {
+  --tb2-surface: 255, 255, 255;
+  --tb2-hair: rgba(20, 24, 19, .11);
+  --tb2-idle: rgba(20, 24, 19, .5);
+  --tb2-hover: rgba(20, 24, 19, .8);
+  --tb2-neutral: #141813;
+  --tb2-accent: var(--signal, #b87316);
+}
+html[data-tb-style="anchored"] { --tb2-on: var(--tb2-accent); }
+html[data-tb-style="anchored"][data-tb-color="neutral"] { --tb2-on: var(--tb2-neutral); }
+
+/* ── page room: the bar is docked, not floating ───────────────────────────── */
+html[data-tb-style="anchored"] .dash-main { padding-bottom: calc(var(--tb2-h, 66px) + env(safe-area-inset-bottom, 0px) + 20px); }
+html[data-tb-style="anchored"] .toast-stack { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--tb2-h, 66px) + 14px) !important; }
+html[data-tb-style="anchored"][data-tb-pos="top"] .dash-main { padding-bottom: var(--sp-8, 32px); }
+html[data-tb-style="anchored"][data-tb-pos="top"] .dash-content { margin-top: var(--tb2-h, 66px); }
+html[data-tb-style="anchored"][data-tb-pos="top"] .toast-stack { bottom: max(16px, env(safe-area-inset-bottom)) !important; }
+
+/* ── the bar ──────────────────────────────────────────────────────────────── */
+html[data-tb-style="anchored"] .dash-side .dash-nav {
+  left: 0; right: 0; top: auto; bottom: 0;
+  width: auto; max-width: none; height: auto;
+  transform: none;
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
+  gap: 0;
+  border-radius: 0; border: 0;
+  border-top: 1px solid var(--tb2-hair);
+  background: rgba(var(--tb2-surface), var(--tb2-a, .78));
+  -webkit-backdrop-filter: blur(var(--tb2-blur, 24px)) saturate(180%);
+  backdrop-filter: blur(var(--tb2-blur, 24px)) saturate(180%);
+  box-shadow: none;
+  justify-content: flex-start;
+  overflow-x: auto; overflow-y: hidden;
+  transition: transform .38s var(--tb2-ease), opacity .25s ease;
+}
+html[data-tb-style="anchored"][data-tb-line="off"] .dash-side .dash-nav { border-top-color: transparent; border-bottom-color: transparent; }
+/* flexible spacers centre the tabs while there is room and collapse (so the bar scrolls) when there is not */
+html[data-tb-style="anchored"] .dash-side .dash-nav::before,
+html[data-tb-style="anchored"] .dash-side .dash-nav::after { content: ''; flex: 1 0 0; order: -1; min-width: 0; }
+html[data-tb-style="anchored"] .dash-side .dash-nav::after { order: 9999; }
+
+html[data-tb-style="anchored"][data-tb-pos="top"] .dash-side .dash-nav {
+  top: var(--nav-h, 56px); bottom: auto;
+  padding: 4px 8px 4px;
+  border-top: 0; border-bottom: 1px solid var(--tb2-hair);
+}
+html[data-tb-style="anchored"][data-tb-pos="top"][data-tb-line="off"] .dash-side .dash-nav { border-bottom-color: transparent; }
+
+/* auto-hide while scrolling down */
+html[data-tb-style="anchored"] .dash-side .dash-nav.tb-away { transform: translateY(105%); }
+html[data-tb-style="anchored"][data-tb-pos="top"] .dash-side .dash-nav.tb-away { transform: translateY(-105%); }
+
+/* dialogs / lock screen: slide away (the old rule moved it by -50% horizontally) */
+html[data-tb-style="anchored"] body:has(.modal-overlay.open) .dash-nav,
+html[data-tb-style="anchored"] body:has(.cmd-overlay.open) .dash-nav,
+html[data-tb-style="anchored"].dv-locked .dash-nav { transform: translateY(105%) !important; }
+html[data-tb-style="anchored"][data-tb-pos="top"] body:has(.modal-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-pos="top"] body:has(.cmd-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-pos="top"].dv-locked .dash-nav { transform: translateY(-105%) !important; }
+
+/* ── a tab: icon over label ───────────────────────────────────────────────── */
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link {
+  flex: 1 0 64px; min-width: 64px; max-width: 96px;
+  flex-direction: column; justify-content: flex-start; align-items: center;
+  gap: 3px;
+  height: var(--tb2-item-h, 54px);
+  padding: 7px 3px 0;
+  border-radius: 14px;
+  color: var(--tb2-idle);
+  font: 500 10.5px/1.15 var(--f-body, var(--f-display, system-ui, sans-serif));
+  letter-spacing: .01em;
+  text-align: center;
+  transition: color .22s ease, transform .18s ease;
+}
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link:hover:not(.active) { color: var(--tb2-hover); background: transparent; }
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link:active { transform: scale(.93); }
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link:focus-visible { outline: 2px solid var(--tb2-on); outline-offset: -2px; }
+
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link svg {
+  width: var(--tb2-icon, 25px); height: var(--tb2-icon, 25px);
+  stroke-width: 1.7;
+  transition: color .22s ease, transform .3s var(--tb2-ease);
+}
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link.active svg { transform: translateY(-1px) scale(1.04); }
+
+/* label (the <span> that is not a badge) */
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link > span:not(.badge) {
+  display: block; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0; opacity: 1;
+  transition: opacity .2s ease, max-height .3s var(--tb2-ease);
+  max-height: 1.4em;
+}
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link.active > span:not(.badge) { max-width: 100%; padding-left: 0; font-weight: 600; }
+html[data-tb-style="anchored"][data-tb-labels="active"] .dash-side .dash-nav .dash-nav-link:not(.active) > span:not(.badge) { opacity: 0; max-height: 0; }
+html[data-tb-style="anchored"][data-tb-labels="hidden"] .dash-side .dash-nav .dash-nav-link > span:not(.badge) {
+  position: absolute; width: 1px; height: 1px; max-height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; opacity: 0;     /* still read by screen readers */
+}
+html[data-tb-style="anchored"][data-tb-labels="hidden"] .dash-side .dash-nav .dash-nav-link { gap: 0; justify-content: center; padding-top: 0; }
+
+/* ── active tab ───────────────────────────────────────────────────────────── */
+html[data-tb-style="anchored"] .dash-side .dash-nav.dv-tabs .dash-nav-link.active,
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link.active {
+  color: var(--tb2-on) !important;
+  background: transparent !important; box-shadow: none !important; text-shadow: none !important;
+  padding: 7px 3px 0;
+}
+html[data-tb-style="anchored"][data-tb-labels="hidden"] .dash-side .dash-nav .dash-nav-link.active { padding: 0; }
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link.active svg { color: var(--tb2-on); }
+/* the bar colour fills the details that are cut out of a filled icon */
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link.active svg .k { stroke: rgb(var(--tb2-surface)); }
+html[data-tb-style="anchored"][data-tb-fill="off"] .dash-side .dash-nav .dash-nav-link.active svg .f { fill: none; }
+html[data-tb-style="anchored"][data-tb-fill="off"] .dash-side .dash-nav .dash-nav-link.active svg .k { stroke: currentColor; }
+
+/* indicator: tint = sliding rounded card (the existing .sdock-bead), pill = capsule behind the icon, line = bar on the edge */
+html[data-tb-style="anchored"] .sdock-bead { display: none; }
+html[data-tb-style="anchored"][data-tb-ind="tint"] .sdock-bead {
+  display: block; top: 4px; height: var(--tb2-item-h, 54px);
+  border-radius: 14px; box-shadow: none;
+  background: color-mix(in srgb, var(--tb2-on) 15%, transparent);
+}
+html[data-tb-style="anchored"][data-tb-pos="top"][data-tb-ind="tint"] .sdock-bead { top: 4px; }
+
+html[data-tb-style="anchored"][data-tb-ind="pill"] .dash-nav-link::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none; display: block !important;
+  top: 3px; left: 50%;
+  width: calc(var(--tb2-icon, 25px) + 30px); height: calc(var(--tb2-icon, 25px) + 8px);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tb2-on) 17%, transparent);
+  opacity: 0; transform: translateX(-50%) scaleX(.55);
+  transition: opacity .2s ease, transform .35s var(--tb2-ease);
+}
+html[data-tb-style="anchored"][data-tb-ind="pill"] .dash-nav-link.active::before { opacity: 1; transform: translateX(-50%) scaleX(1); }
+html[data-tb-style="anchored"][data-tb-ind="pill"][data-tb-labels="hidden"] .dash-nav-link::before { top: 50%; height: calc(var(--tb2-icon, 25px) + 12px); margin-top: calc((var(--tb2-icon, 25px) + 12px) / -2); }
+
+html[data-tb-style="anchored"][data-tb-ind="line"] .dash-nav-link::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none; display: block !important;
+  top: -4px; left: 50%; width: 28px; height: 3px;
+  border-radius: 0 0 3px 3px; background: var(--tb2-on);
+  opacity: 0; transform: translateX(-50%) scaleX(.3);
+  transition: opacity .2s ease, transform .35s var(--tb2-ease);
+}
+html[data-tb-style="anchored"][data-tb-pos="top"][data-tb-ind="line"] .dash-nav-link::after { top: auto; bottom: -4px; border-radius: 3px 3px 0 0; }
+html[data-tb-style="anchored"][data-tb-ind="line"] .dash-nav-link.active::after { opacity: 1; transform: translateX(-50%) scaleX(1); }
+
+/* ── badges (red circle with the count, ringed in the bar colour) ── */
+html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link .badge { display: none !important; }
+html[data-tb-style="anchored"][data-tb-badges="count"] .dash-side .dash-nav .dash-nav-link #navTaskBadge:not([hidden]),
+html[data-tb-style="anchored"][data-tb-badges="dot"] .dash-side .dash-nav .dash-nav-link #navTaskBadge:not([hidden]) {
+  display: flex !important; align-items: center; justify-content: center;
+  position: absolute; top: 3px; left: calc(50% + var(--tb2-icon, 25px) / 2 - 6px); right: auto;
+  min-width: 18px; height: 18px; padding: 0 5px; margin: 0;
+  border-radius: 999px; border: 2px solid rgb(var(--tb2-surface));
+  background: var(--tb2-badge); color: #fff;
+  font: 700 10px/1 var(--f-body, system-ui, sans-serif); letter-spacing: 0; text-align: center; box-sizing: content-box;
+  animation: none; box-shadow: none;
+}
+html[data-tb-style="anchored"][data-tb-badges="dot"] .dash-side .dash-nav .dash-nav-link #navTaskBadge:not([hidden]) {
+  min-width: 0; width: 8px; height: 8px; padding: 0; font-size: 0; left: calc(50% + var(--tb2-icon, 25px) / 2 - 4px); top: 5px;
+}
+html[data-tb-style="anchored"][data-tb-badges="off"] .dash-side .dash-nav .dash-nav-link #navTaskBadge { display: none !important; }
+/* "New" / "Live" tags as a green dot */
+html[data-tb-style="anchored"][data-tb-tags="dot"] .dash-side .dash-nav .dash-nav-link .badge:not(#navTaskBadge) {
+  display: block !important; position: absolute; top: 6px; left: calc(50% + var(--tb2-icon, 25px) / 2 - 3px);
+  width: 8px; height: 8px; min-width: 0; padding: 0; margin: 0; font-size: 0; line-height: 0; overflow: hidden;
+  border-radius: 50%; border: 1.5px solid rgb(var(--tb2-surface)); background: #34c759; box-sizing: content-box; animation: none;
+}
+
+/* hidden tabs (Settings → Appearance → Tab bar). The tab you are on is always shown. */
+.dash-side .dash-nav .dash-nav-link.tb-off:not(.active) { display: none !important; }
+
+/* ── size presets ─────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  html[data-tb-style="anchored"] .dash-side .dash-nav { padding-left: 4px; padding-right: 4px; }
+  html[data-tb-style="anchored"] .dash-side .dash-nav .dash-nav-link { flex-basis: 58px; min-width: 58px; font-size: 10px; padding-left: 2px; padding-right: 2px; }
+}
+
+/* ── floating style: shared extras (auto-hide, hidden tabs) ───────────────── */
+html[data-tb-style="floating"] .dash-side .dash-nav.tb-away { transform: translate(-50%, 160%); }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-tb-style="anchored"] .dash-side .dash-nav,
+  html[data-tb-style="anchored"] .dash-nav-link, html[data-tb-style="anchored"] .dash-nav-link svg,
+  html[data-tb-style="anchored"] .dash-nav-link::before, html[data-tb-style="anchored"] .dash-nav-link::after { transition: none !important; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  html[data-tb-style="anchored"] .dash-side .dash-nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(var(--tb2-surface)); }
+}
+@media print { html[data-tb-style="anchored"] .dash-side .dash-nav { display: none !important; } }
+
+/* ==========================================================================
+   Settings section tabs — the same bar look   (data-tb-stg="match", the default)
+   The tabs inside Settings (Profile, Appearance, Odoo, AI Assistant, Data & backup, Security, Help) use the
+   exact same material, icon-over-label layout, indicator, highlight colour, filled icon, blur, opacity and
+   hairline as the main tab bar, so one set of Settings → Appearance → Tab bar options styles both.
+   Choose "Capsule" under Settings tabs (or the Floating style) to keep the glass capsule.
+   ========================================================================== */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail {
+  --tb-r: 0;
+  top: var(--nav-h, 56px);
+  width: 100%; max-width: 1120px; margin: 0 auto var(--sp-5, 20px);
+  padding: 4px 8px; gap: 0;
+  justify-content: flex-start; align-items: stretch;
+  border-radius: 20px; border: 1px solid var(--tb2-hair);
+  background-color: rgba(var(--tb2-surface), var(--tb2-a, .78)); background-image: none;
+  -webkit-backdrop-filter: blur(var(--tb2-blur, 24px)) saturate(180%);
+  backdrop-filter: blur(var(--tb2-blur, 24px)) saturate(180%);
+  box-shadow: 0 12px 30px -22px rgba(0, 0, 0, .6);
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-line="off"] #view-settings .stg-rail { border-color: transparent; }
+/* the sliding glass bead / lamp belong to the capsule */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail > .dv-pill,
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail > .dv-lamp { display: none !important; }
+/* flexible spacers: tabs stay centred while they fit and the bar scrolls when they do not */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail::before,
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail::after { content: ''; flex: 1 0 0; order: -1; min-width: 0; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail::after { order: 9999; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail-label { display: none; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail-divider {
+  display: block; flex: 0 0 1px; width: 1px; height: 26px; margin: 0 6px; align-self: center;
+  background: var(--tb2-hair); opacity: 1;
+}
+
+/* a tab: icon over label */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab {
+  position: relative;
+  flex: 1 0 76px; min-width: 76px; max-width: 120px; width: auto;
+  flex-direction: column; justify-content: flex-start; align-items: center; gap: 3px;
+  height: var(--tb2-item-h, 54px); min-height: 0; padding: 7px 3px 0;
+  border-radius: 14px; background: transparent; box-shadow: none;
+  color: var(--tb2-idle); text-shadow: none;
+  font: 500 10.5px/1.15 var(--f-body, var(--f-display, system-ui, sans-serif)); letter-spacing: .01em; text-align: center; white-space: nowrap;
+  transition: color .22s ease, transform .18s ease, background-color .22s ease;
+}
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab:hover:not(.active) { color: var(--tb2-hover); background: transparent; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab:active { transform: scale(.94); }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab:focus-visible { outline: 2px solid var(--tb2-on); outline-offset: -2px; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab svg {
+  display: block; width: var(--tb2-icon, 25px); height: var(--tb2-icon, 25px); flex: none; opacity: 1; stroke-width: 1.7;
+  transition: color .22s ease, transform .3s var(--tb2-ease), fill .22s ease;
+}
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab > span:not(.stg-tab-status) {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0;
+  max-height: 1.4em; transition: opacity .2s ease, max-height .3s var(--tb2-ease);
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-labels="active"] #view-settings .stg-rail .stg-tab:not(.active) > span:not(.stg-tab-status) { opacity: 0; max-height: 0; }
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-labels="hidden"] #view-settings .stg-rail .stg-tab > span:not(.stg-tab-status) {
+  position: absolute; width: 1px; height: 1px; max-height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; opacity: 0;
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-labels="hidden"] #view-settings .stg-rail .stg-tab { gap: 0; justify-content: center; padding-top: 0; min-width: 56px; flex-basis: 56px; }
+
+/* active tab */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail.dv-tabs .stg-tab.dv-item.active,
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab.active {
+  color: var(--tb2-on) !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; font-weight: 600;
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-labels="hidden"] #view-settings .stg-rail .stg-tab.active { padding: 0; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab.active svg { color: var(--tb2-on); transform: translateY(-1px) scale(1.04); }
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-fill="on"] #view-settings .stg-rail .stg-tab.active svg { fill: color-mix(in srgb, var(--tb2-on) 26%, transparent); }
+
+/* indicator: capsule behind the icon / tinted card / line on the edge / colour only */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab::before,
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab::after { content: none; display: none !important; }
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="pill"] #view-settings .stg-rail .stg-tab::before {
+  content: ''; display: block !important; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; right: auto; bottom: auto; top: 3px;
+  width: calc(var(--tb2-icon, 25px) + 30px); height: calc(var(--tb2-icon, 25px) + 8px);
+  border-radius: 999px; background: color-mix(in srgb, var(--tb2-on) 17%, transparent);
+  opacity: 0; transform: translateX(-50%) scaleX(.55);
+  transition: opacity .2s ease, transform .35s var(--tb2-ease);
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="pill"] #view-settings .stg-rail .stg-tab.active::before { opacity: 1; transform: translateX(-50%) scaleX(1); }
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="pill"][data-tb-labels="hidden"] #view-settings .stg-rail .stg-tab::before {
+  top: 50%; height: calc(var(--tb2-icon, 25px) + 12px); margin-top: calc((var(--tb2-icon, 25px) + 12px) / -2);
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="tint"] #view-settings .stg-rail .stg-tab.active { background: color-mix(in srgb, var(--tb2-on) 15%, transparent) !important; }
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="line"] #view-settings .stg-rail .stg-tab::after {
+  content: ''; display: block !important; position: absolute; z-index: -1; pointer-events: none;
+  top: -4px; left: 50%; width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--tb2-on);
+  opacity: 0; transform: translateX(-50%) scaleX(.3); transition: opacity .2s ease, transform .35s var(--tb2-ease);
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-ind="line"] #view-settings .stg-rail .stg-tab.active::after { opacity: 1; transform: translateX(-50%) scaleX(1); }
+
+/* status dot (Odoo / AI / Data / Security): a ringed dot on the icon, like the count badge on the main bar */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status {
+  position: absolute; top: 5px; left: calc(50% + var(--tb2-icon, 25px) / 2 - 4px); margin: 0;
+  width: 8px; height: 8px; box-sizing: content-box; border-radius: 50%;
+  border: 2px solid rgb(var(--tb2-surface)); box-shadow: none;
+}
+html[data-tb-style="anchored"][data-tb-stg="match"][data-tb-labels="hidden"] #view-settings .stg-rail .stg-tab .stg-tab-status { top: 7px; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status:not(.live):not(.configured):not(.error):not(.warn) { display: none; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status.live { background: #34c759; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status.warn { background: #ff9f0a; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status.error { background: #ff3b30; }
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab .stg-tab-status.configured { background: var(--tb2-on); }
+
+/* search dimming from Settings search keeps working */
+html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab.stgo-nomatch { opacity: .35; }
+
+@media (max-width: 900px) {
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail { top: var(--nav-h, 56px); max-width: 100%; border-radius: 16px; }
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab { flex: 1 0 72px; min-width: 72px; padding: 7px 3px 0; }
+}
+@media (max-width: 600px) {
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail { padding: 4px; border-radius: 14px; }
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab { flex-basis: 64px; min-width: 64px; font-size: 10px; padding: 7px 2px 0; }
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab svg { display: block; }
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail-divider { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab,
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab svg,
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab::before,
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .stg-tab::after { transition: none !important; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: rgb(var(--tb2-surface)); }
+}
+
+/* ==========================================================================
+   Settings → Appearance → Tab bar   (card built by js/tabbar-prefs.js)
+   ========================================================================== */
+.tbp-card .tbp-sub { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: var(--ink-50); }
+.tbp-card .apr-row .pro-seg { flex-wrap: wrap; }
+.tbp-card [hidden] { display: none !important; }
+.tbp-card.tbp-floating .tbp-tg-only { opacity: .45; pointer-events: none; }
+
+/* live preview */
+.tbp-prev-wrap { margin: 2px 0 8px; padding: 16px 14px 0; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--line, rgba(255,255,255,.1)); background: var(--paper-soft, rgba(255,255,255,.03));
+  background-image: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--signal, #e8a33d) 18%, transparent), transparent 60%); }
+.tbp-prev-page { height: 54px; display: grid; gap: 7px; align-content: start; padding: 0 4px; }
+.tbp-prev-page i { display: block; height: 9px; border-radius: 5px; background: color-mix(in srgb, var(--ink, #e7ede7) 12%, transparent); }
+.tbp-prev-page i:nth-child(1) { width: 46%; height: 12px; }
+.tbp-prev-page i:nth-child(3) { width: 72%; }
+.tbp-prev { --p-surface: 23, 25, 27; --p-idle: rgba(255,255,255,.52); --p-hair: rgba(255,255,255,.1); --p-on: var(--signal-bright, var(--signal, #e8a33d)); --p-icon: 25px;
+  display: flex; justify-content: center; margin: 0 -14px; padding: 4px 8px 6px;
+  background: rgba(var(--p-surface), var(--p-a, .78)); border-top: 1px solid var(--p-hair);
+  -webkit-backdrop-filter: blur(var(--p-blur, 24px)); backdrop-filter: blur(var(--p-blur, 24px)); }
+html[data-theme="light"] .tbp-prev { --p-surface: 255, 255, 255; --p-idle: rgba(20,24,19,.5); --p-hair: rgba(20,24,19,.11); --p-on: var(--signal, #b87316); }
+.tbp-prev.tbp-nline { border-top-color: transparent; }
+.tbp-prev.tbp-neutral { --p-on: #fff; }
+html[data-theme="light"] .tbp-prev.tbp-neutral { --p-on: #141813; }
+.tbp-prev.tbp-floating { margin: 0 auto 12px; width: fit-content; max-width: calc(100% - 20px); border: 1px solid var(--p-hair); border-radius: 999px; padding: 6px; gap: 2px; background: rgba(var(--p-surface), .55); }
+.tbp-pi { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 0 1 64px; min-width: 44px; height: var(--p-ih, 54px); padding-top: 7px;
+  color: var(--p-idle); font: 500 10px/1.15 var(--f-body, system-ui, sans-serif); border-radius: 14px; z-index: 0; }
+.tbp-pi svg { width: var(--p-icon); height: var(--p-icon); flex: none; }
+.tbp-pi span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbp-pi.on { color: var(--p-on); font-weight: 600; }
+.tbp-prev[data-lb="active"] .tbp-pi:not(.on) span { visibility: hidden; }
+.tbp-prev[data-lb="hidden"] .tbp-pi span { display: none; }
+.tbp-prev[data-lb="hidden"] .tbp-pi { padding-top: 0; justify-content: center; }
+.tbp-prev[data-ind="pill"] .tbp-pi.on::before { content: ''; position: absolute; z-index: -1; top: 3px; left: 50%; transform: translateX(-50%);
+  width: calc(var(--p-icon) + 30px); height: calc(var(--p-icon) + 8px); border-radius: 999px; background: color-mix(in srgb, var(--p-on) 17%, transparent); }
+.tbp-prev[data-ind="pill"][data-lb="hidden"] .tbp-pi.on::before { top: 50%; margin-top: calc((var(--p-icon) + 12px) / -2); height: calc(var(--p-icon) + 12px); }
+.tbp-prev[data-ind="tint"] .tbp-pi.on { background: color-mix(in srgb, var(--p-on) 15%, transparent); }
+.tbp-prev[data-ind="line"] .tbp-pi.on::after { content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--p-on); }
+.tbp-prev.tbp-top { order: -1; border-top: 0; border-bottom: 1px solid var(--p-hair); margin-top: -16px; margin-bottom: 10px; }
+.tbp-prev.tbp-top[data-ind="line"] .tbp-pi.on::after { top: auto; bottom: -4px; border-radius: 3px 3px 0 0; }
+.tbp-prev-wrap.tbp-wtop { display: flex; flex-direction: column; padding-top: 0; }
+.tbp-prev .tbp-pb { position: absolute; top: 3px; left: calc(50% + var(--p-icon) / 2 - 6px); min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 999px;
+  background: #ff3b30; color: #fff; font: 700 10px/14px var(--f-body, system-ui, sans-serif); text-align: center; border: 2px solid rgb(var(--p-surface)); }
+.tbp-prev[data-bd="dot"] .tbp-pb { min-width: 0; width: 12px; height: 12px; padding: 0; font-size: 0; left: calc(50% + var(--p-icon) / 2 - 4px); top: 4px; }
+.tbp-prev[data-bd="off"] .tbp-pb { display: none; }
+
+/* sliders */
+.tbp-range { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+.tbp-range input[type=range] { flex: 1; min-width: 120px; accent-color: var(--signal, #e8a33d); height: 28px; cursor: pointer; }
+.tbp-range output { min-width: 42px; text-align: right; font: 600 12px/1 var(--f-mono, monospace); color: var(--ink-70, var(--ink)); }
+
+/* tab list */
+.tbp-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+.tbp-li { display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 10px; border-radius: 12px;
+  border: 1px solid var(--line, rgba(255,255,255,.1)); background: var(--paper-soft, rgba(255,255,255,.03)); transition: opacity .2s, border-color .2s, background .2s; }
+.tbp-li.off { opacity: .55; }
+.tbp-li.drag { opacity: .4; }
+.tbp-li.over { border-color: var(--signal, #e8a33d); background: color-mix(in srgb, var(--signal, #e8a33d) 9%, transparent); }
+.tbp-grip { cursor: grab; color: var(--ink-30, rgba(255,255,255,.35)); display: inline-flex; padding: 4px 2px; touch-action: none; }
+.tbp-grip:active { cursor: grabbing; }
+.tbp-li svg.tbp-ic { width: 20px; height: 20px; flex: none; color: var(--ink-70, var(--ink)); }
+.tbp-li .tbp-nm { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbp-li .tbp-nm small { margin-left: 8px; font-weight: 500; font-size: 11px; color: var(--ink-50); }
+.tbp-mv { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--ink-50); cursor: pointer; }
+.tbp-mv:hover:not(:disabled) { background: color-mix(in srgb, var(--signal, #e8a33d) 12%, transparent); color: var(--ink); }
+.tbp-mv:disabled { opacity: .3; cursor: default; }
+.tbp-mv:focus-visible, .tbp-sw:focus-visible { outline: 2px solid var(--signal, #e8a33d); outline-offset: 1px; }
+.tbp-sw { position: relative; width: 40px; height: 24px; flex: none; border: 0; border-radius: 999px; cursor: pointer; padding: 0;
+  background: color-mix(in srgb, var(--ink, #fff) 20%, transparent); transition: background .2s; }
+.tbp-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .22s cubic-bezier(.32,.72,0,1); }
+.tbp-sw[aria-checked="true"] { background: var(--signal, #e8a33d); }
+.tbp-sw[aria-checked="true"]::after { transform: translateX(16px); }
+.tbp-sw:disabled { opacity: .5; cursor: not-allowed; }
+.tbp-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.tbp-note { font-size: 12px; color: var(--ink-50); }
+@media (prefers-reduced-motion: reduce) { .tbp-sw, .tbp-sw::after, .tbp-li { transition: none; } }

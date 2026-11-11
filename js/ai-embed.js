@@ -32,7 +32,7 @@
     var el = {
       route: $('aiwRoute'), odooChip: $('aiwOdooChip'), provChip: $('aiwProvChip'), threads: $('aiwThreads'), search: $('aiwSearch'),
       messages: $('aiwMessages'), tray: $('aiwTray'), input: $('aiwInput'), send: $('aiwSend'), file: $('aiwFile'), drop: $('aiwDrop'),
-      main: $('aiwMain'), insp: $('aiwInsp'), inspBody: $('aiwInspBody'), inspTabs: $('aiwInspTabs'), inspBtn: $('aiwInspBtn'),
+      main: $('aiwMain'), insp: $('aiwInsp'), inspBody: $('aiwInspBody'), inspTabs: $('aiwInspTabs'), inspBtn: $('aiwInspBtn'), artBtn: $('aiwArtBtn'),
       scrim: $('aiwScrim'), view: $('view-ai'), title: root.querySelector('.aiw-title'), railNote: $('aiwRailNote')
     };
     var STORE_KEY = 'dv-ai-workspace-v2', LEGACY_KEY = 'al_convos', MIGRATED_KEY = 'dv-ai-workspace-migrated';
@@ -458,6 +458,7 @@
       Sales:     { c: 'var(--ios-blue, #007AFF)', re: /sale|quotation|quote|customer|revenue|salesperson|order/i, ic: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
       Finance:   { c: 'var(--ios-green, #34C759)', re: /invoice|receivable|payable|bill|cash|payment|overdue|aging|vendor|expense|profit|budget/i, ic: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>' },
       Inventory: { c: 'var(--ios-orange, #FF9500)', re: /stock|inventory|product|warehouse|delivery|deliveries|purchase|reorder|location/i, ic: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
+      Create:    { c: 'var(--ios-indigo, #5856D6)', re: /\bartifacts?\b/i, ic: '<path d="M6 3h8l4 4v14H6z"/><path d="M12 11v6M9 14h6"/>' },
       CRM:       { c: 'var(--ios-purple, #AF52DE)', re: /pipeline|lead|opportunit|crm|won|lost|stage/i, ic: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>' },
       People:    { c: 'var(--ios-pink, #FF2D55)', re: /employee|headcount|leave|time off|applicant|position|hr\b|department|payroll|attendance/i, ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .6 3 2.3 3 5.2"/>' },
       Files:     { c: 'var(--ios-teal, #30B0C7)', re: null, ic: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>' },
@@ -529,6 +530,7 @@
       Finance: ['Receivables aging by customer: not due, 1-30, 31-60, 61-90, 90+ days', 'Unpaid vendor bills due in the next 14 days', 'Cash in vs cash out by month this year', 'Invoices overdue by more than 60 days'],
       Inventory: ['Products that are low on stock and need reordering', 'Late deliveries: scheduled before today and not done', 'Stock quantity by internal location', 'Purchase orders waiting for approval'],
       CRM: ['Pipeline by stage with expected revenue', 'Opportunities with a deadline this month', 'Won vs lost opportunities by salesperson this quarter', 'New leads per week for the last 8 weeks'],
+      Create: ['Write a one-page executive summary of this month’s sales as a document', 'Build an interactive HTML dashboard of open quotations by salesperson', 'Create a receivables aging table I can download as CSV', 'Draw a bar chart of revenue by month this year', 'Draft a weekly management update for the leadership team'],
       People: ['Headcount by department', 'Who is on time off this week?', 'Open positions and applicants per stage', 'Leave requests awaiting approval'],
       Reports: (window.DVAITemplate && window.DVAITemplate.SKILLS ? window.DVAITemplate.SKILLS.map(function (k) { return k.example; }) :
         ['Give me a board-ready company report for this month', 'Sales this month vs last month, by salesperson', 'Receivables aging by customer with the top 5 debtors', 'Where are the mistakes or stuck items in my Odoo data?'])
@@ -791,7 +793,7 @@
         (ins ? '<div class="aiw-vins" aria-label="Calculated insights">' + ins + '</div>' : '') +
         '<div class="aiw-vis-chart">' + visChartHtml(mid, mi, type) + '</div>' +
         visFindHtml(mid, mi, me, deep) + visAiHtml(mid, mi) +
-        '<footer class="aiw-vis-foot"><span>' + (drillable ? 'Click a bar, slice, point, tile or finding to open the records behind it' : 'Exact values from the returned rows') + '</span><div><button type="button" class="aiw-tool aiw-tool-ai" data-act="vis-ai" data-mid="' + esc(mid) + '" data-mi="' + mi + '">✦ AI insights</button><button type="button" class="aiw-tool" data-act="vis-copy" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Copy summary</button><button type="button" class="aiw-tool" data-act="vis-csv" data-mid="' + esc(mid) + '" data-mi="' + mi + '">CSV</button><button type="button" class="aiw-tool" data-act="vis-ask" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Ask why</button></div></footer></article>';
+        '<footer class="aiw-vis-foot"><span>' + (drillable ? 'Click a bar, slice, point, tile or finding to open the records behind it' : 'Exact values from the returned rows') + '</span><div><button type="button" class="aiw-tool aiw-tool-ai" data-act="vis-ai" data-mid="' + esc(mid) + '" data-mi="' + mi + '">✦ AI insights</button><button type="button" class="aiw-tool" data-act="vis-art" data-mid="' + esc(mid) + '" data-mi="' + mi + '" title="Keep this chart and its data as an artifact">Artifact</button><button type="button" class="aiw-tool" data-act="vis-copy" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Copy summary</button><button type="button" class="aiw-tool" data-act="vis-csv" data-mid="' + esc(mid) + '" data-mi="' + mi + '">CSV</button><button type="button" class="aiw-tool" data-act="vis-ask" data-mid="' + esc(mid) + '" data-mi="' + mi + '">Ask why</button></div></footer></article>';
     }
     function visBoardHtml(m) {
       var T = window.DVAITemplate; if (!T || !T.analyzeMetric) return '';
@@ -842,12 +844,15 @@
         if (parts) { foot = answerFootHtml(parts, m); toc = tocHtml(parts.body, m.id); }
         body = '<div class="ai-embed-content"><p>' + renderMarkdown(parts ? parts.body : m.content, m.liveOdoo) + '</p>' + (dash || '') + (m.visuals ? visBoardHtml(m) : '') + '</div>';
         body = body.replace(/<p><\/p>/g, '').replace(/<p>(?=<(?:h2|h3|ul|ol|aside|div|pre|hr)\b)/g, '').replace(/(<\/(?:h2|h3|ul|ol|aside|div|pre)>|<hr\/>)<\/p>/g, '$1').replace(/<p><\/p>/g, '');
+        if (window.DVArtifacts) body = window.DVArtifacts.inject(body);
       }
       var st = T && !m.report && m.content ? T.stats(m.content) : null, canExport = !!(st && !m.dashboard && (st.isReport || m.visuals || (st.tables >= 1 && st.words > 60)));
       var hasPath = !!(m.trace || m.report);
+      var canArt = !!(window.DVArtifacts && !m.report && !m.dashboard && m.content && !/\[\[artifact:/.test(m.content) && st && (st.isReport || st.tables >= 1 || st.words > 90));
       var tools = '<button type="button" class="aiw-tool" data-act="copy" data-mid="' + m.id + '">Copy</button>' +
         (hasPath ? '<button type="button" class="aiw-tool" data-act="path" data-mid="' + m.id + '">Path &amp; drill ›</button>' : '') +
         (canExport ? '<button type="button" class="aiw-tool" data-act="rexport" data-mid="' + m.id + '" title="Download this answer as a PDF report">Export PDF</button>' : '') +
+        (canArt ? '<button type="button" class="aiw-tool" data-act="art-save" data-mid="' + m.id + '" title="Keep this answer as an artifact you can edit, version and download">' + (m.savedArt ? 'Open artifact' : 'Save as artifact') + '</button>' : '') +
         (isLast && m.retry ? '<button type="button" class="aiw-tool" data-act="retry" data-mid="' + m.id + '">Retry</button>' : '') +
         (m.liveOdoo || m.trace && m.trace.kind === 'odoo' ? '<button type="button" class="aiw-tool" data-act="why" data-mid="' + m.id + '">How was this calculated?</button>' : '');
       var fups = isLast && m.followups && m.followups.length ? '<div class="aiw-followups" aria-label="Suggested next steps">' + m.followups.map(function (f, i) { return '<button type="button" data-act="fup" data-mid="' + m.id + '" data-i="' + i + '">' + esc(typeof f === 'string' ? f : f.label) + '</button>'; }).join('') + '</div>' : '';
@@ -1266,6 +1271,7 @@
 
     /* ══════════ details pane: Path · Connection · Files ══════════ */
     function openInsp(tab, silent) {
+      if (window.DVArtifacts && window.DVArtifacts.isPanelOpen && window.DVArtifacts.isPanelOpen()) window.DVArtifacts.closePanel();
       S.tab = tab || S.tab || 'path';
       root.dataset.insp = 'open'; el.inspBtn.setAttribute('aria-pressed', 'true');
       if (S.tab === 'path' && !S.selMsg) {
@@ -1479,8 +1485,13 @@
     var STATUS_RE = /^\s*(odoo\s+)?(status|connection|connectivity|health(check)?|diagnos\w*)\s*[?.!]*\s*$/i;
     function isBusinessQ(text) { return BUSINESS_RE.test(text) || (/\b(dashboards?|board report)\b/i.test(text) && /\b(focused|board-ready|executive|company|business|data|metric|analytics|odoo|sales?|revenue)\b/i.test(text)); }
     function historyFor(t, upto) {
-      var msgs = t.messages.slice(0, upto == null ? t.messages.length : upto).map(function (m) { return { role: m.role === 'ai' ? 'assistant' : 'user', content: String(m.content || '') }; }).filter(function (m) { return m.content; });
-      var selected = [], remaining = 24000;
+      var src = t.messages.slice(0, upto == null ? t.messages.length : upto), A = window.DVArtifacts, texts = A ? A.historyTexts(src) : null, extra = 0;
+      var msgs = src.map(function (m, i) {
+        var c = String(texts ? texts[i] : (m.content || ''));
+        if (texts) extra += Math.max(0, c.length - String(m.content || '').length);
+        return { role: m.role === 'ai' ? 'assistant' : 'user', content: c };
+      }).filter(function (m) { return m.content; });
+      var selected = [], remaining = 24000 + Math.min(40000, extra);     // an artifact being revised travels in full, so it gets its own room
       for (var i = msgs.length - 1; i >= 0 && selected.length < 24 && remaining > 0; i--) {
         var c = msgs[i].content; if (c.length > remaining) c = c.slice(0, Math.max(0, remaining - 1)) + '…';
         selected.push({ role: msgs[i].role, content: c }); remaining -= Math.min(c.length, remaining);
@@ -1499,8 +1510,15 @@
 
     function finishAnswer(content, extra) {
       thinkingStop(); S.busy = false;
+      var A = window.DVArtifacts, made = null;
+      if (A && extra && (extra.engine === 'provider' || extra.engine === 'odoo') && /<artifact\b|```/.test(String(content || ''))) {
+        var th = activeThread(), nq = extra.trace && extra.trace.queries ? extra.trace.queries.filter(function (q) { return q.op !== 'fields'; }).length : 0;
+        made = A.ingest(th ? th.id : '', String(content || ''), { by: 'ai', chat: th && th.title || '', source: extra.liveOdoo ? 'Live Odoo' + (nq ? ' · ' + nq + ' queries' : '') : (extra.providerLabel || '') });
+        if (made.refs.length) { content = made.text; extra = Object.assign({}, extra, { artifacts: made.refs }); }
+      }
       var m = pushMsg('ai', content, Object.assign({ retry: true }, extra || {}));
       renderMessages(); updateSend();
+      if (made && made.refs.length && A.autoOpen()) { var lastRef = made.refs[made.refs.length - 1]; A.openArt(lastRef.aid, lastRef.n); }
       if (isInspOpen() && S.tab === 'path' && (m.trace || m.report)) { S.selMsg = m.id; renderInsp(); markSelected(); }
       return m;
     }
@@ -1545,7 +1563,7 @@
       }
       if (p.configured) {
         thinkingStep('Asking ' + p.label, 'answer');
-        var sys = [p.systemPrompt, hasFiles ? 'ATTACHED FILE DATA (user-supplied, unverified; answer only from it and say so):\n' + fileCtx : '', !o.connected ? 'Odoo is NOT connected in this workspace. If the user asks for company data, say plainly that it is not connected and to open Settings → Odoo.' : ''].filter(Boolean).join('\n\n');
+        var sys = [p.systemPrompt, hasFiles ? 'ATTACHED FILE DATA (user-supplied, unverified; answer only from it and say so):\n' + fileCtx : '', !o.connected ? 'Odoo is NOT connected in this workspace. If the user asks for company data, say plainly that it is not connected and to open Settings → Odoo.' : '', window.DVArtifacts ? window.DVArtifacts.promptRules() : ''].filter(Boolean).join('\n\n');
         var t0 = Date.now();
         return window.DVAIConfig.callAI(hist, sys).then(function (reply) {
           S.provider = { outcome: 'ok', ms: Date.now() - t0, at: Date.now(), error: '' }; updateChips();
@@ -1565,7 +1583,7 @@
       var ready = S.pending.some(function (p) { return p.st === 'ok'; }), busyFile = S.pending.some(function (p) { return p.st === 'busy'; });
       el.send.disabled = S.busy || busyFile || !(el.input.value.trim() || ready);
     }
-    function send(text) {
+    function send(text, opt) {
       text = String(text == null ? el.input.value : text).trim();
       var ready = S.pending.filter(function (p) { return p.st === 'ok'; });
       if (S.busy || (!text && !ready.length)) return;
@@ -1573,7 +1591,7 @@
       if (!window.DashViewAI && !ready.length) { toast('The assistant engine did not load. Reload the page.'); return; }
       var uf = ready.map(function (p) { return { id: p.file.id, name: p.file.name, size: p.file.size }; });
       if (popOpen()) closePopup();
-      pushMsg('user', text, uf.length ? { files: uf } : null);
+      pushMsg('user', text, Object.assign({}, uf.length ? { files: uf } : null, opt && opt.artRef ? { artRef: opt.artRef } : null));
       el.input.value = ''; autosize(); S.pending = []; renderTray();
       ready.forEach(function (p) { postReport(p.file); });
       renderMessages(); updateSend();
@@ -1593,7 +1611,7 @@
       if (!t || !t.messages.length) { toast('Nothing to export yet.'); return; }
       var md = '# ' + (t.title || 'DashView AI chat') + '\n\n_Exported ' + new Date().toLocaleString() + '_\n\n' + t.messages.map(function (m) {
         var src = m.trace && m.trace.queries ? '\n\n> Sources: ' + m.trace.queries.filter(function (q) { return q.op !== 'fields'; }).map(function (q) { return q.model + ' ' + q.op; }).join(', ') : '';
-        return '**' + (m.role === 'user' ? 'You' : 'DashView AI') + '** · ' + new Date(m.time || Date.now()).toLocaleString() + '\n\n' + (m.content || '') + src;
+        return '**' + (m.role === 'user' ? 'You' : 'DashView AI') + '** · ' + new Date(m.time || Date.now()).toLocaleString() + '\n\n' + (window.DVArtifacts ? window.DVArtifacts.expandForExport(m.content || '') : (m.content || '')) + src;
       }).join('\n\n---\n\n');
       download('dashview-ai-chat.md', md, 'text/markdown;charset=utf-8'); toast('Chat exported.');
     }
@@ -1652,7 +1670,26 @@
       'area': function (t) { areaOpen = t.getAttribute('data-a'); var n = $('aiwPrompts'); if (n) { n.style.setProperty('--c', CAT[areaOpen].c); n.innerHTML = promptsHtml(); } Array.prototype.forEach.call(root.querySelectorAll('.aiw-areas-tabs button'), function (b) { var on = b.getAttribute('data-a') === areaOpen; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); }); },
       'cat': function (t) { S.cat = t.getAttribute('data-k'); renderThreads(); },
       'prompt': function (t) { send(t.getAttribute('data-q')); },
-      'copy': function (t) { var f = findMsg(t.getAttribute('data-mid')); if (f) copyText(f.m.content || ''); },
+      'art-open': function (t) { if (window.DVArtifacts) window.DVArtifacts.openArt(t.getAttribute('data-aid'), +t.getAttribute('data-n')); },
+      'art-copy': function (t) { if (window.DVArtifacts) window.DVArtifacts.copyArt(t.getAttribute('data-aid'), +t.getAttribute('data-n')); },
+      'art-dl': function (t) { if (window.DVArtifacts) window.DVArtifacts.downloadArt(t.getAttribute('data-aid'), +t.getAttribute('data-n')); },
+      'art-save': function (t) {
+        var f = findMsg(t.getAttribute('data-mid')), A = window.DVArtifacts; if (!f || !A) return;
+        if (f.m.savedArt && A.get(f.m.savedArt.aid)) { A.openArt(f.m.savedArt.aid); return; }
+        var T = window.DVAITemplate, parts = T && T.extract ? T.extract(f.m.content) : null, body = String(parts ? parts.body : f.m.content || '').trim();
+        if (!body) return toast('Nothing to save.');
+        var head = /^#{1,3}\s+(.{3,90})$/m.exec(body), title = (head ? head[1] : (f.t.title ? clip(f.t.title, 70) : 'Assistant answer')).replace(/[*_`]/g, '');
+        var r = A.create({ tid: f.t.id, type: 'document', title: title, content: body }, { by: 'ai', chat: f.t.title, source: f.m.liveOdoo ? 'Live Odoo' : '' });
+        f.m.savedArt = { aid: r.aid }; persist(); renderMessages(); A.openArt(r.aid, r.n);
+      },
+      'vis-art': function (t) {
+        var A = window.DVArtifacts, mid = t.getAttribute('data-mid'), mi = +t.getAttribute('data-mi'), pl = visPayloads[mid], f = findMsg(mid); if (!A || !pl || !f) return;
+        var me = pl.metrics[mi], rows = me.rows.filter(function (r) { return isFinite(Number(r.value)); }).slice(0, 40); if (!rows.length) return toast('No numeric rows to chart.');
+        var spec = { type: me.chartType === 'line' || me.chartType === 'area' ? me.chartType : 'bar', title: me.title || me.model || 'Metric', unit: '', labels: rows.map(function (r) { return String(r.label); }), series: [{ name: me.measure || 'Value', values: rows.map(function (r) { return Number(r.value); }) }] };
+        var r2 = A.upsert(f.t.id, { id: 'chart-' + String(mid).slice(-6) + '-' + mi, type: 'chart', title: spec.title, content: JSON.stringify(spec, null, 2) }, { by: 'ai', chat: f.t.title, source: 'Live Odoo' });
+        A.openArt(r2.aid, r2.n);
+      },
+      'copy': function (t) { var f = findMsg(t.getAttribute('data-mid')); if (f) copyText(window.DVArtifacts ? window.DVArtifacts.plain(f.m.content || '') : (f.m.content || '')); },
       'rexport': function (t) {
         var f = findMsg(t.getAttribute('data-mid')); if (!f) return;
         var T = window.DVAITemplate, E = window.DVReportEngine;
@@ -1860,6 +1897,9 @@
     if (!S.activeId || !S.threads.some(function (t) { return t.id === S.activeId; })) { if (S.threads[0]) S.activeId = S.threads[0].id; else newDraft(); }
     root.dataset.rail = window.innerWidth <= 900 ? 'closed' : 'open';
     root.dataset.insp = 'closed';
+    if (window.DVArtifacts) {
+      window.DVArtifacts.mount({ root: root, body: root.querySelector('.aiw-body'), btn: el.artBtn, renderMarkdown: renderMarkdown, toast: toast, copy: copyText, isBusy: function () { return S.busy; }, send: function (t, x) { send(t, x); }, onOpen: function () { if (isInspOpen()) closeInsp(); } });
+    }
     var startParts = location.hash.slice(1).split('/');
     if (startParts[0] === 'ai' && startParts.length > 1) { try { applyRoute(); } catch (e) {} }
     if (handoff) { newDraft(); }
