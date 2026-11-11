@@ -20,6 +20,7 @@
     labels: 'always',       // always | active | hidden
     indicator: 'pill',      // pill | tint | line | none
     icon: 'md',             // sm | md | lg
+    float: 'on',            // on | off   (anchored style: a detached rounded bar with a margin all round, or docked edge to edge)
     position: 'bottom',     // bottom | top
     blur: 24,               // 0 – 40 px
     opacity: 78,            // 30 – 100 %
@@ -36,7 +37,7 @@
   };
   var ENUM = {
     style: ['anchored', 'floating'], labels: ['always', 'active', 'hidden'], indicator: ['pill', 'tint', 'line', 'none'],
-    icon: ['sm', 'md', 'lg'], position: ['bottom', 'top'], color: ['accent', 'neutral'], badges: ['count', 'dot', 'off'], tags: ['dot', 'off'], settingsTabs: ['match', 'capsule']
+    icon: ['sm', 'md', 'lg'], position: ['bottom', 'top'], color: ['accent', 'neutral'], badges: ['count', 'dot', 'off'], tags: ['dot', 'off'], settingsTabs: ['match', 'capsule'], float: ['on', 'off']
   };
   var ICON_PX = { sm: 22, md: 25, lg: 29 };
   var LOCKED = { settings: 1 };      // can never be hidden, so nobody locks themselves out
@@ -72,6 +73,7 @@
     root.setAttribute('data-tb-ind', prefs.indicator);
     root.setAttribute('data-tb-icon', prefs.icon);
     root.setAttribute('data-tb-pos', prefs.position);
+    root.setAttribute('data-tb-float', prefs.style === 'floating' ? 'off' : prefs.float);
     root.setAttribute('data-tb-color', prefs.color);
     root.setAttribute('data-tb-fill', prefs.filled ? 'on' : 'off');
     root.setAttribute('data-tb-line', prefs.hairline ? 'on' : 'off');
@@ -270,6 +272,7 @@
     var rows = [];
     rows.push(segRow({ title: 'Labels', help: 'Show the name under every icon, only under the open tab, or never.', opts: [['always', 'Always'], ['active', 'Active only'], ['hidden', 'Hidden']], get: function () { return prefs.labels; }, set: function (v) { prefs.labels = v; }, toast: 'Labels updated' }));
     rows.push(segRow({ title: 'Icon size', help: 'Small fits more tabs on a phone, large is easier to tap.', opts: [['sm', 'Small'], ['md', 'Medium'], ['lg', 'Large']], get: function () { return prefs.icon; }, set: function (v) { prefs.icon = v; }, toast: 'Icon size updated' }));
+    rows.push(segRow({ title: 'Bar shape', help: 'Floating lifts the bar off the screen edge as a rounded bar with a margin all round (the Settings tabs float the same way). Docked runs it edge to edge.', opts: [['on', 'Floating'], ['off', 'Docked']], get: function () { return prefs.float; }, set: function (v) { prefs.float = v; }, toast: 'Bar shape updated' }));
     rows.push(segRow({ title: 'Position', help: 'Dock the bar to the bottom of the screen or under the top bar.', opts: [['bottom', 'Bottom'], ['top', 'Top']], get: function () { return prefs.position; }, set: function (v) { prefs.position = v; }, toast: 'Position updated' }));
     rows.push(segRow({ title: 'Settings tabs', help: 'The section tabs inside Settings (Profile, Appearance, Odoo …) use this same bar look, or keep the glass capsule.', opts: [['match', 'Match tab bar'], ['capsule', 'Capsule']], get: function () { return prefs.settingsTabs; }, set: function (v) { prefs.settingsTabs = v; }, toast: 'Settings tabs updated' }));
     rows.forEach(function (r) { an.appendChild(r); });
@@ -327,7 +330,7 @@
     var act = 0;
     items.forEach(function (i, n) { if (i.a.classList.contains('active')) act = n; });
     var icon = ICON_PX[prefs.icon];
-    p.className = 'tbp-prev' + (floating ? ' tbp-floating' : '') + (!prefs.hairline ? ' tbp-nline' : '') + (prefs.color === 'neutral' ? ' tbp-neutral' : '') + (!floating && prefs.position === 'top' ? ' tbp-top' : '');
+    p.className = 'tbp-prev' + (floating ? ' tbp-floating' : '') + (!prefs.hairline ? ' tbp-nline' : '') + (prefs.color === 'neutral' ? ' tbp-neutral' : '') + (!floating && prefs.float === 'on' ? ' tbp-fl' : '') + (!floating && prefs.position === 'top' ? ' tbp-top' : '');
     ui.wrap.classList.toggle('tbp-wtop', !floating && prefs.position === 'top');
     p.setAttribute('data-lb', floating ? 'active' : prefs.labels);
     p.setAttribute('data-ind', floating ? 'tint' : prefs.indicator);

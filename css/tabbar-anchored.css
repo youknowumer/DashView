@@ -348,6 +348,60 @@ html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail .st
   html[data-tb-style="anchored"][data-tb-stg="match"] #view-settings .stg-rail { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: rgb(var(--tb2-surface)); }
 }
 
+
+/* ==========================================================================
+   Floating bar shape   (data-tb-float="on", the default; "off" = docked edge to edge)
+   The same bar, lifted off the screen edge: a rounded bar with a margin all round and a soft shadow, centred
+   and as wide as its tabs (never wider than the screen). The Settings tabs float the same way.
+   ========================================================================== */
+html[data-tb-style="anchored"][data-tb-float="on"] .dash-side .dash-nav {
+  left: 12px; right: 12px; margin-inline: auto; width: fit-content; max-width: calc(100% - 24px);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 5px 8px;
+  border: 1px solid var(--tb2-hair); border-radius: 26px;
+  box-shadow: 0 20px 46px -16px rgba(0, 0, 0, .6), 0 4px 14px -6px rgba(0, 0, 0, .35);
+}
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-line="off"] .dash-side .dash-nav { border-color: transparent; }
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] .dash-side .dash-nav {
+  top: calc(var(--nav-h, 56px) + 10px); bottom: auto; padding: 5px 8px; border: 1px solid var(--tb2-hair);
+}
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"][data-tb-line="off"] .dash-side .dash-nav { border-color: transparent; }
+html[data-tb-style="anchored"][data-tb-float="on"] .dash-main { padding-bottom: calc(var(--tb2-h, 66px) + env(safe-area-inset-bottom, 0px) + 36px); }
+html[data-tb-style="anchored"][data-tb-float="on"] .toast-stack { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--tb2-h, 66px) + 26px) !important; }
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] .dash-main { padding-bottom: var(--sp-8, 32px); }
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] .dash-content { margin-top: calc(var(--tb2-h, 66px) + 10px); }
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] .toast-stack { bottom: max(16px, env(safe-area-inset-bottom)) !important; }
+/* slide away: it has to clear its own margin as well */
+html[data-tb-style="anchored"][data-tb-float="on"] .dash-side .dash-nav.tb-away,
+html[data-tb-style="anchored"][data-tb-float="on"] body:has(.modal-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-float="on"] body:has(.cmd-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-float="on"].dv-locked .dash-nav { transform: translateY(calc(100% + 40px)) !important; }
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] .dash-side .dash-nav.tb-away,
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] body:has(.modal-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"] body:has(.cmd-overlay.open) .dash-nav,
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-pos="top"].dv-locked .dash-nav { transform: translateY(calc(-100% - 40px)) !important; }
+
+/* Settings tabs */
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-stg="match"] #view-settings .stg-rail {
+  top: calc(var(--nav-h, 56px) + 10px); width: fit-content; max-width: 100%; margin: 0 auto var(--sp-5, 20px);
+  padding: 5px 8px; border-radius: 26px;
+  box-shadow: 0 20px 46px -16px rgba(0, 0, 0, .6), 0 4px 14px -6px rgba(0, 0, 0, .35);
+}
+html[data-tb-style="anchored"][data-tb-float="on"][data-tb-line="off"][data-tb-stg="match"] #view-settings .stg-rail { border-color: transparent; }
+
+/* the preview in Settings → Appearance → Tab bar */
+.tbp-prev.tbp-fl { margin: 0 auto 12px; width: fit-content; max-width: calc(100% - 20px); border: 1px solid var(--p-hair); border-radius: 22px; padding: 6px 8px; box-shadow: 0 14px 30px -14px rgba(0, 0, 0, .55); }
+.tbp-prev.tbp-fl.tbp-nline { border-color: transparent; }
+.tbp-prev.tbp-fl.tbp-top { margin: 10px auto; border-top: 1px solid var(--p-hair); }
+
+@media (max-width: 600px) {
+  html[data-tb-style="anchored"][data-tb-float="on"] .dash-side .dash-nav { left: 8px; right: 8px; max-width: calc(100% - 16px); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border-radius: 24px; }
+  html[data-tb-style="anchored"][data-tb-float="on"] .dash-main { padding-bottom: calc(var(--tb2-h, 66px) + env(safe-area-inset-bottom, 0px) + 28px); }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  html[data-tb-style="anchored"][data-tb-float="on"] .dash-side .dash-nav { background: rgb(var(--tb2-surface)); }
+}
+
 /* ==========================================================================
    Settings → Appearance → Tab bar   (card built by js/tabbar-prefs.js)
    ========================================================================== */

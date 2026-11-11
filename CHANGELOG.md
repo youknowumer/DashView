@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.42.1 - 2026-11-11
+- Changed: the tab bar now floats by default - a rounded bar with a margin all round and a soft shadow, centred and only as wide as its tabs, on both the dashboard and People; the Settings section tabs float the same way
+- New: Settings > Appearance > Tab bar > Bar shape (Floating / Docked) - Docked brings back the edge-to-edge bar; saved settings keep their other choices
+- Improved: preview in the Tab bar card shows the floating shape; the bar slides clear of its margin when a dialog opens or while scrolling
+
 ## 2.42.0 - 2026-11-11
 - New: AI Artifacts - the assistant can now make a finished report, memo, web page or dashboard, SVG image, CSV table, chart or piece of code and open it in its own side panel next to the chat instead of burying it in the conversation (js/ai-artifacts.js, css/ai-artifacts.css)
 - New: artifact panel - Preview / Source / Changes tabs; every version is kept with who made it (assistant or you) and can be compared line by line, restored or renamed; Edit saves your change as a new version (Ctrl/Cmd+S); Pin, Full screen and a drag-to-resize edge; the panel replaces the details pane and the two never fight for space
